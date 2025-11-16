@@ -169,7 +169,8 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 
 | Component | Progress | Notes |
 |-----------|----------|-------|
-| ...       | ...      | ...   |
+| Whole project planned       |10%      | ...   |
+|R2D2 body bought, tested, then cleaned out again, everything I do not need      |20%      | ...   |
 
 
 ## Community & Contributing
