@@ -111,8 +111,6 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 | 4× Turnigy 2200mAh 4S 60C LiPo | 14.8V, ~32.56Wh ea., 107×35×36mm, 255g | [HobbyKing](https://hobbyking.com/) |
 | ISDT 608AC Charger | 50W AC/200W DC, 8A | [AliExpress](https://de.aliexpress.com/item/1005007512739386.html) |
 
-![Motor Wiring Example](docs/photos/motor_wiring.jpg)  <!-- Add if you have one -->
-
 
 
 ## 3. Software Stack
