@@ -175,7 +175,7 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 
 ## Community & Contributing
 
-- [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland | [R2 Builders Club](https://r2builders.club/) (DeAgostini mods welcome!).
+- [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland |
 - **Contribute:** Fork, PR for launch tweaks. Report issues: [New Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
 - **License:** [MIT](LICENSE) – Free to copy/modify/distribute (code + CAD).
 
