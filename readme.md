@@ -163,7 +163,7 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 ├─ LICENSE               # MIT (code + hardware)
 └─ README.md
 
-
+````
 
 ---
 
