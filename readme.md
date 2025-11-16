@@ -33,7 +33,6 @@ ros2 launch r2d2_navigation nav_launch.py  # SLAM + Nav2
 ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 
 
-
 ---
 
 ### Section: 1. Features and Requirements
@@ -134,8 +133,8 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 - **ROS2:** Humble ([Dockerized](https://docs.ros.org/en/humble/Installation.html) for easy Jetson deploys).
 
 ### Navigation & Mapping
-- **SLAM:** [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox) <a href="https://navigation.ros.org/" target="_blank" rel="noopener noreferrer nofollow"></a>.
-- **Nav:** Nav2 for planning/avoidance <a href="https://navigation.ros.org/tutorials/docs/index.html" target="_blank" rel="noopener noreferrer nofollow"></a>.
+- **SLAM:** [slam_toolbox](https://github.com/SteveMacenski/slam_toolbox) [](https://navigation.ros.org/).
+- **Nav:** Nav2 for planning/avoidance [](https://navigation.ros.org/tutorials/docs/index.html).
 
 ### Perception
 - **Visual AI:** [NVIDIA Isaac ROS](https://github.com/NVIDIA-ISAAC-ROS) (cuVSLAM, YOLOv8, FoundationPose).
@@ -199,7 +198,6 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 | LLM + Grok Fallback | 🔄 10% | llama_ros setup |
 | Pick-and-Place | ⏳ Planned | Adapt UR5 demo |
 
-MilestoneStatusRepo + README + BOM✅Photos & wiring✅URDF base⏳Drive system⏳SLAM (slam_toolbox)⏳TTS/STT⏳LLM + Grok fallback⏳Pick-and-place⏳
 
 ## Community & Contributing
 
