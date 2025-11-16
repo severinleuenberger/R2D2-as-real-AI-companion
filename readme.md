@@ -19,18 +19,18 @@
 
 ### Prerequisites
 - Flash Jetson AGX Orin with [JetPack 6.x](https://developer.nvidia.com/embedded/jetpack) (Ubuntu 22.04).
-- Install Docker: `sudo apt install docker.io docker-compose`.
+- Install ROS2 Humble: Follow [official docs](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html).
 - Clone repo: `git clone https://github.com/severinleuenberger/R2D2-as-real-AI-companion.git && cd R2D2-as-real-AI-companion`.
-- Source ROS2: `source /opt/ros/humble/setup.bash`.
+- Build: `colcon build --symlink-install && source install/setup.bash`.
 
 ### Launch
 ```bash
-# Build & run Dockerized ROS2
-docker compose up --build
-
-# In another terminal (for nav + interaction)
+# In one terminal (for nav + interaction)
 ros2 launch r2d2_navigation nav_launch.py  # SLAM + Nav2
-ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
+
+# In another terminal
+ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → ActionsTip: Test on sim first with Gazebo (add gz sim r2d2.world).
+
 
 
 ---
