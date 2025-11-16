@@ -168,26 +168,10 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 ---
 
 ### Section: Status (November 16, 2025)
-**Assessment:** Right—table is clear; date matches. Wrong: Duplicated as plain text below (remove it); missing % progress from suggestion.
 
-**Fixes/Improvements:** 
-- Delete the plain text repeat.
-- Add % to 🔄 for visual progress.
-
-**Copy-Paste Snippet (replace):**
-```markdown
-## Status (November 16, 2025)
-
-| Milestone | Status | Notes |
-|-----------|--------|-------|
-| Repo + README + BOM | ✅ Completed | Live! |
-| Photos & Wiring | ✅ Completed | See docs/ |
-| URDF Base | 🔄 50% | Basic cylinder; add arms next |
-| Drive System | 🔄 20% | Pololu wiring tested |
-| SLAM (slam_toolbox) | 🔄 30% | Multi-session config |
-| TTS/STT | 🔄 40% | jetson-voice integration |
-| LLM + Grok Fallback | 🔄 10% | llama_ros setup |
-| Pick-and-Place | ⏳ Planned | Adapt UR5 demo |
+| Component | Progress | Notes |
+|-----------|----------|-------|
+| ...       | ...      | ...   |
 
 
 ## Community & Contributing
@@ -196,6 +180,3 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 - **Contribute:** Fork, PR for launch tweaks. Report issues: [New Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
 - **License:** [MIT](LICENSE) – Free to copy/modify/distribute (code + CAD).
 
-[![ROS2 Humble](https://img.shields.io/badge/ROS2-Humble-blue)](https://docs.ros.org/en/humble/) [![Jetson](https://img.shields.io/badge/Jetson-AGX%20Orin-orange)](https://developer.nvidia.com/embedded/jetpack)
-
-*Feedback? Test the URDF and share in R2 Builders Discord! Contact: your-email@example.com*
