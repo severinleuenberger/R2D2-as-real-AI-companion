@@ -29,11 +29,9 @@
 ros2 launch r2d2_navigation nav_launch.py  # SLAM + Nav2
 
 # In another terminal
-ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → ActionsTip: Test on sim first with Gazebo (add gz sim r2d2.world).
+ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
+````
 
-
-
----
 
 ### Section: 1. Features and Requirements
 **Assessment:** Right—bullets and links are excellent; matches project spec perfectly. Better: Consistent **Impl:** bolding; add cross-refs (e.g., to Hardware for gripper).
