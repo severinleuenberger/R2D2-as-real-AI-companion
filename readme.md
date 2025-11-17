@@ -214,6 +214,7 @@ ros2 launch r2d2_llm llm_bridge.launch.py
 │   └─ r2d2_llm/         # grok_fallback.py + memory DB
 ├─ docker/               # Dockerfile.humble + compose
 
+````
 
 ## Docker Setup
 
