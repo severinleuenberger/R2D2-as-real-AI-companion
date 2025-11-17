@@ -260,7 +260,7 @@ For LLM separately: Add another service if scaling (e.g., ollama container).
 
 ````
 
-
+```text
 
 ├─ .gitignore            # Ignore API keys
 ├─ LICENSE               # MIT (code + hardware)
