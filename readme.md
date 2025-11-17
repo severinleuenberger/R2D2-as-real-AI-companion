@@ -91,6 +91,24 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 - **Gripper:** Servo mount (see `hardware/cad/`).
 - **Impl:** ros2_control config for DeAgostini arms.
 
+## Bill of Materials (BOM)
+
+| Qty | Item | Model / Part Number | Purpose | Approx. Price (USD) | Link / Source | Status |
+|-----|------|---------------------|--------|---------------------|---------------|--------|
+| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385 (secondary market; orig. ~2,500) | eBay / RPF Forums | Done |
+| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | Done |
+| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | Done |
+| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | Done |
+| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | Done |
+| 2   | Stock DeAgostini DC motors + gearboxes | Original leg motors | Locomotion (2-wheel diff-drive) | Included in kit | — | Done |
+| 1   | LiPo battery 6S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | Done |
+| 1   | DC-DC buck converter 22 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | Done |
+| 1   | IMU (in OAK-D Lite) | BMI270 + BMM150 | Used by robot_localization EKF | Included | — | Done |
+| 1   | Emergency stop button + relay | — | Safety cut-off | 15–25 | Amazon / Primera | Planned |
+| 1   | Gripper / manipulator arm | Simple 3D-printed servo gripper | Object manipulation (15 % status) | 10–20 | JSumo / Amazon | In progress |
+
+**Total estimated cost (without DeAgostini kit):** ~2,200 USD  
+**Total with full DeAgostini kit:** ~3,600 USD
 
 
 ## 2. Hardware Components
@@ -197,6 +215,52 @@ ros2 launch r2d2_llm llm_bridge.launch.py
 │   ├─ r2d2_perception/  # YOLO + ReMEmbR
 │   └─ r2d2_llm/         # grok_fallback.py + memory DB
 ├─ docker/               # Dockerfile.humble + compose
+
+
+## Docker Setup
+
+Docker Compose simplifies running the project in a containerized environment, ensuring consistent dependencies across setups (e.g., ROS2 Humble, Jetson libraries). It's ideal for Jetson AGX Orin to avoid polluting the host OS and make reproducibility easy for collaborators.
+
+- **What is `docker compose up`?** It's a command that starts all defined services (containers) from a `docker-compose.yml` file. For this project, it launches the ROS2 workspace, handling networking and volumes automatically.
+- **What is it for?** Defines multi-container apps (e.g., one for core ROS2, another for LLM if needed). Here, it sets up the full stack with one command.
+- **Why use it?** Reproducible builds (same env for all users), isolation (no host conflicts), easy testing/updates. Fits the <50 lines custom code goal by leveraging pre-built images.
+
+### Create `docker-compose.yml`
+Save this in the `docker/` folder (create if missing):
+
+```yaml
+version: '3.8'
+
+services:
+  ros2-r2d2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.humble  # Assumes you have a Dockerfile for ROS2 Humble on Jetson
+    image: r2d2-companion:humble
+    privileged: true  # For hardware access (GPIO, CUDA)
+    network_mode: host  # ROS2 discovery
+    volumes:
+      - /dev:/dev  # Device access (OAK-D, ReSpeaker)
+      - ./src:/ros2_ws/src  # Mount workspace
+      - ~/.grok_api_key:/root/.grok_api_key:ro  # API key (gitignored)
+    environment:
+      - ROS_DOMAIN_ID=42  # Avoid conflicts
+      - DISPLAY=:0  # If GUI (rviz)
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               colcon build --symlink-install &&
+               source install/setup.bash &&
+               ros2 launch r2d2_navigation nav_launch.py"
+Usage
+
+Install Docker on Jetson: Follow NVIDIA guide.
+From repo root: cd docker && docker compose up --build.
+For LLM separately: Add another service if scaling (e.g., ollama container).
+
+````
+
+
+
 ├─ .gitignore            # Ignore API keys
 ├─ LICENSE               # MIT (code + hardware)
 └─ README.md
