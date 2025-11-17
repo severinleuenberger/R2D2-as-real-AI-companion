@@ -250,6 +250,8 @@ services:
                colcon build --symlink-install &&
                source install/setup.bash &&
                ros2 launch r2d2_navigation nav_launch.py"
+
+
 Usage
 
 Install Docker on Jetson: Follow NVIDIA guide.
