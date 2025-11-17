@@ -1,0 +1,20 @@
+# Use official NVIDIA L4T base image with ROS2 Humble pre-installed (perfect for Jetson AGX Orin)
+FROM dustinfranklin/l4t-ros:humble-pytorch-cuda12.2 as base
+
+# Update and install basic tools
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y python3-colcon-common-extensions python3-colcon-mixin \
+                       ros-humble-navigation2 ros-humble-nav2-bringup \
+                       ros-humble-slam-toolbox ros-humble-robot-localization \
+                       ros-humble-depthai-ros ros-humble-realsense2-camera && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create workspace
+WORKDIR /ros2_ws
+COPY src ./src
+
+# This will be overwritten by the volume mount in compose, but keeps the image buildable
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+
+# Entry point (overridden by compose command anyway)
+CMD ["bash"]

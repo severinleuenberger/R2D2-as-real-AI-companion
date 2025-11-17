@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  ros2-r2d2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.humble  # Points to root/docker/Dockerfile.humble
+    image: r2d2-companion:humble
+    privileged: true  # For GPIO/CUDA access
+    network_mode: host  # For ROS2 discovery
+    volumes:
+      - /dev:/dev  # OAK-D, ReSpeaker, etc.
+      - ./../src:/ros2_ws/src  # Mount root src/ (adjust if running from docker/)
+      - ~/.grok_api_key:/root/.grok_api_key:ro  # Gitignored API key
+      - /tmp/.X11-unix:/tmp/.X11-unix  # Optional: X11 for RViz
+    environment:
+      - ROS_DOMAIN_ID=42  # Avoid multi-bot conflicts
+      - DISPLAY=:0  # GUI forwarding
+    working_dir: /ros2_ws  # Ensure build/launch from workspace
+    command: >
+      bash -c "source /opt/ros/humble/setup.bash &&
+               colcon build --symlink-install &&
+               source install/setup.bash &&
+               ros2 launch r2d2_navigation nav_launch.py"
