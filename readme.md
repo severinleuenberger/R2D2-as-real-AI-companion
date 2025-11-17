@@ -44,11 +44,27 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 - **Impl:** [jetson-voice](https://github.com/dusty-nv/jetson-voice) for audio + Python requests node (≤30 lines).
 
 ### 1.2 Person Recognition & Memory
-- **Detection:** [Isaac ROS YOLO](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_yolo) or [jetson-inference](https://github.com/dusty-nv/jetson-inference).
-- **Persistence:** Embeddings with [NVIDIA ReMEmbR](https://github.com/NVIDIA/NeMo-Aligner) stored in SQLite.
-- **Privacy:** Voice command "Forget me" deletes DB row.
-- **Impl:** See `src/r2d2_perception/memory.py`.
 
+**Status: 🔄 15% (YOLO detection launched; integrating ReMEmbR embeddings)**
+
+- **Face Detection:** [Isaac ROS YOLOv8](https://nvidia-isaac-ros.github.io/concepts/perception/detection/yolo.html) or [dusty-nv/jetson-inference](https://github.com/dusty-nv/jetson-inference) for real-time bounding boxes (~30 FPS on Orin via TensorRT).
+  - Input: OAK-D Lite RGB feed; outputs `/detections` (vision_msgs/Detection2DArray).
+- **Identity Persistence:** Face embeddings via **[NVIDIA ReMEmbR](https://developer.nvidia.com/blog/multimodal-conversational-memory-with-remembr)** (multimodal retrieval for audio/visual linking) + SQLite DB.
+  - Stores: Embeddings (vector col) + metadata (person_id, timestamps) in `r2d2_memory.db`.
+  - Matching: Cosine similarity threshold >0.8 for recall; ~5-10ms/query on Orin.
+- **Memory Management:** Voice command ("delete my data") triggers DB row deletion via custom ROS2 service (`/delete_memory`, ≤20 lines in `src/r2d2_perception/memory_manager.py`).
+- **ROS2 Interface:** Publishes `/person_embedding` (std_msgs/Float64MultiArray); subscribes to `/face_detections`. Integrates with LLM via `/person_id` topic.
+
+**Quick Setup**:
+```bash
+# Install Isaac ROS (Jetson quickstart: https://nvidia-isaac-ros.github.io/getting_started/dev_env_setup.html)
+sudo apt install ros-humble-isaac-ros-yolo
+
+# Init DB & ReMEmbR (in perception package)
+cd ~/ros2_ws/src/r2d2_perception
+python3 scripts/init_db.py  # Creates SQLite schema
+colcon build && source ../install/setup.bash
+ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 ### 1.3 Contextual Conversation
 - **I/O:** [ros2_speech_recognition](https://github.com/Roboy/ros2_speech_recognition) (Roboy).
 - **Association:** Link face/audio to thread.
@@ -132,7 +148,29 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 ### Interaction
 - **Speech:** [ros2_speech_recognition](https://github.com/Roboy/ros2_speech_recognition).
 - **TTS:** gTTS or [jetson-voice](https://github.com/dusty-nv/jetson-voice).
-- **LLM:** [llama.cpp](https://github.com/ggerganov/llama.cpp) + [llama_ros](https://github.com/mgonzs13/llama_ros) <a href="https://jetson-ai-lab.com/ollama.html" target="_blank" rel="noopener noreferrer nofollow"></a>.
+
+
+### Local LLM & Fallback
+**Status: 🔄 20% (Ollama setup complete; integrating with llama_ros)**
+
+- **Engine**: Llama-3-8B via **[Ollama](https://ollama.com/)** (Jetson AI Lab tutorial) + **[llama_ros](https://github.com/mgonzs13/llama_ros)** for ROS2 integration.
+  - Ollama provides easy, quantized inference (4-bit for ~5-8GB VRAM on Orin), with ~200-500ms latency for 128-token responses (tested on JetPack 6.x).
+  - Context window: 8K tokens; per-person history stored in SQLite via custom node (`src/r2d2_llm/memory.py`, ≤20 lines).
+- **Fallback**: Logprobs < 0.7 triggers switch to **[xAI Grok-4 API](https://x.ai/api)** (via `requests` in a ROS2 node, ≤30 lines). API key in `.env` (gitignored).
+- **ROS2 Interface**: Publishes to `/llm_response` (std_msgs/String); subscribes to `/llm_input` from STT. Launch via `ros2 launch r2d2_llm llm_bridge.launch.py`.
+
+**Quick Setup**:
+```bash
+# Install Ollama (Jetson tutorial: https://jetson-ai-lab.com/ollama.html)
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3:8b  # Downloads quantized model (~4.7GB)
+
+# ROS2 Integration
+cd ~/ros2_ws/src/r2d2_llm
+colcon build
+ros2 launch r2d2_llm llm_bridge.launch.py
+
+
 
 ### Control
 - **Actuators:** [ros2_control](https://control.ros.org/) for motors/servos.
