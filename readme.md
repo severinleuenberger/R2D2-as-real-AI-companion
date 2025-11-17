@@ -59,6 +59,7 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 ```bash
 # Install Isaac ROS (Jetson quickstart: https://nvidia-isaac-ros.github.io/getting_started/dev_env_setup.html)
 sudo apt install ros-humble-isaac-ros-yolo
+````
 
 # Init DB & ReMEmbR (in perception package)
 cd ~/ros2_ws/src/r2d2_perception
