@@ -95,17 +95,15 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 
 | Qty | Item | Model / Part Number | Purpose | Approx. Price (USD) | Link / Source | Status |
 |-----|------|---------------------|--------|---------------------|---------------|--------|
-| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385 (secondary market; orig. ~2,500) | eBay / RPF Forums | Done |
-| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | Done |
-| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | Done |
-| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | Done |
-| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | Done |
+| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385  | eBay / RPF Forums | Done |
+| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | Open |
+| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | Open |
+| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | Open |
+| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | Open |
 | 2   | Stock DeAgostini DC motors + gearboxes | Original leg motors | Locomotion (2-wheel diff-drive) | Included in kit | — | Done |
-| 1   | LiPo battery 6S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | Done |
-| 1   | DC-DC buck converter 22 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | Done |
+| 1   | LiPo battery 4S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | Done |
+| 1   | DC-DC buck converter 14 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | Done |
 | 1   | IMU (in OAK-D Lite) | BMI270 + BMM150 | Used by robot_localization EKF | Included | — | Done |
-| 1   | Emergency stop button + relay | — | Safety cut-off | 15–25 | Amazon / Primera | Planned |
-| 1   | Gripper / manipulator arm | Simple 3D-printed servo gripper | Object manipulation (15 % status) | 10–20 | JSumo / Amazon | In progress |
 
 **Total estimated cost (without DeAgostini kit):** ~2,200 USD  
 **Total with full DeAgostini kit:** ~3,600 USD
