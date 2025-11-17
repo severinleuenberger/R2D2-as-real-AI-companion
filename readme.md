@@ -279,7 +279,7 @@ For LLM separately: Add another service if scaling (e.g., ollama container).
 
 
 ## Community & Contributing
-
+- **Discussions:** https://forums.developer.nvidia.com/t/ros2-humble-r2-d2-ai-companion-robot-jetson-agx-orin-64gb-deagostini-build-open-repo-hardware-schematics/351685
 - [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland |
 - **Contribute:** Fork, PR for launch tweaks. Report issues: [New Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
 - **License:** [MIT](LICENSE) – Free to copy/modify/distribute (code + CAD).
