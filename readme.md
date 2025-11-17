@@ -114,12 +114,12 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 ### Base Model
 | Spec | Value |
 |------|-------|
-| DeAgostini 1:2-Scale R2-D2 Kit | [Buy](https://www.deagostini.com/) |
+| DeAgostini 1:2-Scale R2-D2 Kit | [Buy the kit or some magazines out of it](https://www.fanhome.com/us/star-wars/r2d2-build-up) |
 | Height | 48 cm |
 | Width | 28 cm |
 | External Ø | 20 cm |
 | Internal Volume | 4.5–7.2 L |
-| Reuse | Drive/arms/dome |
+| Reuse | Drive/arms/dome, LED |
 | Cost | 300–700 CHF |
 
 ### Compute
@@ -188,7 +188,7 @@ cd ~/ros2_ws/src/r2d2_llm
 colcon build
 ros2 launch r2d2_llm llm_bridge.launch.py
 
-
+````
 
 ### Control
 - **Actuators:** [ros2_control](https://control.ros.org/) for motors/servos.
