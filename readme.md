@@ -151,6 +151,10 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 
 **Why this Stack?** Optimized for Jetson edge-AI; leverages NVIDIA/ROS2 pre-builts for fast integration (fits ≤50 lines custom code goal).
 
+### Development on Windows 11
+The whole stack is developed and tested using Ubuntu 22.04 running in WSL2 on a Windows 11 host.  
+If you are on Windows, install WSL2 with Ubuntu 22.04 (recommended) or run everything natively on a Linux machine.
+
 ### Base System
 - **OS:** [JetPack 6.x](https://docs.nvidia.com/jetson/jetpack/index.html) (Ubuntu 22.04).
 - **ROS2:** Humble ([Dockerized](https://docs.ros.org/en/humble/Installation.html) for easy Jetson deploys).
