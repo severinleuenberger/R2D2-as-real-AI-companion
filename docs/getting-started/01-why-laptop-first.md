@@ -10,7 +10,7 @@ Do 90 % of the work on your normal laptop → you stay motivated, learn fast, an
 
 
 
-\### Real comparison (your HP Elite x360 with 32 GB RAM vs. Jetson AGX Orin)
+\### Real comparison (your HP Elite x360 with 32 GB RAM vs. Jetson AGX Orin).
 
 
 
