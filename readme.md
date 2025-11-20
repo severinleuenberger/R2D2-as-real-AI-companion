@@ -6,6 +6,11 @@
 
 ![Build Photo Nov 7](docs/photos/20251107_105518.jpg)
 
+## Getting Started (even befor having the Jetson Orin)
+
+Start on your laptop – much faster and much less frustration.   
+**[Beginner Guide](./docs/getting-started/01-why-laptop-first.md)**
+
 **Core:** Jetson AGX Orin 64GB, ROS2 Humble, OAK-D Lite, ReSpeaker mic. 1/2 Scale: 48cm tall.
 
 **Goal:** Convert stock kit DeAgostini 1:2 R2-D2 to autonomous AI companion:  90% pre-built ROS2 packages; <50 lines custom code. Focus: Modularity, reliability. With 
