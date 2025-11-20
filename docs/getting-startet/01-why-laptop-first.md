@@ -38,7 +38,7 @@ You find and fix them 20× faster on the laptop.
 
 
 
-\### What most beginners do (and regret)
+\### What most beginners do (and regret) .
 
 
 
