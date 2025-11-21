@@ -8,7 +8,7 @@
 
 ## Getting Started (even befor having the Jetson Orin)
 
-Start on your laptop – much faster and much less frustration.   
+Start on your laptop – much faster and much less frustration. Ok?  
 **[Beginner Guide](./docs/getting-started/01-why-laptop-first.md)**
 
 **Core:** Jetson AGX Orin 64GB, ROS2 Humble, OAK-D Lite, ReSpeaker mic. 1/2 Scale: 48cm tall.

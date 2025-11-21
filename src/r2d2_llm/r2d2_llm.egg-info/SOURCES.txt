@@ -1,0 +1,6 @@
+setup.py
+r2d2_llm/__init__.py
+r2d2_llm.egg-info/PKG-INFO
+r2d2_llm.egg-info/SOURCES.txt
+r2d2_llm.egg-info/dependency_links.txt
+r2d2_llm.egg-info/top_level.txt
