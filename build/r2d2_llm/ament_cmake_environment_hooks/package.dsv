@@ -1,0 +1,4 @@
+source;share/r2d2_llm/local_setup.bash
+source;share/r2d2_llm/local_setup.dsv
+source;share/r2d2_llm/local_setup.sh
+source;share/r2d2_llm/local_setup.zsh

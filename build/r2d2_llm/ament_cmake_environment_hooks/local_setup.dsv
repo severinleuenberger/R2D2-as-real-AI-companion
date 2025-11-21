@@ -1,0 +1,2 @@
+source;share/r2d2_llm/environment/ament_prefix_path.sh
+source;share/r2d2_llm/environment/path.sh

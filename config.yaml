@@ -1,0 +1,13 @@
+models:
+  - title: Grok-4 (xAI)
+    provider: openai
+    model: grok-4
+    apiKey: ${env:GROK_API_KEY}
+    apiBase: https://api.x.ai/v1
+
+tabAutocompleteModel:
+  title: Grok-4 (xAI)
+  provider: openai
+  model: grok-4
+  apiKey: ${env:GROK_API_KEY}
+  apiBase: https://api.x.ai/v1

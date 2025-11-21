@@ -1,0 +1,21 @@
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/lib/r2d2_llm/tts_node.py
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/lib/r2d2_llm/stt_node.py
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm//launch/tts_stt_launch.py
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm//config/params.yaml
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/ament_index/resource_index/package_run_dependencies/r2d2_llm
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/ament_index/resource_index/parent_prefix_path/r2d2_llm
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/environment/path.sh
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/environment/path.dsv
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/local_setup.bash
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/local_setup.sh
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/local_setup.zsh
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/local_setup.dsv
+-- Symlinking: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/package.dsv
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/ament_index/resource_index/packages/r2d2_llm
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/cmake/r2d2_llmConfig.cmake
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/cmake/r2d2_llmConfig-version.cmake
+-- Up-to-date symlink: /home/severin/r2d2_ws/install/r2d2_llm/share/r2d2_llm/package.xml

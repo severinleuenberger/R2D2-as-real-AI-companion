@@ -1,0 +1,6 @@
+Invoking command in '/home/severin/r2d2_ws/build/r2d2_llm': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/severin/r2d2_ws/src/r2d2_llm -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/severin/r2d2_ws/install/r2d2_llm
+Invoked command in '/home/severin/r2d2_ws/build/r2d2_llm' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/severin/r2d2_ws/src/r2d2_llm -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/severin/r2d2_ws/install/r2d2_llm
+Invoking command in '/home/severin/r2d2_ws/build/r2d2_llm': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/severin/r2d2_ws/build/r2d2_llm -- -j8 -l8
+Invoked command in '/home/severin/r2d2_ws/build/r2d2_llm' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/severin/r2d2_ws/build/r2d2_llm -- -j8 -l8
+Invoking command in '/home/severin/r2d2_ws/build/r2d2_llm': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/severin/r2d2_ws/build/r2d2_llm
+Invoked command in '/home/severin/r2d2_ws/build/r2d2_llm' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/severin/r2d2_ws/build/r2d2_llm
