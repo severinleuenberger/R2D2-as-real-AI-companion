@@ -1,0 +1,4 @@
+tts_node:
+  volume: 1.0
+stt_node:
+  language: en-US
