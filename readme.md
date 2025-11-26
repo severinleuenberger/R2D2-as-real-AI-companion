@@ -40,6 +40,26 @@ ros2 launch r2d2_llm tts_stt_launch.py     # Speech → LLM → Actions
 
 ### Section: 1. Features and Requirements
 
+
+## Base Setup – ROS 2 Humble (x86_64 dev + Jetson-ready)
+
+Use VS Code devcontainer with dusty-nv image:
+- x86_64 VM/laptop: `dustynv/ros:humble-ros-base-r36.2.0`
+- Real Jetson: change to `dustynv/ros:humble-ros-base-l4t-r36.2.0`
+
+Start:
+```bash
+cd ~/r2d2_companion
+code .
+````
+→ Reopen in Container (downloads ~3GB first time)
+```bash
+ros2 pkg list | wc -l  # ~271
+ros2 doctor --report   # All passed
+ros2 run demo_nodes_cpp talker & sleep 3; ros2 run demo_nodes_py listener  # See messages
+```
+
+
 ## 1. Features and Requirements
 
 ### 1.1 Intelligent Speech with Fallback Logic
@@ -100,15 +120,15 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 
 | Qty | Item | Model / Part Number | Purpose | Approx. Price (USD) | Link / Source | Status |
 |-----|------|---------------------|--------|---------------------|---------------|--------|
-| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385  | eBay / RPF Forums | Done |
-| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | Open |
-| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | Open |
-| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | Open |
-| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | Open |
-| 2   | Stock DeAgostini DC motors + gearboxes | Original leg motors | Locomotion (2-wheel diff-drive) | Included in kit | — | Done |
-| 1   | LiPo battery 4S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | Done |
-| 1   | DC-DC buck converter 14 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | Done |
-| 1   | IMU (in OAK-D Lite) | BMI270 + BMM150 | Used by robot_localization EKF | Included | — | Done |
+| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385  | eBay / RPF Forums | got it |
+| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | ordered |
+| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | ordered |
+| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | ordered |
+| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | got it |
+| 2   | Stock DeAgostini DC motors + gearboxes | Original leg motors | Locomotion (2-wheel diff-drive) | Included in kit | — | got it |
+| 1   | LiPo battery 4S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | got it |
+| 1   | DC-DC buck converter 14 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | ? |
+| 1   | IMU (in OAK-D Lite) | BMI270 + BMM150 | Used by robot_localization EKF | Included | — | ? |
 
 **Total estimated cost (without DeAgostini kit):** ~2,200 USD  
 **Total with full DeAgostini kit:** ~3,600 USD
@@ -135,8 +155,8 @@ ros2 launch r2d2_perception person_detection.launch.py  # YOLO + embeddings
 ### Sensors
 | Part | Link |
 |------|------|
-| Luxonis OAK-D Lite Auto Focus | [Mouser](https://www.mouser.ch/ProductDetail/Luxonis/OAK-D-Lite-AF) |
-| ReSpeaker 2-Mic HAT | [Reichelt](https://www.reichelt.com/de/de/shop/produkt/respeaker_2-mic_hat_fuer_raspberry_pi-248718) |
+| Luxonis OAK-D Lite Auto Focus | [Mouser](https://mou.sr/4aaEfYZ) |
+| ReSpeaker 2-Mic HAT | [Mouser](https://mou.sr/49B7DHD) |
 
 ### Drive System
 | Part | Link |
