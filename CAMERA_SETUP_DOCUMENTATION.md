@@ -207,9 +207,12 @@ python3 -c "import depthai as dai; print(dai.__version__)"
 | Metric | Value |
 |--------|-------|
 | **Connection Time** | ~3 seconds (device boot) |
-| **Frame Resolution** | 1920×1080 (Full HD) |
+| **Frame Resolution (Full HD)** | 1920×1080 |
+| **Frame Resolution (Streaming)** | 640×480 |
+| **Streaming FPS (640×480)** | 28.43 FPS (measured from 50-frame test) |
 | **Capture Latency** | <500ms |
-| **File Size** | 242 KB per frame |
+| **File Size (Full HD)** | 242 KB per frame |
+| **File Size (VGA)** | 45 KB per frame |
 | **USB Bandwidth** | Adequate (bus-powered) |
 | **Thermal Status** | Nominal |
 
@@ -286,7 +289,32 @@ python3 capture_frame_cv2.py
 
 **Key Learning**: While OpenCV's `cv2.VideoCapture()` works for V4L2 cameras, the OAK-D requires direct DepthAI SDK usage. The script was adapted to use `dai.Pipeline()` and `dai.node.ColorCamera` for proper OAK-D integration.
 
-### Configuration Files
+#### 4. `tests/camera/oakd_test.py` - FPS Performance Test (NEW)
+```python
+#!/usr/bin/env python3
+"""
+OAK-D Lite FPS performance benchmark test
+"""
+- Creates DepthAI pipeline with ColorCamera node
+- Captures 50 frames at 640×480 resolution
+- Measures frames per second (FPS)
+- Saves first frame as JPEG reference
+- Provides performance metrics for streaming scenarios
+- Useful for real-time processing benchmarking
+```
+
+**Usage:**
+```bash
+source ~/depthai_env/bin/activate
+cd tests/camera
+python3 oakd_test.py
+```
+
+**Output**: 
+- Console output: `Captured 50 frames, approx 28.43 FPS`
+- Image file: `oakd_test_frame.jpg` (45 KB, 640×480)
+
+**Performance Result**: 28.43 FPS at 640×480 resolution (adequate for real-time perception tasks)
 
 #### `.gitignore` - Updated
 ```
@@ -315,6 +343,7 @@ export OPENBLAS_CORETYPE=ARMV8
 - **Photos**: 
   - `docs/photos/oak_d_lite_test.jpg` (1920×1080 test capture)
   - `tests/camera/r2d2_cam_test.jpg` (1920×1080 capture via CV2 script)
+  - `tests/camera/oakd_test_frame.jpg` (640×480 FPS test capture)
 
 ---
 
@@ -329,15 +358,19 @@ Branch: master
 ### Committed Files
 1. `capture_photo.py` - Photo capture script (DepthAI)
 2. `camera_test.py` - Device test script
-3. `tests/camera/capture_frame_cv2.py` - Photo capture script (OpenCV+DepthAI) [NEW]
-4. `docs/photos/oak_d_lite_test.jpg` - Test photo
-5. `tests/camera/r2d2_cam_test.jpg` - Test photo from CV2 script [NEW]
-6. `.gitignore` - Updated with .continue/ exclusion and test photo allowlist
-7. `README.md` - Fixed markdown syntax and image links
+3. `tests/camera/capture_frame_cv2.py` - Photo capture script (OpenCV+DepthAI)
+4. `tests/camera/oakd_test.py` - FPS performance benchmark script (NEW)
+5. `docs/photos/oak_d_lite_test.jpg` - Test photo
+6. `tests/camera/r2d2_cam_test.jpg` - Test photo from CV2 script
+7. `tests/camera/oakd_test_frame.jpg` - Test photo from FPS test (NEW)
+8. `.gitignore` - Updated with .continue/ exclusion and test photo allowlist
+9. `README.md` - Fixed markdown syntax and image links
 
 ### Recent Commits
 ```
-c409fbd - Add OAK-D Lite test photo from tests/camera [NEW]
+[Latest] - Update with oakd_test.py FPS benchmark and test results [NEW]
+c409fbd - Add OAK-D Lite test photo from tests/camera
+d57fc4f - Update documentation: Add CV2 capture script, test photo, and new lessons learned
 4adbec2 - Add camera hardware test scripts for OAK-D Lite on Jetson AGX Orin
 588dd83 - Add OAK-D Lite camera test photo - 1920x1080 RGB capture
 ```
@@ -443,6 +476,11 @@ class OAKDPublisher(Node):
    - Must use DepthAI SDK directly, not `cv2.VideoCapture()`
    - While OpenCV can be used for frame processing, initialization requires DepthAI
    - This prevents conflicts with V4L2-based camera systems on the same Jetson
+
+7. **Resolution vs Performance Trade-off** (NEW)
+   - Full HD (1920×1080): Best quality but higher file size (242 KB) and latency
+   - VGA (640×480): Better for real-time streaming (28.43 FPS), smaller files (45 KB)
+   - Choose resolution based on use case: perception/SLAM prefer Full HD, streaming/real-time prefer VGA
 
 ---
 
