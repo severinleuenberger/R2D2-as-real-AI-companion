@@ -219,7 +219,7 @@ python3 -c "import depthai as dai; print(dai.__version__)"
 
 ### Created Test Scripts
 
-#### 1. `capture_photo.py` - Simple RGB Photo Capture
+#### 1. `capture_photo.py` - Simple RGB Photo Capture (DepthAI)
 ```python
 #!/usr/bin/env python3
 """
@@ -260,14 +260,45 @@ source ~/depthai_env/bin/activate
 python3 camera_test.py
 ```
 
+#### 3. `tests/camera/capture_frame_cv2.py` - OpenCV-based Capture (NEW)
+```python
+#!/usr/bin/env python3
+"""
+OAK-D Lite RGB frame capture using OpenCV with DepthAI backend
+"""
+- Creates DepthAI pipeline with ColorCamera node
+- Uses DepthAI SDK directly (not V4L2/VideoCapture)
+- Configures 1920×1080 resolution @ 30 FPS
+- Captures single frame via XLink output stream
+- Saves to JPEG format
+- Demonstrates alternative capture method
+- Note: OAK-D doesn't expose V4L2 devices, so cv2.VideoCapture(0) fails
+```
+
+**Usage:**
+```bash
+source ~/depthai_env/bin/activate
+cd tests/camera
+python3 capture_frame_cv2.py
+```
+
+**Output**: `r2d2_cam_test.jpg` (244 KB, 1920×1080)
+
+**Key Learning**: While OpenCV's `cv2.VideoCapture()` works for V4L2 cameras, the OAK-D requires direct DepthAI SDK usage. The script was adapted to use `dai.Pipeline()` and `dai.node.ColorCamera` for proper OAK-D integration.
+
 ### Configuration Files
 
 #### `.gitignore` - Updated
 ```
-# Added exclusion for Continue.dev configuration
-.continue/
+# Added exclusions:
+.continue/                     # Continue.dev configuration and secrets
 
-# Reason: Prevents accidental publication of API keys
+# Modified exclusion:
+# tests/camera/*.jpg           # Commented out to allow test photo commits
+tests/audio/*.wav
+
+# Purpose: Prevents accidental publication of API keys while allowing
+#          test photos to be shared and reviewed
 ```
 
 #### `~/.bashrc` - Modified
@@ -281,7 +312,9 @@ export OPENBLAS_CORETYPE=ARMV8
 
 ### Documentation Generated
 - **CAMERA_SETUP_DOCUMENTATION.md** (this file)
-- **Photo**: `docs/photos/oak_d_lite_test.jpg` (1920×1080 test capture)
+- **Photos**: 
+  - `docs/photos/oak_d_lite_test.jpg` (1920×1080 test capture)
+  - `tests/camera/r2d2_cam_test.jpg` (1920×1080 capture via CV2 script)
 
 ---
 
@@ -294,14 +327,17 @@ Branch: master
 ```
 
 ### Committed Files
-1. `capture_photo.py` - Photo capture script
+1. `capture_photo.py` - Photo capture script (DepthAI)
 2. `camera_test.py` - Device test script
-3. `docs/photos/oak_d_lite_test.jpg` - Test photo
-4. `.gitignore` - Updated with .continue/ exclusion
-5. `README.md` - Fixed markdown syntax and image links
+3. `tests/camera/capture_frame_cv2.py` - Photo capture script (OpenCV+DepthAI) [NEW]
+4. `docs/photos/oak_d_lite_test.jpg` - Test photo
+5. `tests/camera/r2d2_cam_test.jpg` - Test photo from CV2 script [NEW]
+6. `.gitignore` - Updated with .continue/ exclusion and test photo allowlist
+7. `README.md` - Fixed markdown syntax and image links
 
 ### Recent Commits
 ```
+c409fbd - Add OAK-D Lite test photo from tests/camera [NEW]
 4adbec2 - Add camera hardware test scripts for OAK-D Lite on Jetson AGX Orin
 588dd83 - Add OAK-D Lite camera test photo - 1920x1080 RGB capture
 ```
@@ -401,6 +437,12 @@ class OAKDPublisher(Node):
    - Allow 2-3 seconds for sensor stabilization
    - First frame may be slightly different
    - Firmware loads on-demand during device initialization
+
+6. **OAK-D Doesn't Expose V4L2 Devices** (NEW)
+   - OAK-D doesn't create `/dev/video*` nodes by default
+   - Must use DepthAI SDK directly, not `cv2.VideoCapture()`
+   - While OpenCV can be used for frame processing, initialization requires DepthAI
+   - This prevents conflicts with V4L2-based camera systems on the same Jetson
 
 ---
 
