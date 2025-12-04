@@ -148,7 +148,7 @@ Additional nodes, packages, and hardware integrations will be added incrementall
 ## Bill of Materials (BOM)
 
 | Qty | Item | Model / Part Number | Purpose | Approx. Price (USD) | Link / Source | Status |
-|-----|------|---------------------|--------|---------------------|---------------|--------|
+|-----|---------------------------------------------|---------------------|--------|---------------------|---------------|--------|
 | 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385  | eBay / RPF Forums | got it |
 | 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | ordered |
 | 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | ordered |
