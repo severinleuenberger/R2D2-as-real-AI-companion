@@ -38,7 +38,7 @@ The NVIDIA Jetson AGX Orin (64 GB) is fully operational and runs a clean, modern
 - Launch file to start both nodes:
   ```bash
   ros2 launch r2d2_bringup bringup.launch.py
-```
+  ```
 
 
 - Hardware photo documentation synchronized with GitHub
