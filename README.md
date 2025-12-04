@@ -69,13 +69,13 @@ before adding perception, navigation, speech, or AI.
 The 1:2 DeAgostini R2-D2 body has been fully opened, stripped, and prepared for the integration of modern electronics.  
 The Jetson AGX Orin is already mounted inside the body as the central compute unit.
 
-![R2D2 Body With Jetson](docs/photos/body_with_jetson.jpg)
+![R2D2 Body With Jetson](docs/photos/body%20with%20jetson.jpg)
 
 The internal structure was reinforced and cable pathways were cleaned up to support upcoming power distribution, audio components, motor drivers, and the depth camera system.
 
 A secondary angle of the current internal layout:
 
-![R2D2 Body With Jetson - Angle 2](docs/photos/body_with_jetson_2.jpg)
+![R2D2 Body With Jetson - Angle 2](docs/photos/body%20with%20jetson%202.jpg)
 
 Future hardware integrations will include:
 
