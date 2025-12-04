@@ -15,7 +15,7 @@ __pycache__/
 
 # Audio/Camera test artifacts
 tests/audio/*.wav
-tests/camera/*.jpg
+# tests/camera/*.jpg  # Allow camera test photos to be committed
 
 # Temporary files
 *.swp
