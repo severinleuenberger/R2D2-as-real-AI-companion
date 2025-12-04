@@ -317,6 +317,55 @@ python3 oakd_test.py
 
 **Performance Result**: 28.43 FPS at 640×480 resolution (adequate for real-time perception tasks)
 
+#### 5. `ros2_ws/src/r2d2_camera/` - ROS 2 Camera Package (NEW)
+```python
+#!/usr/bin/env python3
+"""
+OAK-D Lite Camera ROS 2 Node for R2D2
+Publishes RGB frames as sensor_msgs/Image to /oak/rgb/image_raw
+"""
+```
+
+**Package Structure:**
+- `r2d2_camera/camera_node.py` - Main ROS 2 node with OAK-D integration
+- `launch/camera.launch.py` - Launch file for camera node
+- `package.xml` - ROS 2 package manifest
+- `setup.py` - Python package configuration
+
+**Features:**
+- Publishes RGB frames to `/oak/rgb/image_raw` topic
+- Uses `sensor_msgs/Image` with proper timestamps
+- Configurable resolution (1920×1080 default)
+- Configurable FPS (30 FPS default)
+- Proper device cleanup on shutdown
+- Frame counter diagnostics
+
+**Usage:**
+```bash
+cd ~/dev/r2d2/ros2_ws
+source ~/depthai_env/bin/activate
+source ~/.bashrc
+source install/setup.bash
+ros2 run r2d2_camera camera_node
+```
+
+**Or with launch file:**
+```bash
+ros2 launch r2d2_camera camera.launch.py
+```
+
+**Published Topics:**
+- `/oak/rgb/image_raw` (sensor_msgs/Image) - 1920×1080 RGB frames @ 30 FPS
+
+**Node Initialization:**
+- ✅ Successfully initializes OAK-D device
+- ✅ Creates DepthAI pipeline with ColorCamera node
+- ✅ Configures 1920×1080 resolution at 30 FPS
+- ✅ Publishes frames with proper ROS 2 timestamps
+- ✅ Thread-safe capture loop with proper error handling
+
+**Test Result:** ✅ Node successfully initialized and began capturing frames
+
 #### `.gitignore` - Updated
 ```
 # Added exclusions:
@@ -341,6 +390,7 @@ export OPENBLAS_CORETYPE=ARMV8
 
 ### Documentation Generated
 - **CAMERA_SETUP_DOCUMENTATION.md** (this file)
+- **ROS 2 Package:** `ros2_ws/src/r2d2_camera/` (complete with node and launch file)
 - **Photos**: 
   - `docs/photos/oak_d_lite_test.jpg` (1920×1080 test capture)
   - `tests/camera/r2d2_cam_test.jpg` (1920×1080 capture via CV2 script)
@@ -360,16 +410,23 @@ Branch: master
 1. `capture_photo.py` - Photo capture script (DepthAI)
 2. `camera_test.py` - Device test script
 3. `tests/camera/capture_frame_cv2.py` - Photo capture script (OpenCV+DepthAI)
-4. `tests/camera/oakd_test.py` - FPS performance benchmark script (NEW)
-5. `docs/photos/oak_d_lite_test.jpg` - Test photo
-6. `tests/camera/r2d2_cam_test.jpg` - Test photo from CV2 script
-7. `tests/camera/oakd_test_frame.jpg` - Test photo from FPS test (NEW)
-8. `.gitignore` - Updated with .continue/ exclusion and test photo allowlist
-9. `README.md` - Fixed markdown syntax and image links
+4. `tests/camera/oakd_test.py` - FPS performance benchmark script
+5. `tests/camera/r2d2_cam_test.jpg` - Test photo from CV2 script
+6. `tests/camera/oakd_test_frame.jpg` - Test photo from FPS test
+7. `docs/photos/oak_d_lite_test.jpg` - Test photo
+8. `ros2_ws/src/r2d2_camera/` - Complete ROS 2 camera package (NEW)
+   - `r2d2_camera/camera_node.py` - ROS 2 camera node
+   - `launch/camera.launch.py` - Launch file
+   - `package.xml` - ROS 2 manifest
+   - `setup.py` - Python configuration
+9. `.gitignore` - Updated with .continue/ exclusion and test photo allowlist
+10. `README.md` - Fixed markdown syntax and image links
 
 ### Recent Commits
 ```
-[Latest] - Update with oakd_test.py FPS benchmark and test results [NEW]
+2dd79d8 - Add r2d2_camera ROS 2 package with OAK-D Lite camera node (NEW)
+e473e85 - Update documentation: Add FPS benchmark test, performance metrics, and resolution trade-off lessons
+4ba9ef0 - Add FPS benchmark test script and performance metrics
 c409fbd - Add OAK-D Lite test photo from tests/camera
 d57fc4f - Update documentation: Add CV2 capture script, test photo, and new lessons learned
 4adbec2 - Add camera hardware test scripts for OAK-D Lite on Jetson AGX Orin
@@ -380,40 +437,54 @@ d57fc4f - Update documentation: Add CV2 capture script, test photo, and new less
 
 ## Next Steps & Future Development
 
-### Immediate Tasks
-- [ ] Implement depth map capture alongside RGB
-- [ ] Add ROS 2 node wrapper for camera data
-- [ ] Integrate with r2d2_perception package
+### Completed Tasks ✅
+- ✅ ROS 2 camera node implemented (`r2d2_camera` package)
+- ✅ RGB stream publishing to `/oak/rgb/image_raw` topic
+- ✅ Launch file for easy camera startup
+- ✅ Proper frame timestamps and frame IDs
+- ✅ Package.xml with all dependencies
+- ✅ Setup.py configuration for installation
+
+### Immediate Tasks (Next Phase)
+- [ ] Implement depth map capture and publishing to `/oak/depth/image_raw`
+- [ ] Add camera info publishing for calibration data
+- [ ] Create r2d2_perception package for higher-level perception tasks
+- [ ] Implement IMU data publishing from OAK-D's built-in IMU
+- [ ] Add stereo depth processing and obstacle detection
 - [ ] Calibration verification and export
-- [ ] Stereo depth testing
 
-### Integration with ROS 2
-The camera is ready to be integrated into:
-- `r2d2_perception` package (planned)
-- Navigation and SLAM pipelines
-- Object detection and tracking
-- Depth-based obstacle avoidance
+### ROS 2 Integration Status
+The camera is **actively publishing** to:
+- `/oak/rgb/image_raw` - 1920×1080 RGB frames @ 30 FPS (sensor_msgs/Image)
+- Frame ID: `oak_d_rgb_camera_optical_frame`
+- Ready for subscription by other ROS 2 nodes
 
-### Example ROS 2 Usage (Future)
+### Example ROS 2 Subscriber Node (For Future Use)
 ```python
-import depthai as dai
 import rclpy
+from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-# Create ROS 2 node that publishes camera frames
-class OAKDPublisher(Node):
+class ImageSubscriber(Node):
     def __init__(self):
-        super().__init__('oak_d_publisher')
-        self.rgb_pub = self.create_publisher(Image, '/camera/rgb', 10)
-        # ... camera capture and publish logic
+        super().__init__('image_subscriber')
+        self.subscription = self.create_subscription(
+            Image,
+            '/oak/rgb/image_raw',
+            self.image_callback,
+            10)
+    
+    def image_callback(self, msg):
+        self.get_logger().info(f"Received image: {msg.width}x{msg.height}")
+        # Process image here
 ```
 
-### Performance Optimization Opportunities
-- Stream depth maps for SLAM
-- Implement IMU fusion from OAK-D's built-in IMU
-- Multi-threaded frame capture and processing
-- GPU acceleration using CUDA for frame preprocessing
-- RTP streaming for remote monitoring
+### Integration Roadmap
+1. **Phase 1** (Complete): Standalone camera scripts + ROS 2 node ✅
+2. **Phase 2** (In Progress): Depth stream publishing
+3. **Phase 3** (Planned): SLAM/Navigation integration
+4. **Phase 4** (Planned): Object detection with depth-based filtering
+5. **Phase 5** (Planned): Autonomous navigation with obstacle avoidance
 
 ---
 
@@ -482,6 +553,14 @@ class OAKDPublisher(Node):
    - Full HD (1920×1080): Best quality but higher file size (242 KB) and latency
    - VGA (640×480): Better for real-time streaming (28.43 FPS), smaller files (45 KB)
    - Choose resolution based on use case: perception/SLAM prefer Full HD, streaming/real-time prefer VGA
+
+8. **ROS 2 Integration Strategy** (NEW)
+   - Don't rely on pre-built ROS packages that may have version conflicts
+   - Create custom ROS nodes adapted to your specific SDK version
+   - Minimal dependencies reduce build complexity significantly
+   - Direct DepthAI API usage in ROS nodes provides more control and flexibility
+   - Threading model: Use daemon threads for camera capture loops in ROS nodes
+   - Frame IDs and timestamps crucial for proper TF integration in multi-robot systems
 
 ---
 
