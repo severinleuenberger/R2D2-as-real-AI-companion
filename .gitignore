@@ -10,6 +10,9 @@ __pycache__/
 # VS Code
 .vscode/
 
+# Continue.dev configuration and secrets
+.continue/
+
 # Audio/Camera test artifacts
 tests/audio/*.wav
 tests/camera/*.jpg
