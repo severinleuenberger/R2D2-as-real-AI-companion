@@ -45,27 +45,19 @@ The NVIDIA Jetson AGX Orin (64 GB) is fully operational and runs a clean, modern
 
 - Repository reset, cleaned, and realigned to current architecture
 
-🔧## Next steps (short-term roadmap)##
+## 🔧 Next steps (short-term roadmap)
 
 - Touch-the-ground hardware tests:
+  - GPU compute validation (CUDA / Python CuPy test)
+  - Audio out (Jetson → speaker)
+  - Audio in (microphone recording test)
+  - Camera test (single-frame capture)
 
-- GPU compute validation (CUDA / Python CuPy test)
-
-- Audio out (Jetson → speaker)
-
-- Audio in (microphone recording test)
-
-- Camera test (single-frame capture)
-
-*Add placeholder packages for:
-
-- r2d2_description (URDF/Xacro)
-
-- r2d2_perception (OAK-D)
-
-- r2d2_navigation (Nav2 + SLAM)
-
-- Add a system health/status ROS 2 node
+- Add placeholder packages for:
+  - r2d2_description (URDF/Xacro)
+  - r2d2_perception (OAK-D)
+  - r2d2_navigation (Nav2 + SLAM)
+  - Add a system health/status ROS 2 node
 
 The goal of this phase is to have a fully verified hardware/software baseline
 before adding perception, navigation, speech, or AI.
@@ -127,23 +119,23 @@ Generated ROS 2 build artifacts are excluded via `.gitignore`, resulting in a cl
 ```bash
 git clone git@github.com:severinleuenberger/R2D2-as-real-AI-companion.git
 cd R2D2-as-real-AI-companion
-````
+```
 
-###Build the ROS 2 workspace
+### Build the ROS 2 workspace
 ```bash
 cd ros2_ws
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 source install/setup.bash
-``
-`
-###Start the core system
+```
+
+### Start the core system
 ```bash
 
 ros2 launch r2d2_bringup bringup.launch.py
 ```
 
-###Observe the heartbeat
+### Observe the heartbeat
 ```bash
 ros2 topic echo /r2d2/heartbeat
 ```
