@@ -15,8 +15,22 @@ The repository contains:
 
 This is a long-term hobby project focused on learning, robotics, and open-source collaboration.
 
+---
 
+## 📚 Documentation
 
+Complete setup guides and technical documentation for the R2D2 project:
+
+1. **[01_R2D2_BASIC_SETUP_AND_FINDINGS.md](01_R2D2_BASIC_SETUP_AND_FINDINGS.md)**  
+   Initial Jetson AGX Orin setup, ROS 2 Humble installation, workspace configuration, and first functional tests (heartbeat/beep nodes).
+
+2. **[02_CAMERA_SETUP_DOCUMENTATION.md](02_CAMERA_SETUP_DOCUMENTATION.md)**  
+   OAK-D Lite camera integration with ROS 2, DepthAI Python SDK setup, camera node implementation, frame capture, and topic publishing.
+
+3. **[03_PERCEPTION_SETUP_DOCUMENTATION.md](03_PERCEPTION_SETUP_DOCUMENTATION.md)**  
+   Real-time image processing pipeline with brightness metrics, downscaling (1920×1080 → 640×360), grayscale conversion, integrated launch system, and validated behavior tests.
+
+---
 
 ## Project Status (as of December 2025)
 
