@@ -11,19 +11,19 @@
 
 ## Executive Summary
 
-Successfully implemented the **r2d2_perception** ROS 2 Python package on the NVIDIA Jetson AGX Orin 64GB running ROS 2 Humble. The perception node subscribes to camera frames from the OAK-D Lite (`/oak/rgb/image_raw`) and performs basic diagnostics: frame counting, real-time FPS measurement, image dimension logging, and optional debug frame capture. This marks the first operational perception pipeline layer that demonstrates successful sensor integration with ROS 2 middleware.
+Successfully enhanced the **r2d2_perception** ROS 2 Python package on the NVIDIA Jetson AGX Orin 64GB running ROS 2 Humble with real-time image processing capabilities. The perception node subscribes to camera frames from the OAK-D Lite (`/oak/rgb/image_raw`), performs live image processing (downscaling, grayscale conversion, brightness computation), and publishes perception metrics on a dedicated output topic (`/r2d2/perception/brightness`). This represents a significant step toward a full perception pipeline with real-time metrics.
 
 ### Key Achievements
-- ✅ ROS 2 perception package (`r2d2_perception`) created with proper structure
-- ✅ Node successfully subscribes to camera topic (`/oak/rgb/image_raw`)
-- ✅ Frame counter implements persistent counting across callbacks
-- ✅ FPS calculation using time-based rolling average (~12-13 FPS measured)
-- ✅ Image dimensions correctly logged from message metadata (1920×1080)
-- ✅ Optional debug frame saving to disk (JPEG format)
-- ✅ Package builds successfully with `colcon build`
-- ✅ Node launches via ROS 2 run and launch file mechanisms
-- ✅ All code extensively documented with learning-focused comments
-- ✅ Production-ready with proper error handling and logging
+- ✅ **Official Node:** `image_listener.py` is the single, production-ready perception implementation
+- ✅ **Image Processing:** Downscales frames to 640×360, converts to grayscale for efficient processing
+- ✅ **Brightness Metrics:** Computes mean brightness (0-255 scale) for each frame
+- ✅ **Topic Publishing:** Publishes brightness as Float32 on `/r2d2/perception/brightness` (~13 Hz)
+- ✅ **Debug Frames:** Saves RGB and grayscale JPEG frames on demand with configurable paths
+- ✅ **FPS Tracking:** Measures actual frame rate with rolling 1-second averaging (12-13 FPS measured)
+- ✅ **Integrated Launch:** Single `r2d2_camera_perception.launch.py` starts camera + perception together
+- ✅ **Configurable Parameters:** Control logging frequency, debug frame saving, and paths via launch args
+- ✅ **Clean Architecture:** Legacy perception_node.py moved to `legacy/` folder, single canonical implementation
+- ✅ **Production-ready:** Full error handling, ROS2 logging, parameter management, and documentation
 
 ---
 
@@ -395,6 +395,78 @@ ls -la install/r2d2_perception/
 
 ## Running the Perception Pipeline
 
+### ⭐ NEW (Recommended): Integrated Camera + Perception Launch
+
+The easiest way to start the full pipeline is with the unified launch file that starts both camera and perception nodes in a single command.
+
+**Setup** (one-time):
+```bash
+cd ~/dev/r2d2/ros2_ws
+source ~/depthai_env/bin/activate
+source ~/.bashrc
+source install/setup.bash
+```
+
+**Launch** (in any terminal afterward):
+```bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
+```
+
+**With Grayscale Debug Frame**:
+```bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py save_debug_gray_frame:=true
+```
+
+**With Faster Logging** (every 15 frames instead of 30):
+```bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py log_every_n_frames:=15
+```
+
+**Expected Output** (first ~5 seconds):
+```
+[INFO] [launch]: All log files can be found below /home/severin/.ros/log/...
+[INFO] [camera_node-1]: process started with pid [...]
+[INFO] [image_listener-2]: process started with pid [...]
+[camera_node-1] [INFO] [...] [oak_d_camera]: Initializing OAK-D-LITE camera
+[camera_node-1] [INFO] [...] [oak_d_camera]: Resolution: 1920x1080 @ 30 FPS
+[camera_node-1] [INFO] [...] [oak_d_camera]: Camera device initialized successfully
+[image_listener-2] [INFO] [...] [image_listener]: ImageListener node initialized, subscribed to /oak/rgb/image_raw
+[image_listener-2] [INFO] [...] [image_listener]: RGB debug frame saved to: /home/severin/dev/r2d2/tests/camera/perception_debug.jpg
+[image_listener-2] [INFO] [...] [image_listener]: Grayscale debug frame saved to: /home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg
+[image_listener-2] [INFO] [...] [image_listener]: Frame #15 | FPS: 3.55 | Original: 1920x1080 | Brightness: 112.6
+[image_listener-2] [INFO] [...] [image_listener]: Frame #30 | FPS: 13.38 | Original: 1920x1080 | Brightness: 128.5
+[image_listener-2] [INFO] [...] [image_listener]: Frame #45 | FPS: 13.13 | Original: 1920x1080 | Brightness: 128.5
+[image_listener-2] [INFO] [...] [image_listener]: Frame #60 | FPS: 13.33 | Original: 1920x1080 | Brightness: 128.4
+```
+
+**What's Happening:**
+- Camera initializes and starts publishing RGB frames at 30 FPS
+- Perception node subscribes and begins processing
+- Both debug frames (RGB and grayscale) are saved on first frame
+- Brightness metrics log every N frames (default 30 = ~2 per second)
+- All logs stream to terminal in real-time
+
+**Monitoring Topics** (in separate terminal):
+```bash
+# List all active topics
+ros2 topic list
+
+# Subscribe to brightness topic (shows ~13 Float32 values per second)
+ros2 topic echo /r2d2/perception/brightness
+
+# Check camera topic frequency
+ros2 topic hz /oak/rgb/image_raw
+
+# List running nodes
+ros2 node list
+```
+
+---
+
+### (Legacy) Multi-Terminal Approach
+
+If you need to start camera and perception separately for debugging:
+
 ### Prerequisites
 - Camera node (`r2d2_camera`) running and publishing to `/oak/rgb/image_raw`
 - DepthAI virtual environment activated
@@ -409,22 +481,13 @@ source install/setup.bash
 ros2 launch r2d2_camera camera.launch.py
 ```
 
-### Terminal 2: Start Perception Node (Via Direct Run)
+### Terminal 2: Start Perception Node (Via Launch File)
 ```bash
 cd ~/dev/r2d2/ros2_ws
 source ~/depthai_env/bin/activate
 source ~/.bashrc
 source install/setup.bash
-ros2 run r2d2_perception perception_node --ros-args -p save_debug_frame:=true
-```
-
-### Terminal 2: Alternative – Start Perception Node (Via Launch File)
-```bash
-cd ~/dev/r2d2/ros2_ws
-source ~/depthai_env/bin/activate
-source ~/.bashrc
-source install/setup.bash
-ros2 launch r2d2_perception perception.launch.py save_debug_frame:=true
+ros2 launch r2d2_perception perception.launch.py save_debug_gray_frame:=true
 ```
 
 ### Terminal 3: Monitor Topic Performance
@@ -438,7 +501,7 @@ average rate: 30.08
   min: 0.033s max: 0.033s std dev: 0.00107s count: 120
 ```
 
----
+------
 
 ## ROS 2 Integration Details
 
@@ -702,52 +765,108 @@ ROS 2 System (Humble)
 ## Image Listener Node Implementation
 
 ### Overview
-The **image_listener** node is a lightweight Python ROS 2 node that subscribes to camera frames and performs real-time diagnostics. This represents the second iteration of the perception node, optimized for simplicity and diagnostic accuracy.
+The **image_listener** node is the official, production-ready perception node that subscribes to camera frames, performs real-time image processing, and publishes perception metrics. It represents the current iteration optimized for efficiency, image processing, and metric computation.
 
-### Node Location & Files
+### Node Location & Files (Refactored)
 ```
 ros2_ws/src/r2d2_perception/
 ├── r2d2_perception/
 │   ├── __init__.py
-│   ├── image_listener.py          ← NEW: Primary node implementation
-│   └── perception_node.py          (Original node)
+│   └── image_listener.py                    ← OFFICIAL: Primary perception node
 ├── launch/
-│   ├── perception_launch.py        ← NEW: Image listener launch file
-│   └── perception.launch.py        (Original launch)
-└── setup.py                        (Updated with image_listener entry point)
+│   └── perception.launch.py                 ← OFFICIAL: Integrated launch file
+├── legacy/
+│   ├── perception_node.py                   (Previous implementation - archived)
+│   └── perception.launch.py                 (Previous launch - archived)
+└── setup.py                                 (Contains only image_listener entry point)
 ```
 
 ### Image Listener Node Features
 
 #### Subscription & Message Handling
-- **Topic:** `/oak/rgb/image_raw`
-- **Message Type:** `sensor_msgs/msg/Image`
-- **Queue Size:** 10 (configurable via QoS)
-- **Callback:** `image_callback()` processes each frame
+- **Input Topic:** `/oak/rgb/image_raw` (sensor_msgs/msg/Image, 1920×1080 @ ~13 FPS)
+- **Output Topic:** `/r2d2/perception/brightness` (std_msgs/msg/Float32)
+- **Queue Size:** 10 (configurable via QoS profile)
+- **Callback:** `image_callback()` processes each frame in real-time
 
-#### Diagnostics Implemented
+#### Image Processing Pipeline
+
+1. **Frame Receipt & Conversion**
+   - Convert ROS2 Image message to OpenCV BGR8 format via cv_bridge
+   - Original: 1920×1080 BGR (3 channels, ~1.9 MB per frame)
+   - Extract dimensions directly from message metadata
+
+2. **Downscaling for Efficiency**
+   - Resize to 640×360 (33% of original resolution, 11% of pixel count)
+   - Reduces computational load for grayscale and brightness analysis
+   - Trade-off: smaller spatial detail but much faster processing
+
+3. **Grayscale Conversion**
+   - Convert downscaled BGR to single-channel grayscale via `cv2.cvtColor()`
+   - Reduces memory (1 channel vs 3) and processing time
+   - Sufficient for brightness analysis
+
+4. **Brightness Computation**
+   - Calculate mean pixel intensity from 640×360 grayscale image
+   - Formula: `mean_brightness = np.mean(gray_image)` (0-255 range)
+   - Fast numpy operation; single float value per frame
+   - Published every frame on `/r2d2/perception/brightness` topic
+
+#### Real-Time Diagnostics
 
 1. **Frame Counting**
    - Persistent counter: `self.frame_count`
    - Incremented on every callback invocation
-   - Logged as "Frame #N" in output
+   - Logged every N frames (default: N=30) to keep output readable
 
 2. **FPS Measurement**
    - Time-based rolling average over 1-second windows
-   - Variables: `last_log_time`, `fps_frame_count`, `fps_start_time`
    - Calculation: `fps = frames_in_window / elapsed_time`
-   - Output: `FPS: 12.74` (2 decimal places)
+   - Stabilizes after initial camera startup (~3-5 seconds)
+   - Typical measurement: 12-13 FPS from OAK-D Lite
 
-3. **Image Dimensions Logging**
-   - Extracted directly from message metadata
-   - Source: `msg.width`, `msg.height`
-   - Output: `Dimensions: 1920x1080`
+3. **Debug Frame Saving**
 
-4. **Debug Frame Saving**
-   - Saves exactly one frame to disk (first frame only)
+   **RGB Debug Frame:**
+   - Saves original 1920×1080 BGR image (first frame only)
    - Format: JPEG via `cv2.imwrite()`
    - Default path: `/home/severin/dev/r2d2/tests/camera/perception_debug.jpg`
-   - Configurable via ROS 2 parameter: `debug_frame_path`
+   - Size: ~200-250 KB (depends on compression)
+   - Always saved (flag: `self.debug_rgb_saved` prevents duplicates)
+
+   **Grayscale Debug Frame (Optional):**
+   - Saves processed 640×360 grayscale image (first frame only)
+   - Controlled by parameter: `save_debug_gray_frame` (bool, default: false)
+   - Path configurable: `debug_gray_frame_path` (default shown above)
+   - Size: ~20-50 KB (much smaller than RGB; downscaled + single channel)
+   - Use case: Verify image processing and grayscale conversion quality
+
+#### Parameters & Configuration
+
+| Parameter | Type | Default | Purpose |
+|-----------|------|---------|---------|
+| `debug_frame_path` | string | `/home/severin/dev/r2d2/tests/camera/perception_debug.jpg` | RGB debug frame output path |
+| `save_debug_gray_frame` | bool | `false` | Enable grayscale debug frame saving |
+| `debug_gray_frame_path` | string | `/home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg` | Grayscale frame output path |
+| `log_every_n_frames` | int | 30 | Log metrics every N frames (reduce verbosity) |
+
+#### Example Output (Typical Run)
+
+```
+[image_listener-2] [INFO] [...] [image_listener]: ImageListener node initialized, subscribed to /oak/rgb/image_raw
+[image_listener-2] [INFO] [...] [image_listener]: RGB debug frame saved to: /home/severin/dev/r2d2/tests/camera/perception_debug.jpg
+[image_listener-2] [INFO] [...] [image_listener]: Grayscale debug frame saved to: /home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg
+[image_listener-2] [INFO] [...] [image_listener]: Frame #15 | FPS: 3.55 | Original: 1920x1080 | Brightness: 112.6
+[image_listener-2] [INFO] [...] [image_listener]: Frame #30 | FPS: 13.38 | Original: 1920x1080 | Brightness: 128.5
+[image_listener-2] [INFO] [...] [image_listener]: Frame #45 | FPS: 13.13 | Original: 1920x1080 | Brightness: 128.5
+[image_listener-2] [INFO] [...] [image_listener]: Frame #60 | FPS: 13.33 | Original: 1920x1080 | Brightness: 128.4
+```
+
+**Brightness Interpretation:** Values 125-130 indicate typical indoor lighting (mid-brightness environment on 0-255 scale). Very low values (<30) suggest dark/night conditions; very high values (>230) suggest bright/outdoor conditions.
+
+#### Diagnostics Implemented (Legacy - Archived)
+
+Note: The previous implementation (perception_node.py) is archived in the `legacy/` folder and no longer maintained. See the features above for current capabilities.
    - Uses cv_bridge for ROS Image → OpenCV conversion
    - Flag: `self.debug_frame_saved` prevents duplicate saves
 
@@ -931,31 +1050,37 @@ rm -rf build install log && colcon build --packages-select r2d2_perception
 
 ### Launch Commands
 
-#### Image Listener Node (Recommended)
+#### ⭐ Integrated Camera + Perception (RECOMMENDED)
 ```bash
-# Launch image_listener via launch file (recommended approach)
-ros2 launch r2d2_perception perception_launch.py
+# One-command startup of complete pipeline
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
 
-# Launch with custom debug frame path
-ros2 launch r2d2_perception perception_launch.py \
+# With grayscale debug frame enabled
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+    save_debug_gray_frame:=true
+
+# With faster logging (every 15 frames instead of 30)
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+    log_every_n_frames:=15
+
+# Custom paths and fast logging
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+    debug_frame_path:=/custom/path/rgb.jpg \
+    debug_gray_frame_path:=/custom/path/gray.jpg \
+    log_every_n_frames:=15
+```
+
+#### Perception Node Only (Advanced)
+```bash
+# Launch image_listener via launch file
+ros2 launch r2d2_perception perception.launch.py
+
+# With custom debug frame path
+ros2 launch r2d2_perception perception.launch.py \
     debug_frame_path:=/custom/path/frame.jpg
 
 # Direct run (without launch file)
 ros2 run r2d2_perception image_listener
-```
-
-#### Original Perception Node
-```bash
-# Via launch file
-ros2 launch r2d2_perception perception.launch.py
-
-# Via direct run
-ros2 run r2d2_perception perception_node
-
-# With parameters
-ros2 run r2d2_perception perception_node --ros-args \
-    -p save_debug_frame:=true \
-    -p debug_frame_path:=/home/severin/dev/r2d2/debug.jpg
 ```
 
 ### Monitoring Commands
@@ -1027,17 +1152,23 @@ rosdep check --all --rosdistro humble
 
 ## Conclusion
 
-The **r2d2_perception** ROS 2 package represents the first operational perception layer for the R2D2 platform. It demonstrates successful integration of camera hardware with ROS 2 middleware, implements real-time diagnostics (FPS measurement, frame counting), and provides a solid foundation for more complex perception tasks.
+The **r2d2_perception** ROS 2 package represents the first fully-featured perception layer for the R2D2 platform. It successfully integrates camera hardware with ROS 2 middleware, implements real-time image processing (downscaling, grayscale conversion, brightness metrics), and provides an integrated launch architecture that combines camera driver and perception node in a single command.
 
-The package now includes two production-ready nodes:
-1. **perception_node** – Original multi-feature node with extensive parameter configuration
-2. **image_listener** – Optimized lightweight node focusing on core diagnostics and debug frame capture
+**Key Accomplishments (December 5, 2025):**
+- ✅ **Official Node:** image_listener.py established as single authoritative perception node
+- ✅ **Image Processing:** Downscale pipeline 1920×1080 → 640×360 for efficiency
+- ✅ **Real-Time Metrics:** Brightness computation using grayscale mean (0-255 scale)
+- ✅ **Integrated Launch:** r2d2_camera_perception.launch.py starts both nodes in one command
+- ✅ **Debug Support:** RGB and optional grayscale frame capture for visual verification
+- ✅ **Configuration:** 4 fully documented parameters for customization
+- ✅ **Hardware Tested:** Verified on NVIDIA Jetson AGX Orin with OAK-D Lite camera
+- ✅ **Brightness Validation:** Stable values (125-129) confirm proper image processing
 
-Both nodes are **fully documented**, **extensively commented**, and **tested on real hardware**. They serve as templates for future perception nodes in the pipeline and exemplify ROS 2 best practices for Python-based sensor integration.
+The **image_listener** node is production-ready, extensively documented with 200+ lines of implementation details, tested on real hardware, and demonstrates ROS 2 best practices for Python-based sensor integration. The package now serves as the foundation for advanced perception tasks.
 
 **Status:** ✅ **COMPLETE, TESTED, AND OPERATIONAL**  
-**Last Updated:** December 5, 2025  
-**Next Phase:** Depth stream integration and obstacle detection
+**Last Updated:** December 5, 2025 (with image processing and integrated launch)  
+**Next Phase:** Depth stream integration, edge detection, and advanced metrics
 
 ---
 
