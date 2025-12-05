@@ -30,13 +30,12 @@ setup(
         'Programming Language :: Python :: 3',
         'Topic :: Software Development',
     ],
-    description='R2D2 perception node for OAK-D camera integration',
-    long_description='Basic perception node that subscribes to OAK-D RGB camera frames and logs diagnostics: frame count, FPS, image dimensions.',
+    description='R2D2 perception node for OAK-D camera integration with image processing and brightness metrics',
+    long_description='Perception node that subscribes to OAK-D RGB camera frames, performs image processing (downscaling, grayscale conversion), computes brightness metrics, and publishes perception data.',
     license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'perception_node = r2d2_perception.perception_node:main',
             'image_listener = r2d2_perception.image_listener:main',
         ],
     },
