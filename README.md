@@ -21,6 +21,13 @@ This is a long-term hobby project focused on learning, robotics, and open-source
 
 Complete setup guides and technical documentation for the R2D2 project:
 
+### Internal Reference (For AI Agents & Developers)
+
+**[00_INTERNAL_AGENT_NOTES.md](00_INTERNAL_AGENT_NOTES.md)**  
+Quick reference guide for AI agents and future developers working on this project. Documents platform-specific patterns, ARM architecture quirks, performance baselines, environment setup order, debugging sequences, and institutional knowledge learned during development. Covers Jetson AGX Orin specifics, OAK-D camera integration details, expected performance metrics (12.8 Hz perception @ 132-136 brightness), and common issue solutions.
+
+### User & Technical Documentation
+
 1. **[01_R2D2_BASIC_SETUP_AND_FINDINGS.md](01_R2D2_BASIC_SETUP_AND_FINDINGS.md)**  
    Initial Jetson AGX Orin setup, ROS 2 Humble installation, workspace configuration, and first functional tests (heartbeat/beep nodes).
 
