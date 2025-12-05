@@ -37,6 +37,7 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_node = r2d2_perception.perception_node:main',
+            'image_listener = r2d2_perception.image_listener:main',
         ],
     },
 )

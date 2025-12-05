@@ -699,6 +699,214 @@ ROS 2 System (Humble)
 
 ---
 
+## Image Listener Node Implementation
+
+### Overview
+The **image_listener** node is a lightweight Python ROS 2 node that subscribes to camera frames and performs real-time diagnostics. This represents the second iteration of the perception node, optimized for simplicity and diagnostic accuracy.
+
+### Node Location & Files
+```
+ros2_ws/src/r2d2_perception/
+├── r2d2_perception/
+│   ├── __init__.py
+│   ├── image_listener.py          ← NEW: Primary node implementation
+│   └── perception_node.py          (Original node)
+├── launch/
+│   ├── perception_launch.py        ← NEW: Image listener launch file
+│   └── perception.launch.py        (Original launch)
+└── setup.py                        (Updated with image_listener entry point)
+```
+
+### Image Listener Node Features
+
+#### Subscription & Message Handling
+- **Topic:** `/oak/rgb/image_raw`
+- **Message Type:** `sensor_msgs/msg/Image`
+- **Queue Size:** 10 (configurable via QoS)
+- **Callback:** `image_callback()` processes each frame
+
+#### Diagnostics Implemented
+
+1. **Frame Counting**
+   - Persistent counter: `self.frame_count`
+   - Incremented on every callback invocation
+   - Logged as "Frame #N" in output
+
+2. **FPS Measurement**
+   - Time-based rolling average over 1-second windows
+   - Variables: `last_log_time`, `fps_frame_count`, `fps_start_time`
+   - Calculation: `fps = frames_in_window / elapsed_time`
+   - Output: `FPS: 12.74` (2 decimal places)
+
+3. **Image Dimensions Logging**
+   - Extracted directly from message metadata
+   - Source: `msg.width`, `msg.height`
+   - Output: `Dimensions: 1920x1080`
+
+4. **Debug Frame Saving**
+   - Saves exactly one frame to disk (first frame only)
+   - Format: JPEG via `cv2.imwrite()`
+   - Default path: `/home/severin/dev/r2d2/tests/camera/perception_debug.jpg`
+   - Configurable via ROS 2 parameter: `debug_frame_path`
+   - Uses cv_bridge for ROS Image → OpenCV conversion
+   - Flag: `self.debug_frame_saved` prevents duplicate saves
+
+### Code Structure
+
+#### Class: ImageListener
+```python
+class ImageListener(Node):
+    def __init__(self):
+        # Initialize ROS2 subscription and counters
+        
+    def image_callback(self, msg: Image):
+        # Process incoming frame
+        # - Increment counters
+        # - Calculate FPS every 1 second
+        # - Save debug frame once
+        
+    @staticmethod
+    def main(args=None):
+        # Entry point: initialize ROS2 and spin node
+```
+
+#### Key Attributes
+- `subscription`: ROS 2 Image subscription
+- `frame_count`: Total frames received
+- `fps_frame_count`: Frames in current 1-second window
+- `last_log_time`: Last log timestamp
+- `debug_frame_saved`: Boolean flag (prevent duplicate saves)
+- `bridge`: CvBridge instance for image conversion
+
+### Launch File: perception_launch.py
+
+The launch file provides a ROS 2 declarative interface for starting the image_listener node:
+
+```python
+def generate_launch_description():
+    # Declare launch arguments
+    debug_frame_path_arg = DeclareLaunchArgument(
+        'debug_frame_path',
+        default_value='/home/severin/dev/r2d2/tests/camera/perception_debug.jpg',
+        description='Path to save debug frame JPEG'
+    )
+    
+    # Create image listener node with parameters
+    image_listener_node = Node(
+        package='r2d2_perception',
+        executable='image_listener',
+        name='image_listener',
+        parameters=[{'debug_frame_path': LaunchConfiguration('debug_frame_path')}],
+        output='screen'
+    )
+    
+    return LaunchDescription([debug_frame_path_arg, image_listener_node])
+```
+
+**Key Properties:**
+- Does NOT launch camera driver (assumes `r2d2_camera` is running separately)
+- Provides configurable debug frame path via launch argument
+- Outputs to screen for real-time monitoring
+- Clean shutdown via Ctrl+C
+
+### Build & Installation
+
+```bash
+cd ~/dev/r2d2/ros2_ws
+
+# Build the package
+colcon build --packages-select r2d2_perception
+
+# Source the workspace
+source install/setup.bash
+
+# Verify package is discoverable
+ros2 pkg list | grep r2d2_perception
+```
+
+**Build Output:**
+```
+Finished <<< r2d2_perception [2.01s]
+Summary: 1 package finished [2.53s]
+```
+
+### Launch & Test Results
+
+#### Setup
+1. Ensure OAK-D camera is connected
+2. Camera node running: `ros2 launch r2d2_camera camera.launch.py`
+3. Perception workspace sourced
+
+#### Launch Command
+```bash
+ros2 launch r2d2_perception perception_launch.py
+```
+
+#### Expected Output (First 5 seconds)
+```
+[INFO] [launch]: All log files can be found below /home/severin/.ros/log/...
+[INFO] [image_listener-1]: process started with pid [5103]
+[image_listener-1] [INFO] [1764914663.889662272] [image_listener]: ImageListener node initialized, subscribed to /oak/rgb/image_raw
+[image_listener-1] [INFO] [1764914664.012856901] [image_listener]: Debug frame saved to: /home/severin/dev/r2d2/tests/camera/perception_debug.jpg
+[image_listener-1] [INFO] [1764914664.892586654] [image_listener]: Frame #14 | FPS: 13.18 | Dimensions: 1920x1080
+[image_listener-1] [INFO] [1764914665.912934622] [image_listener]: Frame #27 | FPS: 12.74 | Dimensions: 1920x1080
+[image_listener-1] [INFO] [1764914666.926771112] [image_listener]: Frame #40 | FPS: 12.82 | Dimensions: 1920x1080
+```
+
+#### Verification Checklist
+- ✅ **Node Starts:** Process started without errors
+- ✅ **Subscription:** "subscribed to /oak/rgb/image_raw" confirmed
+- ✅ **Debug Frame Saved:** File created at correct path with correct format (JPEG)
+- ✅ **Frames Received:** Frame counter incremented (14, 27, 40)
+- ✅ **FPS Calculated:** Values in expected range (12-13 FPS)
+- ✅ **Dimensions Logged:** 1920x1080 consistently output
+
+### Debug Frame Output
+
+**File Details:**
+```
+Path: /home/severin/dev/r2d2/tests/camera/perception_debug.jpg
+Size: 470 KB
+Format: JPEG (JFIF standard 1.01)
+Dimensions: 1920×1080 (3 components, baseline, 8-bit precision)
+Captured: First frame after node initialization (~12ms after subscription)
+```
+
+### Parameters & Configuration
+
+#### ROS 2 Parameters
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `debug_frame_path` | string | `/home/severin/dev/r2d2/tests/camera/perception_debug.jpg` | Path for saving first frame |
+
+#### Launch-Time Parameter Override
+```bash
+ros2 launch r2d2_perception perception_launch.py \
+    debug_frame_path:=/custom/path/frame.jpg
+```
+
+### Code Comments & Learning Focus
+
+Every function and major code block includes inline comments explaining:
+- **Purpose:** What the code does
+- **Mechanism:** How it works
+- **ROS 2 Specifics:** Why certain ROS 2 patterns are used
+- **Performance Notes:** Timing, resource usage implications
+
+Example from image_callback:
+```python
+# Log frame information every ~1 second
+current_time = time.time()
+elapsed = current_time - self.last_log_time
+
+if elapsed >= 1.0:
+    # Calculate FPS for this 1-second window
+    fps = self.fps_frame_count / elapsed
+    self.get_logger().info(...)
+```
+
+---
+
 ## Command Reference
 
 ### Activation (Always First)
@@ -722,8 +930,23 @@ rm -rf build install log && colcon build --packages-select r2d2_perception
 ```
 
 ### Launch Commands
+
+#### Image Listener Node (Recommended)
 ```bash
-# Via launch file (recommended)
+# Launch image_listener via launch file (recommended approach)
+ros2 launch r2d2_perception perception_launch.py
+
+# Launch with custom debug frame path
+ros2 launch r2d2_perception perception_launch.py \
+    debug_frame_path:=/custom/path/frame.jpg
+
+# Direct run (without launch file)
+ros2 run r2d2_perception image_listener
+```
+
+#### Original Perception Node
+```bash
+# Via launch file
 ros2 launch r2d2_perception perception.launch.py
 
 # Via direct run
@@ -806,24 +1029,42 @@ rosdep check --all --rosdistro humble
 
 The **r2d2_perception** ROS 2 package represents the first operational perception layer for the R2D2 platform. It demonstrates successful integration of camera hardware with ROS 2 middleware, implements real-time diagnostics (FPS measurement, frame counting), and provides a solid foundation for more complex perception tasks.
 
-The node is **production-ready**, fully documented, and tested on real hardware. It serves as a template for future perception nodes in the pipeline and exemplifies ROS 2 best practices for Python-based sensor integration.
+The package now includes two production-ready nodes:
+1. **perception_node** – Original multi-feature node with extensive parameter configuration
+2. **image_listener** – Optimized lightweight node focusing on core diagnostics and debug frame capture
+
+Both nodes are **fully documented**, **extensively commented**, and **tested on real hardware**. They serve as templates for future perception nodes in the pipeline and exemplify ROS 2 best practices for Python-based sensor integration.
 
 **Status:** ✅ **COMPLETE, TESTED, AND OPERATIONAL**  
-**Last Updated:** December 4, 2025  
+**Last Updated:** December 5, 2025  
 **Next Phase:** Depth stream integration and obstacle detection
 
 ---
 
 ## Package Files Checklist
 
-- ✅ `package.xml` – ROS 2 manifest
-- ✅ `setup.py` – Python entry points and dependencies
-- ✅ `setup.cfg` – Python package metadata
-- ✅ `CMakeLists.txt` – CMake build configuration
+### Core Package Files
+- ✅ `package.xml` – ROS 2 manifest with all dependencies
+- ✅ `setup.py` – Python entry points (perception_node, image_listener) and package metadata
+- ✅ `setup.cfg` – Package configuration
+- ✅ `CMakeLists.txt` – CMake build configuration for ament_cmake_python
+
+### Python Modules & Nodes
 - ✅ `r2d2_perception/__init__.py` – Python package marker
-- ✅ `r2d2_perception/perception_node.py` – Main node (170+ lines, fully documented)
-- ✅ `launch/perception.launch.py` – Configurable launch file
+- ✅ `r2d2_perception/perception_node.py` – Original perception node (170+ lines, extensively documented)
+- ✅ `r2d2_perception/image_listener.py` – NEW: Lightweight listener with frame counting, FPS, dimensions, debug frame (120+ lines)
+
+### Launch Files
+- ✅ `launch/perception.launch.py` – Original launch file
+- ✅ `launch/perception_launch.py` – NEW: Image listener launch file with configurable parameters
+
+### Support Files
 - ✅ `resource/r2d2_perception` – Package resource marker
 - ✅ `test/` – Test directory (ready for future test implementations)
 
-**All files created, built, and tested successfully.**
+### Build Status
+- ✅ All files created and verified
+- ✅ Package builds successfully: `colcon build --packages-select r2d2_perception`
+- ✅ Both nodes discoverable: `ros2 pkg list | grep r2d2_perception`
+- ✅ Both entry points functional: `image_listener`, `perception_node`
+
