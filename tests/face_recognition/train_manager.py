@@ -236,6 +236,27 @@ class TrainingManager:
         
         person_name = self.get_person_name()
         
+        # Check if person already exists
+        trained = self.list_trained_people()
+        datasets = self.list_training_datasets()
+        
+        if person_name in trained or person_name in datasets:
+            print()
+            print(f'⚠️  Person "{person_name.capitalize()}" already exists!')
+            if person_name in trained:
+                model_file = self.models_dir / f'{person_name}_lbph.xml'
+                size = model_file.stat().st_size / 1024
+                print(f'   - Has trained model: {size:.1f} KB')
+            if person_name in datasets:
+                count = len(list((self.base_dir / person_name).glob('*.jpg')))
+                print(f'   - Has {count} training images')
+            print()
+            confirm = input('Overwrite existing data? (yes/no): ').strip().lower()
+            if confirm != 'yes':
+                print('❌ Cancelled.')
+                input('Press ENTER to return...')
+                return
+        
         # Create directory
         person_dir = self.base_dir / person_name
         person_dir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +264,7 @@ class TrainingManager:
         print(f'\n✓ Set up for: {person_name}')
         print()
         
-        # Step 1: Interactive Capture with 8 tasks
+        # Step 1: Interactive Capture with 4 tasks
         print('STEP 1: Interactive Capture Training Images')
         print('-' * 70)
         proceed = input('Ready to start? (y/n): ').strip().lower()
@@ -317,6 +338,21 @@ class TrainingManager:
         
         try:
             person_name = people[int(choice) - 1]
+            
+            # Show current data and ask for confirmation
+            person_dir = self.base_dir / person_name
+            existing_count = len(list(person_dir.glob('*.jpg')))
+            
+            if existing_count > 0:
+                print()
+                print(f'⚠️  "{person_name.capitalize()}" already has {existing_count} images.')
+                print('   New images will be added to existing dataset.')
+                confirm = input('Continue? (yes/no): ').strip().lower()
+                if confirm != 'yes':
+                    print('❌ Cancelled.')
+                    return
+                print()
+            
             self.run_interactive_training(person_name)
         except (ValueError, IndexError):
             print('❌ Invalid choice.')
