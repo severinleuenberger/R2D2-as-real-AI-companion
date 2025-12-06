@@ -186,14 +186,15 @@ class TrainingManager:
             print('  [1] Train new person (capture + train + test)')
             print('  [2] Add additional training pictures')
             print('  [3] Train model from existing images')
-            print('  [4] Test trained model')
-            print('  [5] List all people and models')
-            print('  [6] Delete person (images + model)')
+            print('  [4] Test trained model (accuracy at distances)')
+            print('  [5] Real-time recognition test (instant feedback)')
+            print('  [6] List all people and models')
+            print('  [7] Delete person (images + model)')
             print('  [0] Exit')
             print('='*70)
             print()
             
-            choice = input('Enter choice (0-6): ').strip()
+            choice = input('Enter choice (0-7): ').strip()
             
             if choice == '1':
                 self.train_person()
@@ -204,8 +205,10 @@ class TrainingManager:
             elif choice == '4':
                 self.test_trained_model()
             elif choice == '5':
-                self.show_all_people()
+                self.realtime_recognition_test()
             elif choice == '6':
+                self.show_all_people()
+            elif choice == '7':
                 self.delete_person()
             elif choice == '0':
                 self.show_header('Exit')
@@ -416,6 +419,62 @@ class TrainingManager:
         try:
             person_name = trained[int(choice) - 1]
             self.run_module('_test_module', person_name)
+        except (ValueError, IndexError):
+            print('❌ Invalid choice.')
+            input('Press ENTER...')
+    
+    def realtime_recognition_test(self):
+        """Real-time face recognition test with instant feedback."""
+        self.show_header('Real-Time Recognition Test')
+        
+        trained = self.list_trained_people()
+        
+        if not trained:
+            print('No trained models found.')
+            print('Train a model first.')
+            input('Press ENTER...')
+            return
+        
+        print('Select person to test:')
+        for i, person in enumerate(trained, 1):
+            print(f'  [{i}] {person.capitalize()}')
+        print(f'  [0] Back')
+        print()
+        
+        choice = input('Enter choice: ').strip()
+        if choice == '0':
+            return
+        
+        try:
+            person_name = trained[int(choice) - 1]
+            
+            # Run real-time recognition test
+            script_path = self.script_dir / 'realtime_recognition_test_headless.py'
+            
+            if not script_path.exists():
+                print(f'❌ Error: {script_path.name} not found')
+                input('Press ENTER...')
+                return
+            
+            import subprocess
+            env = os.environ.copy()
+            
+            # Use depthai environment
+            depthai_env = Path.home() / 'depthai_env'
+            if depthai_env.exists():
+                env['PATH'] = str(depthai_env / 'bin') + ':' + env['PATH']
+                env['VIRTUAL_ENV'] = str(depthai_env)
+            
+            env['OPENBLAS_CORETYPE'] = 'ARMV8'
+            
+            # Run with 30 second duration and threshold 70 (best we found)
+            subprocess.run(
+                ['python3', str(script_path), person_name, str(self.base_dir), '30', '70'],
+                env=env,
+                check=False
+            )
+            
+            input('Press ENTER to return to menu...')
         except (ValueError, IndexError):
             print('❌ Invalid choice.')
             input('Press ENTER...')
