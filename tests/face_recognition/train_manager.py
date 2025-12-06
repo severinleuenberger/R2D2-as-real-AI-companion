@@ -119,15 +119,15 @@ class TrainingManager:
     
     def run_interactive_training(self, person_name):
         """
-        Run the interactive training system.
+        Run the simplified interactive training system (4 tasks).
         
         Args:
             person_name: Name of person being trained
         """
-        script_path = self.script_dir / 'interactive_training.py'
+        script_path = self.script_dir / 'interactive_training_simple.py'
         
         if not script_path.exists():
-            print(f'❌ Error: interactive_training.py not found at {script_path}')
+            print(f'❌ Error: interactive_training_simple.py not found at {script_path}')
             return False
         
         # Set up environment
@@ -143,41 +143,13 @@ class TrainingManager:
         env['OPENBLAS_CORETYPE'] = 'ARMV8'
         
         try:
-            # Run interactive training script directly with person_name as argument
-            import tempfile
-            
-            # Create a temporary Python script that imports and runs InteractiveTraining
-            temp_script = f"""
-import sys
-sys.path.insert(0, r'{self.script_dir}')
-from interactive_training import InteractiveTraining
-from pathlib import Path
-
-person_name = '{person_name}'
-output_dir = Path(r'{self.base_dir}')
-
-training = InteractiveTraining(person_name, output_dir)
-success = training.run()
-sys.exit(0 if success else 1)
-"""
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir='/tmp') as f:
-                f.write(temp_script)
-                temp_path = f.name
-            
-            try:
-                result = subprocess.run(
-                    ['python3', temp_path],
-                    env=env,
-                    check=False
-                )
-                return result.returncode == 0
-            finally:
-                import os as os_module
-                try:
-                    os_module.unlink(temp_path)
-                except:
-                    pass
+            # Run interactive training script with person_name and output_dir as arguments
+            result = subprocess.run(
+                ['python3', str(script_path), person_name, str(self.base_dir)],
+                env=env,
+                check=False
+            )
+            return result.returncode == 0
         
         except Exception as e:
             print(f'❌ Error running interactive training: {e}')
