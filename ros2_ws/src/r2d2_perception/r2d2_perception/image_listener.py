@@ -7,7 +7,7 @@ Subscribes to OAK-D RGB camera topic, performs image processing, and publishes p
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import Float32, Int32
+from std_msgs.msg import Float32, Int32, String, Bool
 from cv_bridge import CvBridge
 import cv2
 import time
@@ -28,8 +28,11 @@ class ImageListener(Node):
       * Converts to grayscale
       * Computes mean brightness
     - Detects faces using OpenCV Haar Cascade
+    - Recognizes personal faces using LBPH (if enabled and model available)
     - Publishes brightness on /r2d2/perception/brightness (std_msgs/Float32)
     - Publishes face count on /r2d2/perception/face_count (std_msgs/Int32)
+    - Publishes person ID on /r2d2/perception/person_id (std_msgs/String, if recognition enabled)
+    - Publishes person confidence on /r2d2/perception/face_confidence (std_msgs/Float32, if recognition enabled)
     - Saves debug frames (RGB and grayscale) on demand
     """
     
@@ -43,6 +46,13 @@ class ImageListener(Node):
         self.declare_parameter('debug_gray_frame_path', '/home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg')
         self.declare_parameter('log_every_n_frames', 30)  # Log brightness every N frames
         self.declare_parameter('log_face_detections', False)  # Enable verbose face detection logging
+        self.declare_parameter('high_frequency_logging', False)  # Log every frame (for testing)
+        
+        # Face recognition parameters (LBPH)
+        self.declare_parameter('enable_face_recognition', False)  # Enable personal face recognition
+        self.declare_parameter('face_recognition_model_path', '/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml')
+        self.declare_parameter('recognition_confidence_threshold', 70.0)  # Confidence threshold for "Severin"
+        self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
@@ -50,6 +60,13 @@ class ImageListener(Node):
         self.debug_gray_frame_path = self.get_parameter('debug_gray_frame_path').value
         self.log_every_n = self.get_parameter('log_every_n_frames').value
         self.log_faces = self.get_parameter('log_face_detections').value
+        self.high_freq_logging = self.get_parameter('high_frequency_logging').value
+        
+        # Face recognition parameters
+        self.enable_recognition = self.get_parameter('enable_face_recognition').value
+        self.recognition_model_path = self.get_parameter('face_recognition_model_path').value
+        self.recognition_threshold = self.get_parameter('recognition_confidence_threshold').value
+        self.recognition_frame_skip = self.get_parameter('recognition_frame_skip').value
         
         # Create subscription to camera topic
         self.subscription = self.create_subscription(
@@ -70,6 +87,25 @@ class ImageListener(Node):
         self.face_count_publisher = self.create_publisher(
             Int32,
             '/r2d2/perception/face_count',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
+        # Create publishers for face recognition (if enabled)
+        self.person_id_publisher = self.create_publisher(
+            String,
+            '/r2d2/perception/person_id',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
+        self.face_confidence_publisher = self.create_publisher(
+            Float32,
+            '/r2d2/perception/face_confidence',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
+        self.is_person_publisher = self.create_publisher(
+            Bool,
+            '/r2d2/perception/is_severin',
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
@@ -117,8 +153,30 @@ class ImageListener(Node):
         self.cascade_min_size = (30, 30)
         self.cascade_max_size = (500, 500)
         
+        # Load LBPH face recognizer if enabled
+        self.face_recognizer = None
+        self.recognition_enabled = False
+        if self.enable_recognition:
+            if os.path.exists(self.recognition_model_path):
+                try:
+                    self.face_recognizer = cv2.face.LBPHFaceRecognizer_create()
+                    self.face_recognizer.read(self.recognition_model_path)
+                    self.recognition_enabled = True
+                    self.get_logger().info(f'LBPH face recognizer loaded from {self.recognition_model_path}')
+                except Exception as e:
+                    self.get_logger().warn(f'Failed to load LBPH model: {e}. Recognition disabled.')
+                    self.recognition_enabled = False
+            else:
+                self.get_logger().warn(f'LBPH model not found at {self.recognition_model_path}. Recognition disabled.')
+        
+        # Counter for recognition frame skip (process every Nth frame)
+        self.recognition_frame_counter = 0
+        
         self.get_logger().info('ImageListener node initialized, subscribed to /oak/rgb/image_raw')
-        self.get_logger().info(f'Face detection enabled with Haar Cascade classifier')
+        if self.recognition_enabled:
+            self.get_logger().info(f'Face recognition enabled (threshold={self.recognition_threshold}, frame_skip={self.recognition_frame_skip})')
+        else:
+            self.get_logger().info('Face detection enabled with Haar Cascade classifier')
     
     def image_callback(self, msg: Image):
         """
@@ -179,14 +237,61 @@ class ImageListener(Node):
         face_count_msg.data = face_count
         self.face_count_publisher.publish(face_count_msg)
         
-        # Log every N frames to keep output readable
-        if self.frame_count % self.log_every_n == 0:
+        # Perform face recognition if enabled and faces detected
+        if self.recognition_enabled and face_count > 0:
+            # Use frame skip to manage CPU load (process every Nth frame)
+            self.recognition_frame_counter += 1
+            if self.recognition_frame_counter >= self.recognition_frame_skip:
+                self.recognition_frame_counter = 0
+                
+                # Process the first detected face for recognition
+                if len(faces) > 0:
+                    (x, y, w, h) = faces[0]  # Use first face
+                    face_roi = gray_image[y:y+h, x:x+w]
+                    face_resized = cv2.resize(face_roi, (100, 100))
+                    
+                    try:
+                        label, confidence = self.face_recognizer.predict(face_resized)
+                        
+                        # Interpret result (label=0 is Severin, lower confidence is better)
+                        is_severin = (confidence < self.recognition_threshold)
+                        person_name = "severin" if is_severin else "unknown"
+                        
+                        # Publish person ID
+                        person_id_msg = String()
+                        person_id_msg.data = person_name
+                        self.person_id_publisher.publish(person_id_msg)
+                        
+                        # Publish confidence
+                        confidence_msg = Float32()
+                        confidence_msg.data = float(confidence)
+                        self.face_confidence_publisher.publish(confidence_msg)
+                        
+                        # Publish boolean for convenience
+                        is_person_msg = Bool()
+                        is_person_msg.data = is_severin
+                        self.is_person_publisher.publish(is_person_msg)
+                        
+                    except Exception as e:
+                        self.get_logger().error(f'Face recognition failed: {e}')
+        
+        # Determine logging frequency
+        log_this_frame = False
+        if self.high_freq_logging:
+            # Log every frame when high frequency logging is enabled
+            log_this_frame = True
+        elif self.frame_count % self.log_every_n == 0:
+            # Otherwise log based on log_every_n parameter
+            log_this_frame = True
+        
+        # Log frame data if conditions are met
+        if log_this_frame:
             current_time = time.time()
             elapsed = current_time - self.last_log_time
             
-            if elapsed >= 1.0:
-                # Calculate FPS for this time window
-                fps = self.fps_frame_count / elapsed
+            if elapsed >= 1.0 or self.high_freq_logging:
+                # Calculate FPS for this time window (or per-frame for high frequency)
+                fps = self.fps_frame_count / elapsed if elapsed > 0 else 0
                 self.get_logger().info(
                     f'Frame #{self.frame_count} | FPS: {fps:.2f} | '
                     f'Original: {original_width}x{original_height} | '
@@ -200,9 +305,10 @@ class ImageListener(Node):
                             f'  Face {i+1}: position=({x}, {y}), size={w}x{h}'
                         )
                 
-                # Reset counters for next window
-                self.last_log_time = current_time
-                self.fps_frame_count = 0
+                # Reset counters for next window (only if not high frequency)
+                if not self.high_freq_logging:
+                    self.last_log_time = current_time
+                    self.fps_frame_count = 0
         
         # Save RGB debug frame once (first frame)
         if not self.debug_rgb_saved:

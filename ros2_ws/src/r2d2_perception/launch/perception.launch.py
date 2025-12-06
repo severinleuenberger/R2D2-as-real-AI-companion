@@ -53,6 +53,31 @@ def generate_launch_description():
         description='Enable verbose logging of face detections (bounding box info)'
     )
     
+    # Declare launch arguments for face recognition (LBPH)
+    enable_recognition_arg = DeclareLaunchArgument(
+        'enable_face_recognition',
+        default_value='false',
+        description='Enable personal face recognition using LBPH'
+    )
+    
+    recognition_model_arg = DeclareLaunchArgument(
+        'face_recognition_model_path',
+        default_value='/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml',
+        description='Path to trained LBPH face recognizer model'
+    )
+    
+    recognition_threshold_arg = DeclareLaunchArgument(
+        'recognition_confidence_threshold',
+        default_value='70.0',
+        description='Confidence threshold for recognizing Severin (lower is higher confidence)'
+    )
+    
+    recognition_skip_arg = DeclareLaunchArgument(
+        'recognition_frame_skip',
+        default_value='2',
+        description='Process face recognition every N frames to manage CPU load'
+    )
+    
     # Create the image listener node with all parameters
     image_listener_node = Node(
         package='r2d2_perception',
@@ -64,6 +89,10 @@ def generate_launch_description():
             {'debug_gray_frame_path': LaunchConfiguration('debug_gray_frame_path')},
             {'log_every_n_frames': LaunchConfiguration('log_every_n_frames')},
             {'log_face_detections': LaunchConfiguration('log_face_detections')},
+            {'enable_face_recognition': LaunchConfiguration('enable_face_recognition')},
+            {'face_recognition_model_path': LaunchConfiguration('face_recognition_model_path')},
+            {'recognition_confidence_threshold': LaunchConfiguration('recognition_confidence_threshold')},
+            {'recognition_frame_skip': LaunchConfiguration('recognition_frame_skip')},
         ],
         output='screen'
     )
@@ -75,5 +104,9 @@ def generate_launch_description():
         debug_gray_path_arg,
         log_every_n_arg,
         log_faces_arg,
+        enable_recognition_arg,
+        recognition_model_arg,
+        recognition_threshold_arg,
+        recognition_skip_arg,
         image_listener_node,
     ])
