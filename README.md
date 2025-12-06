@@ -39,10 +39,13 @@ Quick reference guide for AI agents and future developers working on this projec
 
 ### Face Recognition System
 
-4. **[06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md)**  
+4. **[05_FACE_RECOGNITION_INTEGRATION.md](05_FACE_RECOGNITION_INTEGRATION.md)**  
+   ROS 2 integration guide for face recognition system with depth camera integration, topic publishing, and system architecture overview.
+
+5. **[06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md)**  
    Complete face recognition training workflow, status monitoring, and LED integration guide. Covers training data collection (4-stage interactive system), model training with LBPH, real-time status reporting via JSON file, and LED integration examples for GPIO/HTTP control.
 
-5. **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)**  
+6. **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)**  
    Detailed analysis of face recognition service CPU usage and performance characteristics. Includes measured data: face detection (1.69 ms), face recognition (18.07 ms), total pipeline cost (~16 ms per frame), CPU usage at different settings (10-15% at default), and scaling analysis for multiple people recognition.
 
 ---
