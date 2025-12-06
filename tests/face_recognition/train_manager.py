@@ -184,7 +184,7 @@ class TrainingManager:
             print('='*70)
             print('MENU OPTIONS:')
             print('  [1] Train new person (capture + train + test)')
-            print('  [2] Capture images for person')
+            print('  [2] Add additional training pictures')
             print('  [3] Train model from existing images')
             print('  [4] Test trained model')
             print('  [5] List all people and models')
@@ -198,7 +198,7 @@ class TrainingManager:
             if choice == '1':
                 self.train_person()
             elif choice == '2':
-                self.capture_for_person()
+                self.add_training_pictures()
             elif choice == '3':
                 self.train_existing_person()
             elif choice == '4':
@@ -312,9 +312,9 @@ class TrainingManager:
         
         input('Press ENTER to return to menu...')
     
-    def capture_for_person(self):
-        """Capture images for existing person."""
-        self.show_header('Capture Images (Interactive)')
+    def add_training_pictures(self):
+        """Add additional training pictures for existing person."""
+        self.show_header('Add Additional Training Pictures')
         
         trained = self.list_trained_people()
         datasets = self.list_training_datasets()
@@ -325,7 +325,7 @@ class TrainingManager:
             input('Press ENTER...')
             return
         
-        print('Select person:')
+        print('Select person to add more pictures to:')
         for i, person in enumerate(people, 1):
             count = datasets.get(person, 0)
             print(f'  [{i}] {person.capitalize()} ({count} images)')
@@ -345,9 +345,11 @@ class TrainingManager:
             
             if existing_count > 0:
                 print()
-                print(f'⚠️  "{person_name.capitalize()}" already has {existing_count} images.')
-                print('   New images will be added to existing dataset.')
-                confirm = input('Continue? (yes/no): ').strip().lower()
+                print(f'Current dataset for "{person_name.capitalize()}":')
+                print(f'  • {existing_count} images')
+                print()
+                print('New images will be ADDED to this existing dataset.')
+                confirm = input('Continue adding more pictures? (yes/no): ').strip().lower()
                 if confirm != 'yes':
                     print('❌ Cancelled.')
                     return
