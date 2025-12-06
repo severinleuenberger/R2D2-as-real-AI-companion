@@ -1,0 +1,12 @@
+# Training images - keep locally on Jetson only
+# Do not commit face training data to GitHub
+*.jpg
+*.png
+*.jpeg
+
+# But keep the models
+!models/
+!models/*.xml
+
+# And keep the directory structure
+!.gitkeep
