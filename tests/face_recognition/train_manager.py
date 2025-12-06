@@ -117,6 +117,72 @@ class TrainingManager:
             print(f'❌ Error running module: {e}')
             return False
     
+    def run_interactive_training(self, person_name):
+        """
+        Run the interactive training system.
+        
+        Args:
+            person_name: Name of person being trained
+        """
+        script_path = self.script_dir / 'interactive_training.py'
+        
+        if not script_path.exists():
+            print(f'❌ Error: interactive_training.py not found at {script_path}')
+            return False
+        
+        # Set up environment
+        env = os.environ.copy()
+        
+        # Try to use the depthai virtual environment
+        depthai_env = Path.home() / 'depthai_env'
+        if depthai_env.exists():
+            env['PATH'] = str(depthai_env / 'bin') + ':' + env['PATH']
+            env['VIRTUAL_ENV'] = str(depthai_env)
+        
+        # Set ARM optimization if needed
+        env['OPENBLAS_CORETYPE'] = 'ARMV8'
+        
+        try:
+            # Run interactive training script directly with person_name as argument
+            import tempfile
+            
+            # Create a temporary Python script that imports and runs InteractiveTraining
+            temp_script = f"""
+import sys
+sys.path.insert(0, r'{self.script_dir}')
+from interactive_training import InteractiveTraining
+from pathlib import Path
+
+person_name = '{person_name}'
+output_dir = Path(r'{self.base_dir}')
+
+training = InteractiveTraining(person_name, output_dir)
+success = training.run()
+sys.exit(0 if success else 1)
+"""
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir='/tmp') as f:
+                f.write(temp_script)
+                temp_path = f.name
+            
+            try:
+                result = subprocess.run(
+                    ['python3', temp_path],
+                    env=env,
+                    check=False
+                )
+                return result.returncode == 0
+            finally:
+                import os as os_module
+                try:
+                    os_module.unlink(temp_path)
+                except:
+                    pass
+        
+        except Exception as e:
+            print(f'❌ Error running interactive training: {e}')
+            return False
+    
     def main_menu(self):
         """Main menu loop."""
         while True:
@@ -193,7 +259,7 @@ class TrainingManager:
         """Complete training workflow for new person."""
         self.show_header('Train New Person')
         
-        print('Complete workflow: capture → train → test')
+        print('Complete workflow: interactive capture → train → test')
         print()
         
         person_name = self.get_person_name()
@@ -205,12 +271,12 @@ class TrainingManager:
         print(f'\n✓ Set up for: {person_name}')
         print()
         
-        # Step 1: Capture
-        print('STEP 1: Capture Training Images')
+        # Step 1: Interactive Capture with 8 tasks
+        print('STEP 1: Interactive Capture Training Images')
         print('-' * 70)
-        proceed = input('Ready to capture? (y/n): ').strip().lower()
+        proceed = input('Ready to start? (y/n): ').strip().lower()
         if proceed == 'y':
-            self.run_module('_capture_module', person_name)
+            self.run_interactive_training(person_name)
         
         # Check if images exist
         images = list(person_dir.glob('*.jpg'))
@@ -255,7 +321,7 @@ class TrainingManager:
     
     def capture_for_person(self):
         """Capture images for existing person."""
-        self.show_header('Capture Images')
+        self.show_header('Capture Images (Interactive)')
         
         trained = self.list_trained_people()
         datasets = self.list_training_datasets()
@@ -279,7 +345,7 @@ class TrainingManager:
         
         try:
             person_name = people[int(choice) - 1]
-            self.run_module('_capture_module', person_name)
+            self.run_interactive_training(person_name)
         except (ValueError, IndexError):
             print('❌ Invalid choice.')
             input('Press ENTER...')
