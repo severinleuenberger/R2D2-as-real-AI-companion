@@ -1,0 +1,19 @@
+[Unit]
+Description=R2D2 Face Recognition Service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=severin
+WorkingDirectory=/home/severin/dev/r2d2/tests/face_recognition
+Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+Environment="OPENBLAS_CORETYPE=ARMV8"
+ExecStart=/home/severin/depthai_env/bin/python3 /home/severin/dev/r2d2/tests/face_recognition/face_recognition_service.py start severin /home/severin/dev/r2d2/data/face_recognition
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

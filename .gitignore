@@ -17,6 +17,10 @@ __pycache__/
 tests/audio/*.wav
 # tests/camera/*.jpg  # Allow camera test photos to be committed
 
+# Face Recognition training data (protect locally, don't share on GitHub)
+data/face_recognition/*/
+!data/face_recognition/models/
+
 # Temporary files
 *.swp
 *.swo
