@@ -7,7 +7,7 @@ Subscribes to OAK-D RGB camera topic, performs image processing, and publishes p
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Int32
 from cv_bridge import CvBridge
 import cv2
 import time
@@ -27,7 +27,9 @@ class ImageListener(Node):
       * Downscales image to 640x360
       * Converts to grayscale
       * Computes mean brightness
+    - Detects faces using OpenCV Haar Cascade
     - Publishes brightness on /r2d2/perception/brightness (std_msgs/Float32)
+    - Publishes face count on /r2d2/perception/face_count (std_msgs/Int32)
     - Saves debug frames (RGB and grayscale) on demand
     """
     
@@ -40,12 +42,14 @@ class ImageListener(Node):
         self.declare_parameter('save_debug_gray_frame', False)
         self.declare_parameter('debug_gray_frame_path', '/home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg')
         self.declare_parameter('log_every_n_frames', 30)  # Log brightness every N frames
+        self.declare_parameter('log_face_detections', False)  # Enable verbose face detection logging
         
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
         self.save_debug_gray = self.get_parameter('save_debug_gray_frame').value
         self.debug_gray_frame_path = self.get_parameter('debug_gray_frame_path').value
         self.log_every_n = self.get_parameter('log_every_n_frames').value
+        self.log_faces = self.get_parameter('log_face_detections').value
         
         # Create subscription to camera topic
         self.subscription = self.create_subscription(
@@ -62,6 +66,13 @@ class ImageListener(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
+        # Create publisher for face count metric
+        self.face_count_publisher = self.create_publisher(
+            Int32,
+            '/r2d2/perception/face_count',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
         # Initialize frame tracking
         self.frame_count = 0
         self.last_log_time = time.time()
@@ -74,7 +85,40 @@ class ImageListener(Node):
         # CV bridge for ROS Image ↔ OpenCV conversion
         self.bridge = CvBridge()
         
+        # Load face cascade classifier for face detection
+        # Try multiple paths for compatibility with different OpenCV installations
+        cascade_paths = [
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'  if hasattr(cv2, 'data') else '',
+            '/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
+            '/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml',
+        ]
+        
+        self.face_cascade = None
+        cascade_found = False
+        for cascade_path in cascade_paths:
+            if not cascade_path or not os.path.exists(cascade_path):
+                continue
+            try:
+                self.face_cascade = cv2.CascadeClassifier(cascade_path)
+                if not self.face_cascade.empty():
+                    cascade_found = True
+                    self.get_logger().info(f'Haar Cascade loaded successfully from {cascade_path}')
+                    break
+            except Exception:
+                continue
+        
+        if not cascade_found or self.face_cascade is None or self.face_cascade.empty():
+            self.face_cascade = None
+            self.get_logger().warn('Failed to load Haar Cascade. Face detection will be disabled.')
+        
+        # Face detection parameters
+        self.cascade_scale_factor = 1.05
+        self.cascade_min_neighbors = 5
+        self.cascade_min_size = (30, 30)
+        self.cascade_max_size = (500, 500)
+        
         self.get_logger().info('ImageListener node initialized, subscribed to /oak/rgb/image_raw')
+        self.get_logger().info(f'Face detection enabled with Haar Cascade classifier')
     
     def image_callback(self, msg: Image):
         """
@@ -113,6 +157,28 @@ class ImageListener(Node):
         brightness_msg.data = mean_brightness
         self.brightness_publisher.publish(brightness_msg)
         
+        # Detect faces using Haar Cascade on grayscale image
+        face_count = 0
+        faces = []
+        if self.face_cascade is not None and not self.face_cascade.empty():
+            try:
+                faces = self.face_cascade.detectMultiScale(
+                    gray_image,
+                    scaleFactor=self.cascade_scale_factor,
+                    minNeighbors=self.cascade_min_neighbors,
+                    minSize=self.cascade_min_size,
+                    maxSize=self.cascade_max_size,
+                    flags=cv2.CASCADE_SCALE_IMAGE
+                )
+                face_count = len(faces)
+            except Exception as e:
+                self.get_logger().error(f'Face detection failed: {e}')
+        
+        # Publish face count
+        face_count_msg = Int32()
+        face_count_msg.data = face_count
+        self.face_count_publisher.publish(face_count_msg)
+        
         # Log every N frames to keep output readable
         if self.frame_count % self.log_every_n == 0:
             current_time = time.time()
@@ -124,8 +190,15 @@ class ImageListener(Node):
                 self.get_logger().info(
                     f'Frame #{self.frame_count} | FPS: {fps:.2f} | '
                     f'Original: {original_width}x{original_height} | '
-                    f'Brightness: {mean_brightness:.1f}'
+                    f'Brightness: {mean_brightness:.1f} | Faces: {face_count}'
                 )
+                
+                # Log bounding box details if verbose face detection is enabled
+                if self.log_faces and face_count > 0:
+                    for i, (x, y, w, h) in enumerate(faces):
+                        self.get_logger().info(
+                            f'  Face {i+1}: position=({x}, {y}), size={w}x{h}'
+                        )
                 
                 # Reset counters for next window
                 self.last_log_time = current_time

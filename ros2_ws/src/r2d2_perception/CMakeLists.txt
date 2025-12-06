@@ -16,6 +16,18 @@ install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Create symlink from bin to lib for ROS 2 launch compatibility
+# This allows ros2 launch to find executables in lib/${PROJECT_NAME}/
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib_target")
+
+install(
+  DIRECTORY
+    "${CMAKE_CURRENT_BINARY_DIR}/../../install/r2d2_perception/bin/"
+  DESTINATION
+    "lib/${PROJECT_NAME}"
+  USE_SOURCE_PERMISSIONS
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()

@@ -46,6 +46,13 @@ def generate_launch_description():
         description='Log perception metrics every N frames'
     )
     
+    # Declare launch argument for verbose face detection logging
+    log_faces_arg = DeclareLaunchArgument(
+        'log_face_detections',
+        default_value='false',
+        description='Enable verbose logging of face detections (bounding box info)'
+    )
+    
     # Create the image listener node with all parameters
     image_listener_node = Node(
         package='r2d2_perception',
@@ -56,6 +63,7 @@ def generate_launch_description():
             {'save_debug_gray_frame': LaunchConfiguration('save_debug_gray_frame')},
             {'debug_gray_frame_path': LaunchConfiguration('debug_gray_frame_path')},
             {'log_every_n_frames': LaunchConfiguration('log_every_n_frames')},
+            {'log_face_detections': LaunchConfiguration('log_face_detections')},
         ],
         output='screen'
     )
@@ -66,5 +74,6 @@ def generate_launch_description():
         save_debug_gray_arg,
         debug_gray_path_arg,
         log_every_n_arg,
+        log_faces_arg,
         image_listener_node,
     ])

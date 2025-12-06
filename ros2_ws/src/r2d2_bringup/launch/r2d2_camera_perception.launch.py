@@ -38,6 +38,12 @@ def generate_launch_description():
         description='Log perception metrics every N frames'
     )
     
+    log_faces_arg = DeclareLaunchArgument(
+        'log_face_detections',
+        default_value='false',
+        description='Enable verbose logging of face detections (bounding box info)'
+    )
+    
     # Include camera launch file from r2d2_camera
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -53,6 +59,7 @@ def generate_launch_description():
         launch_arguments={
             'save_debug_gray_frame': LaunchConfiguration('save_debug_gray_frame'),
             'log_every_n_frames': LaunchConfiguration('log_every_n_frames'),
+            'log_face_detections': LaunchConfiguration('log_face_detections'),
         }.items()
     )
     
@@ -60,6 +67,7 @@ def generate_launch_description():
     return LaunchDescription([
         save_debug_gray_arg,
         log_every_n_arg,
+        log_faces_arg,
         camera_launch,
         perception_launch,
     ])
