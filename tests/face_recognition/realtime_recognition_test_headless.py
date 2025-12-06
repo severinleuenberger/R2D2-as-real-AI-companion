@@ -72,19 +72,20 @@ class RealtimeRecognitionTestHeadless:
         if self.device:
             self.device.close()
     
-    def run(self, duration=60):
+    def run(self, duration=30, confidence_threshold=50):
         """
         Run real-time recognition test.
         
         Args:
-            duration: How long to run in seconds (default 60)
+            duration: How long to run in seconds (default 30)
+            confidence_threshold: Confidence score threshold (lower = stricter, default 50)
         """
         print('=' * 70)
         print('REAL-TIME FACE RECOGNITION TEST (HEADLESS)')
         print('=' * 70)
         print()
         print(f'Testing recognition for: {self.person_name.upper()}')
-        print(f'Confidence threshold: 50 (lower = better match)')
+        print(f'Confidence threshold: {confidence_threshold} (lower = better match)')
         print(f'Duration: {duration} seconds')
         print()
         print('Continuous feedback:')
@@ -128,8 +129,8 @@ class RealtimeRecognitionTestHeadless:
                         # Predict
                         label, confidence = self.recognizer.predict(face_roi)
                         
-                        # Check if it's the trained person (confidence < 50)
-                        if confidence < 50:  # Better match
+                        # Check if it's the trained person (confidence < threshold)
+                        if confidence < confidence_threshold:  # Better match
                             recognized_count += 1
                             current_feedback = f"✅ {self.person_name.upper()} RECOGNIZED! (confidence: {confidence:.0f})"
                         else:
@@ -202,17 +203,25 @@ if __name__ == "__main__":
     person_name = sys.argv[1]
     data_dir = sys.argv[2]
     
-    # Optional third argument for duration
-    duration = 60
+    # Optional arguments
+    duration = 30  # Default to 30 seconds
+    confidence_threshold = 50
+    
     if len(sys.argv) > 3:
         try:
             duration = int(sys.argv[3])
         except ValueError:
-            duration = 60
+            duration = 30
+    
+    if len(sys.argv) > 4:
+        try:
+            confidence_threshold = int(sys.argv[4])
+        except ValueError:
+            confidence_threshold = 50
     
     try:
         test = RealtimeRecognitionTestHeadless(person_name, data_dir)
-        test.run(duration=duration)
+        test.run(duration=duration, confidence_threshold=confidence_threshold)
     except Exception as e:
         print(f"❌ Error: {e}")
         sys.exit(1)
