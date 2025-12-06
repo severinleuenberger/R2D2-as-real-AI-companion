@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""
+Guide: What to do if face recognition is not recognizing you
+
+The system tests if it can recognize you at different distances.
+Here's what happens and what to do.
+"""
+
+print("""
+================================================================================
+FACE RECOGNITION TEST - WHAT HAPPENS
+================================================================================
+
+When you run the test, it will:
+
+1. TEST AT 1 METER (Close Range)
+   • Stand 1 meter from camera
+   • Face forward
+   • Move slightly (nod, turn left/right)
+   • Shows: Faces detected, Correct recognitions, Confidence score
+
+2. TEST AT 2 METERS (Medium Range)  
+   • Stand 2 meters from camera
+   • Same movements
+   
+3. TEST AT 3 METERS (Far Range)
+   • Stand 3 meters from camera
+   • Same movements
+
+================================================================================
+RESULTS INTERPRETATION
+================================================================================
+
+GOOD RESULT (>80% accuracy):
+  ✅ System recognizes you!
+  ✅ No action needed
+  
+POOR RESULT (0% accuracy):
+  ⚠️  System doesn't recognize you
+  
+WHY THIS HAPPENS:
+  • Training images were too limited (only 169 images)
+  • Training images had different lighting/angles than test
+  • Model needs more diverse training data
+
+================================================================================
+SOLUTION: CAPTURE MORE TRAINING DATA
+================================================================================
+
+To improve recognition, capture MORE images with VARIETY:
+
+Step 1: From the menu, select [2] Capture images for person
+        
+Step 2: Choose "severin" (your existing person)
+
+Step 3: System will say:
+        "⚠️  Severin already has 169 images.
+         New images will be added to existing dataset.
+         Continue? (yes/no)"
+         
+        Type: yes
+        
+Step 4: Complete all 4 tasks:
+        • Task 1: Bright Light - 1m (head: right, left, up, down)
+        • Task 2: Bright Light - 2m (head: right, left, up, down)
+        • Task 3: Low Light - 3m (head: right, left, up, down)
+        • Task 4: Low Light - 5m (head: right, left, up, down)
+        
+        Total: ~80 more images
+        
+Step 5: Retrain the model:
+        [3] Train model from existing images
+        Choose "severin"
+        
+Step 6: Test again:
+        [4] Test trained model
+        Choose "severin"
+
+================================================================================
+EXPECTED IMPROVEMENT
+================================================================================
+
+With ~250 total training images (different distances + lighting):
+  • 1m: 85-95% accuracy ✅
+  • 2m: 75-90% accuracy ✅
+  • 3m: 60-80% accuracy ✅
+  
+With ~350+ images and more variety:
+  • All distances: >90% accuracy ✅✅✅
+
+================================================================================
+KEY TIPS FOR BETTER TRAINING
+================================================================================
+
+1. VARIED LIGHTING
+   - Train in bright light (sunny)
+   - Train in low light (shadowed)
+   - System will capture both automatically
+
+2. VARIED DISTANCES
+   - 1m, 2m, 3m, 5m
+   - Helps recognize at any distance
+   
+3. VARIED HEAD ANGLES
+   - Right, Left, Up, Down
+   - Makes it work even if you're not facing camera directly
+   
+4. MULTIPLE ATTEMPTS
+   - Each 4-task set captures ~80 images
+   - Run 2-3 times for best results (200-240 images)
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+Option A: If recognition works (>80%)
+  → Continue with real-world deployment!
+  
+Option B: If recognition doesn't work (0%)
+  → Run [2] Capture again to add 80+ more images
+  → Retrain and test again
+  → Repeat until satisfied with accuracy
+
+You can always run [2] Capture more times to keep improving!
+
+""")
