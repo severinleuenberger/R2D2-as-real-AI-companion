@@ -26,6 +26,9 @@ import os
 import time
 from datetime import datetime
 
+# Use non-GUI backend
+cv2.setNumThreads(2)  # ARM optimization
+
 
 class TrainingDataCapture:
     """Captures diverse face training images from OAK-D camera."""
@@ -52,8 +55,8 @@ class TrainingDataCapture:
         print('\n[Camera] Initializing OAK-D Lite...')
         self.pipeline = dai.Pipeline()
         self.cam = self.pipeline.createColorCamera()
-        self.cam.setBoardSocket(dai.CameraBoardSocket.RGB)
-        self.cam.setResolution(dai.ColorCameraProperties.SensorSize.THE_1080_P)
+        self.cam.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+        self.cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         self.cam.setFps(30)
         
         # Create output node for frames
@@ -86,11 +89,13 @@ class TrainingDataCapture:
         
         start_time = time.time()
         stage_saved = 0
+        frame_count = 0
         
         while True:
             # Get frame from camera
             in_frame = self.queue.get()
             frame = in_frame.getCvFrame()
+            frame_count += 1
             
             # Detect faces in frame
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -147,15 +152,11 @@ class TrainingDataCapture:
                 2
             )
             
-            # Show display frame (helpful for real-time feedback)
-            cv2.imshow('Training Data Capture', display_frame)
+            # Log progress to console instead of displaying (headless environment)
+            if frame_count % 30 == 0:  # Log every 30 frames (~1 second at 30 fps)
+                print(f'  [{elapsed:.1f}s] {stage_saved} faces captured...')
             
-            # Check for timeout or exit
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                print('Capture interrupted by user.')
-                return False
-            
+            # Check for timeout (no cv2.waitKey in headless mode)
             if elapsed > duration_seconds:
                 break
         

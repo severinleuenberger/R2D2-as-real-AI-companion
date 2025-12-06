@@ -30,6 +30,9 @@ import os
 import time
 from datetime import datetime
 
+# Use non-GUI backend
+cv2.setNumThreads(2)  # ARM optimization
+
 
 class FaceRecognitionDemo:
     """Runs interactive face recognition demo at multiple distances."""
@@ -63,8 +66,8 @@ class FaceRecognitionDemo:
         print('[Camera] Initializing OAK-D Lite...')
         self.pipeline = dai.Pipeline()
         self.cam = self.pipeline.createColorCamera()
-        self.cam.setBoardSocket(dai.CameraBoardSocket.RGB)
-        self.cam.setResolution(dai.ColorCameraProperties.SensorSize.THE_1080_P)
+        self.cam.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+        self.cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         self.cam.setFps(30)
         
         self.out = self.pipeline.createXLinkOut()
@@ -147,13 +150,8 @@ class FaceRecognitionDemo:
                 # Log this recognition
                 print(f'Frame {frame_count:4d} | {result_str}')
             
-            # Check for timeout or exit
+            # Check for timeout (no interactive cv2.waitKey in headless mode)
             elapsed = time.time() - start_time
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                print('Stage skipped by user.')
-                return None
-            
             if elapsed > duration_seconds:
                 break
         
