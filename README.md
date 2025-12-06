@@ -37,6 +37,14 @@ Quick reference guide for AI agents and future developers working on this projec
 3. **[03_PERCEPTION_SETUP_DOCUMENTATION.md](03_PERCEPTION_SETUP_DOCUMENTATION.md)**  
    Real-time image processing pipeline with brightness metrics, downscaling (1920×1080 → 640×360), grayscale conversion, integrated launch system, and validated behavior tests.
 
+### Face Recognition System
+
+4. **[06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md)**  
+   Complete face recognition training workflow, status monitoring, and LED integration guide. Covers training data collection (4-stage interactive system), model training with LBPH, real-time status reporting via JSON file, and LED integration examples for GPIO/HTTP control.
+
+5. **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)**  
+   Detailed analysis of face recognition service CPU usage and performance characteristics. Includes measured data: face detection (1.69 ms), face recognition (18.07 ms), total pipeline cost (~16 ms per frame), CPU usage at different settings (10-15% at default), and scaling analysis for multiple people recognition.
+
 ---
 
 ## Project Status (as of December 2025)

@@ -63,7 +63,8 @@ class FaceRecognitionService:
         # Status state
         self.recognized_person = None
         self.last_recognition_time = None
-        self.recognition_timeout = 5  # 5 seconds
+        self.last_lost_time = None  # When recognition was last lost
+        self.recognition_timeout = 5  # 5 seconds to confirm loss (only applies when NOT recognized)
         self.status_lock = threading.Lock()
         
         # Service control
@@ -100,16 +101,37 @@ class FaceRecognitionService:
             pass
     
     def update_status(self, recognized_person=None):
-        """Update the recognition status."""
+        """
+        Update the recognition status.
+        
+        - If face detected: IMMEDIATELY set status to recognized (no delay)
+        - If face NOT detected: Keep last state for 5 seconds, then reset
+        - Result: Responsive recognition, stable display when person leaves
+        """
         with self.status_lock:
-            self.recognized_person = recognized_person
+            current_time = datetime.now()
+            
             if recognized_person:
-                self.last_recognition_time = datetime.now()
+                # Face detected - IMMEDIATELY recognize (no delay)
+                self.recognized_person = recognized_person
+                self.last_recognition_time = current_time
+                self.last_lost_time = None
+            else:
+                # Face not detected
+                # Mark when we lost detection (only first time)
+                if self.last_lost_time is None:
+                    self.last_lost_time = current_time
+                
+                # Only reset status after 5 seconds of no detection
+                if self.last_recognition_time:
+                    elapsed = (current_time - self.last_recognition_time).total_seconds()
+                    if elapsed > self.recognition_timeout:
+                        self.recognized_person = None
             
             # Write status to file for other processes to read
             status = {
-                'timestamp': datetime.now().isoformat(),
-                'recognized_person': recognized_person,
+                'timestamp': current_time.isoformat(),
+                'recognized_person': self.recognized_person,
                 'confidence_threshold': self.confidence_threshold,
                 'frame_count': self.frame_count,
             }
@@ -121,19 +143,9 @@ class FaceRecognitionService:
                 pass
     
     def get_status(self):
-        """Get current recognition status."""
+        """Get current recognition status (already computed by update_status)."""
         with self.status_lock:
-            # Check if recognition has timed out
-            if self.last_recognition_time:
-                elapsed = (datetime.now() - self.last_recognition_time).total_seconds()
-                if elapsed > self.recognition_timeout:
-                    current_person = None
-                else:
-                    current_person = self.recognized_person
-            else:
-                current_person = None
-            
-            return current_person
+            return self.recognized_person
     
     def initialize_camera(self):
         """Initialize camera pipeline."""
@@ -194,7 +206,7 @@ class FaceRecognitionService:
             
             self.log(f"Recognizing person: {self.person_name.upper()}")
             self.log(f"Confidence threshold: {self.confidence_threshold}")
-            self.log(f"Recognition timeout: {self.recognition_timeout}s")
+            self.log(f"Recognition timeout: {self.recognition_timeout}s (5-sec persistence when person leaves)")
             self.log(f"CPU limit: {self.cpu_limit*100:.0f}% (frame skip: {self.skip_frames})")
             self.log("")
             self.log("Service running. Press Ctrl+C to stop.")
@@ -202,6 +214,7 @@ class FaceRecognitionService:
             
             self.running = True
             last_status_display = None
+            last_displayed_status = None
             
             while self.running:
                 # Get frame
@@ -234,24 +247,30 @@ class FaceRecognitionService:
                             recognized = self.person_name
                             break
                 
-                # Update status
+                # Update status with smart timeout
                 self.update_status(recognized)
                 
-                # Update LED display every 500ms
+                # Update LED display every 500ms (only if status changed)
                 current_time = time.time()
                 if last_status_display is None or current_time - last_status_display > 0.5:
                     status = self.get_status()
-                    if self.led:
-                        if status:
-                            self.led.set_recognized(status)
+                    
+                    # Only print if status actually changed
+                    if status != last_displayed_status:
+                        if self.led:
+                            if status:
+                                self.led.set_recognized(status)
+                            else:
+                                self.led.set_unrecognized()
                         else:
-                            self.led.set_unrecognized()
-                    else:
-                        # Fallback to console display if LED not available
-                        if status:
-                            print(f"\r✅ RECOGNIZED: {status.upper()}", end='', flush=True)
-                        else:
-                            print(f"\r❌ No one recognized", end='', flush=True)
+                            # Fallback to console display if LED not available
+                            if status:
+                                print(f"\r✅ RECOGNIZED: {status.upper()}", end='', flush=True)
+                            else:
+                                print(f"\r❌ No one recognized", end='', flush=True)
+                        
+                        last_displayed_status = status
+                    
                     last_status_display = current_time
                 
                 # Small sleep to prevent busy-waiting
