@@ -2,8 +2,42 @@
 
 **Purpose:** Quick reference guide for AI agents and developers working on R2D2. Documents patterns, quirks, and optimization tips that aren't in the formal documentation.
 
-**Last Updated:** December 5, 2025  
+**Last Updated:** December 7, 2025  
 **For:** Current and future Claude/AI agents, developers familiar with ROS 2
+
+---
+
+## ⚠️ CRITICAL RULES (READ FIRST!)
+
+### Rule 1: ALWAYS USE `main` BRANCH
+- User only uses `main` branch
+- `master` branch is **deleted** and must not be used
+- Any commits on `master` will be orphaned and lost
+- Before any `git push`: Run `git branch` and verify `* main`
+
+### Rule 2: ALWAYS VERIFY BRANCH BEFORE PUSHING
+```bash
+# BEFORE every push, run:
+git branch        # Must show: * main
+git log -n 1      # See the commit you're about to push
+git status        # Must show: "nothing to commit, working tree clean"
+# THEN push:
+git push origin main
+```
+
+### Rule 3: NEVER USE `master:main` SYNTAX
+❌ WRONG: `git push origin master:main`  
+✅ RIGHT: `git push origin main`
+
+### Rule 4: IF YOU ACCIDENTALLY COMMIT TO `master`
+Stop and alert user. Do not push. Merge to main and delete master:
+```bash
+git checkout main
+git merge master
+git branch -d master
+git push origin main
+git push origin --delete master
+```
 
 ---
 
@@ -158,18 +192,31 @@ Output: Float32 on /r2d2/perception/brightness @ ~13 Hz
 
 ## Git Workflow (Current Setup)
 
-### Branch Configuration
+### ⚠️ CRITICAL: Branch Configuration
 ```
-Local:   master
+Local:   main
 Remote:  origin/main  (single source of truth)
-Tracking: master → origin/main
+Tracking: main → origin/main
+
+❌ DO NOT USE: master branch (deleted - user only uses main)
+❌ DO NOT PUSH: git push origin master:main (wrong branch!)
+✅ DO USE: git push origin main (correct)
 ```
 
-### Standard Flow
+**Why this matters:** User only uses `main` branch. Commits on `master` will be orphaned and user won't see them. This happened multiple times - FIX: Always work on `main`.
+
+### Standard Flow (CORRECT)
 ```bash
 git add <files>
 git commit -m "Description with WHY and implementation details"
-git push origin master:main
+git push origin main
+```
+
+**Check before any git push:**
+```bash
+git branch -a           # Verify you're on 'main'
+git log --oneline -3    # See last 3 commits
+git status              # Clean working tree?
 ```
 
 ### Commit Message Pattern
