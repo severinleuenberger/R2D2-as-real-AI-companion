@@ -134,7 +134,188 @@ When all above are done:
 - ✅ Path to Phase 2 (Speech) is documented
 - **→ Ready to start Phase 2**
 
+---
 
+## 📊 Project Status & Roadmap
+
+### Overall Progress: 30% Complete (16 Core Objectives)
+
+| Domain | Objective | Phase | Status | Notes |
+|--------|-----------|-------|--------|-------|
+| **Conversation** | Natural voice interaction | 2 | ⏳ Next | STT + LLM + TTS pipeline |
+| **Conversation** | Multi-turn dialogue | 2 | ⏳ Next | Requires Phase 2 |
+| **Conversation** | Local AI processing | 2 | ⏳ Next | Ollama + Llama 2 7B |
+| **Perception** | Face recognition | 1 | ✅ Done | LBPH trained, 85-92% accuracy |
+| **Perception** | Person tracking | 3 | ⏳ Future | Requires navigation Phase |
+| **Perception** | Object detection | 3 | ⏳ Future | Post-Phase 2 |
+| **Perception** | Room understanding | 3 | ⏳ Future | SLAM + spatial mapping |
+| **Perception** | Situation awareness | 1 | ✅ Partial | Brightness + face count available |
+| **Navigation** | Indoor navigation | 3 | ⏳ Future | Requires motor + Nav2 integration |
+| **Navigation** | Mapping & localization | 3 | ⏳ Future | SLAM with OAK-D depth |
+| **Navigation** | Obstacle avoidance | 3 | ⏳ Future | Real-time replanning |
+| **Navigation** | Safe movement | 3 | ⏳ Future | Speed limiting + collision detection |
+| **Expression** | Expressive audio | 2 | ⏳ Next | Beep synthesis + sound files |
+| **Expression** | Social responsiveness | 2 | ⏳ Next | Multi-modal coordination |
+| **Expression** | Directional awareness | 1 | ✅ Partial | Camera orientation possible |
+| **Commands** | Verbal command interface | 2 | ⏳ Next | After STT + LLM |
+
+### Phase Breakdown
+
+```
+Phase 1: Core System Bringup (30% total project)
+├─ ✅ Jetson + ROS 2 setup
+├─ ✅ Camera integration (30 FPS RGB streaming)
+├─ ✅ Perception pipeline (brightness + face detection/recognition)
+├─ ✅ Professional documentation
+└─ 📍 Current: ~85% complete
+
+Phase 2: Speech & Language (35% total project)
+├─ ⏳ Audio hardware integration (ReSpeaker 2-Mic HAT)
+├─ ⏳ Speech-to-Text (Whisper or similar)
+├─ ⏳ Local LLM (Ollama + Llama 2 7B)
+├─ ⏳ Text-to-Speech (synthesis engine)
+├─ ⏳ Wake-word detection ("Hey R2D2")
+└─ 🎯 Target: 6-8 weeks, complete by mid-January 2026
+
+Phase 3: Navigation & Movement (20% total project)
+├─ Motor control (PWM drivers, encoders)
+├─ SLAM mapping (OAK-D depth + visual odometry)
+├─ Nav2 path planning
+├─ Obstacle avoidance
+└─ 🎯 Target: 8-10 weeks after Phase 2
+
+Phase 4: Memory & Personality (15% total project)
+├─ Conversation memory (SQLite, context management)
+├─ Learning & adaptation (reinforcement from feedback)
+├─ LED animations + motor expressions
+├─ Multi-user support
+└─ 🎯 Target: 10+ weeks after Phase 3
+```
+
+---
+
+## 🔄 Recommended Next Steps (Your Priorities)
+
+Based on your goals to implement **mic & speaker integration → STT/LLM/TTS**, here's the optimal order:
+
+### Step 1: Audio Hardware Integration (Week 1-2)
+**Goal:** Get microphone and speaker working with Jetson
+
+**Tasks:**
+1. ✅ ReSpeaker 2-Mic HAT hardware setup (physical connection + power)
+2. ⏳ ReSpeaker driver installation (SAI sound card)
+3. ⏳ Audio input test (`arecord`, `aplay`)
+4. ⏳ Create `r2d2_audio` ROS 2 package
+5. ⏳ Audio node: publish raw audio frames to `/r2d2/audio/raw`
+6. ⏳ Speaker node: subscribe to `/r2d2/audio/output` and play
+
+**Deliverable:** 
+- ROS 2 topics for microphone input and speaker output
+- Test recording + playback cycle working
+- Document in INTEGRATION_GUIDE
+
+---
+
+### Step 2: Speech-to-Text (Week 2-3)
+**Goal:** Convert spoken audio to text in real-time
+
+**Tasks:**
+1. ⏳ Evaluate STT options:
+   - Whisper (OpenAI, CPU-friendly, good accuracy)
+   - Vosk (lightweight, offline, less accurate)
+   - Google Speech Recognition (requires cloud - not preferred)
+2. ⏳ Install selected STT engine in depthai_env
+3. ⏳ Create `r2d2_speech_to_text` node
+4. ⏳ Subscribe to `/r2d2/audio/raw`, output to `/r2d2/speech/text`
+5. ⏳ Add wake-word detection ("Hey R2D2")
+6. ⏳ Benchmark: latency, accuracy, CPU usage
+
+**Deliverable:**
+- Working STT node
+- Wake-word detection triggering transcription
+- <1 second latency from speech end to text output
+- CPU usage metrics documented
+
+---
+
+### Step 3: Local Language Model (Week 3-5)
+**Goal:** Generate contextual responses from text input
+
+**Tasks:**
+1. ⏳ Install Ollama (LLM inference framework)
+2. ⏳ Download Llama 2 7B model (fits in Jetson AGX memory)
+3. ⏳ Test inference speed (target: <2 sec for response)
+4. ⏳ Create `r2d2_language_model` node
+5. ⏳ Subscribe to `/r2d2/speech/text`
+6. ⏳ Add context awareness (recent face recognition, brightness, etc.)
+7. ⏳ Output to `/r2d2/ai/response`
+
+**Deliverable:**
+- LLM node generating contextual responses
+- Integration with perception system (greet by name, reference environment)
+- <2 second response time
+- CPU/memory profiling
+
+---
+
+### Step 4: Text-to-Speech (Week 5-6)
+**Goal:** Synthesize spoken responses with natural voice
+
+**Tasks:**
+1. ⏳ Evaluate TTS options:
+   - pyttsx3 (lightweight, offline, multiple voices)
+   - glow-tts (higher quality, more CPU)
+   - espeak (minimal resources)
+2. ⏳ Install and test selected TTS
+3. ⏳ Create `r2d2_text_to_speech` node
+4. ⏳ Subscribe to `/r2d2/ai/response`
+5. ⏳ Generate audio frames to `/r2d2/audio/output`
+6. ⏳ Benchmark: latency, naturalness, CPU usage
+
+**Deliverable:**
+- Full pipeline: speech → text → understanding → response → speech
+- <3 second total latency (audio in to audio out)
+- Usable voice quality
+
+---
+
+### Step 5: Full Integration & Testing (Week 6-8)
+**Goal:** End-to-end conversational AI system
+
+**Tasks:**
+1. ⏳ Connect all nodes with proper message flow
+2. ⏳ Add error handling (no speech, no response, etc.)
+3. ⏳ Implement conversation memory (last 5 exchanges)
+4. ⏳ Test with real use cases:
+   - "Hello R2D2, what's your name?" 
+   - "What do you see?" (use perception data)
+   - "Who am I?" (face recognition)
+   - Multi-turn dialogue
+5. ⏳ Performance optimization:
+   - Profile CPU/GPU/memory
+   - Optimize model inference
+   - Document resource usage
+6. ⏳ Update documentation and examples
+
+**Deliverable:**
+- Complete Phase 2 system ready for Phase 3
+- All components documented and tested
+- Performance baseline: <3 sec end-to-end latency
+- Ready to add navigation features
+
+---
+
+## 📈 Expected Challenges & Solutions
+
+| Challenge | Phase | Solution |
+|-----------|-------|----------|
+| ReSpeaker audio not detected | 2.1 | Check SAI kernel module load, verify USB connection |
+| STT too slow on Jetson ARM | 2.2 | Use quantized models, reduce batch size, profile CPU |
+| LLM memory overflow | 2.3 | Use 7B model max, enable 8-bit quantization |
+| TTS latency > 2 sec | 2.4 | Pre-encode common responses, use faster model |
+| Conversation feels unnatural | 2.5 | Add system prompt for R2D2 personality, context memory |
+
+---
 
 ---
 
