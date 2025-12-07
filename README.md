@@ -10,43 +10,33 @@
 
 ---
 
-## 🎯 Core Objectives
+## 🎯 Core Functional Requirements
 
-The R2D2 project has 16 fundamental goals that define what the robot must accomplish:
+The R2D2 project is designed to achieve the following functional capabilities:
 
-### Conversation & Language
-- **Natural Voice Interaction:** Listen to spoken input, convert to text, understand meaning, generate contextual responses, and speak back with natural-sounding voice
-- **Multi-Turn Conversation:** Support continuous dialogue without manual resets or repeated wake-word calls
-- **Local AI Processing:** All speech-to-text, language model, and text-to-speech run locally without cloud services (privacy + offline capability)
+### Communication & Conversation
+- The robot must **listen to spoken input, convert speech to text, understand the user, generate a response, and speak it back** using text-to-speech
+- The robot must **support natural, multi-turn conversation** without needing manual resets
+- The robot must **allow direct verbal commands** such as "follow me," "go to the living room," "come here," or "look at this"
+- The robot must **operate locally without requiring cloud services**, including offline STT, LLM, and TTS
 
 ### Perception & Recognition
-- **Face Recognition:** Detect and identify people, especially primary user (Severin)
-- **Person Tracking:** Track identified individuals and optionally follow them autonomously
-- **Object Detection:** Recognize obstacles, furniture, and items using camera and depth sensors
-- **Environment Understanding:** Recognize rooms and understand spatial context (kitchen, bedroom, office, etc.)
-- **Situation Awareness:** Detect environmental events (person entering room, name being called, obstacles appearing)
+- The robot must **recognize people, especially Severin, including detecting and identifying faces** through computer vision
+- The robot must **track a person and optionally follow them** through the environment
+- The robot must **recognize objects and obstacles** in front of it using camera and depth perception
+- The robot must **detect rooms or general environment context** and understand where it is inside a home or office
+- The robot must **react to events** in the environment, such as someone entering a room or calling its name
+- The robot must **orient its camera** toward the person speaking or the object of interest
 
-### Autonomous Navigation
-- **Indoor Navigation:** Move autonomously through multi-room environments without human guidance
-- **Mapping & Localization:** Build and maintain maps, know current position, recognize revisited areas
-- **Obstacle Avoidance:** Detect and avoid collisions with furniture, people, pets, and other obstacles
-- **Safe Movement:** Maintain appropriate speeds and stop distances to prevent accidents
-- **Location-Based Commands:** Respond to verbal commands like "go to kitchen" or "come here"
+### Autonomous Navigation & Safety
+- The robot must **autonomously navigate through indoor spaces, build a map, avoid obstacles, and move to requested locations**
+- The robot must **maintain a safe driving speed and avoid collisions** with furniture, people, or pets
+- The robot must **provide a heartbeat or "alive" signal** to indicate it is powered and operational
 
-### Expression & Interaction
-- **Expressive Audio:** Generate R2-D2-like beep sounds and emotional vocalizations
-- **Social Responsiveness:** React to environmental events and social cues in real-time
-- **Directional Awareness:** Orient camera and movement toward person speaking or object of interest
-- **Multi-Modal Interaction:** Simultaneously perceive, navigate, and converse while maintaining social engagement
-- **Heartbeat Signal:** Provide continuous "alive" indicator that system is operational
-- **Sound Playback:** Play audio files including R2-D2 sound effects and music
-
-### Verbal Command Interface
-- **Direct Commands:** Accept and execute commands like "follow me," "look at this," "go to the living room"
-- **Natural Language:** Understand conversational requests, not just rigid command syntax
-- **Context Awareness:** Remember conversation history and current physical context
-
----
+### Expression & Multi-Modal Interaction
+- The robot must **respond with emotional or expressive sounds** similar to R2-D2 beeps
+- The robot must **be able to play audio files**, including R2-D2 sound effects
+- The robot must **combine perception, navigation, and conversation** so that it can interact socially and physically at the same time
 
 ---
 
