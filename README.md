@@ -10,6 +10,46 @@
 
 ---
 
+## 🎯 Core Objectives
+
+The R2D2 project has 16 fundamental goals that define what the robot must accomplish:
+
+### Conversation & Language
+- **Natural Voice Interaction:** Listen to spoken input, convert to text, understand meaning, generate contextual responses, and speak back with natural-sounding voice
+- **Multi-Turn Conversation:** Support continuous dialogue without manual resets or repeated wake-word calls
+- **Local AI Processing:** All speech-to-text, language model, and text-to-speech run locally without cloud services (privacy + offline capability)
+
+### Perception & Recognition
+- **Face Recognition:** Detect and identify people, especially primary user (Severin)
+- **Person Tracking:** Track identified individuals and optionally follow them autonomously
+- **Object Detection:** Recognize obstacles, furniture, and items using camera and depth sensors
+- **Environment Understanding:** Recognize rooms and understand spatial context (kitchen, bedroom, office, etc.)
+- **Situation Awareness:** Detect environmental events (person entering room, name being called, obstacles appearing)
+
+### Autonomous Navigation
+- **Indoor Navigation:** Move autonomously through multi-room environments without human guidance
+- **Mapping & Localization:** Build and maintain maps, know current position, recognize revisited areas
+- **Obstacle Avoidance:** Detect and avoid collisions with furniture, people, pets, and other obstacles
+- **Safe Movement:** Maintain appropriate speeds and stop distances to prevent accidents
+- **Location-Based Commands:** Respond to verbal commands like "go to kitchen" or "come here"
+
+### Expression & Interaction
+- **Expressive Audio:** Generate R2-D2-like beep sounds and emotional vocalizations
+- **Social Responsiveness:** React to environmental events and social cues in real-time
+- **Directional Awareness:** Orient camera and movement toward person speaking or object of interest
+- **Multi-Modal Interaction:** Simultaneously perceive, navigate, and converse while maintaining social engagement
+- **Heartbeat Signal:** Provide continuous "alive" indicator that system is operational
+- **Sound Playback:** Play audio files including R2-D2 sound effects and music
+
+### Verbal Command Interface
+- **Direct Commands:** Accept and execute commands like "follow me," "look at this," "go to the living room"
+- **Natural Language:** Understand conversational requests, not just rigid command syntax
+- **Context Awareness:** Remember conversation history and current physical context
+
+---
+
+---
+
 ## 🚀 Features (Current & Planned)
 
 ### Phase 1: Core System (Current) ✅
