@@ -76,6 +76,8 @@ rm -rf build install log && colcon build --packages-select <package_name>
 | ROS 2 Version | Humble | Not Jazzy, not Foxy |
 | Camera Model | OAK-D Lite Auto Focus | 1920×1080 @ 30 FPS |
 | Camera Serial | 19443010E1D30C7E00 | Specific unit |
+| Audio Amplifier | PAM8403 Class-D + 8Ω/3W speaker | Connected to J511 HPO_L (Dec 7, 2025) |
+| Audio Output | Jetson J511 Pin 9 (HPO_L) via I2S | Card 1, Device 0 (tegra-dlink-0) |
 | Project Root | ~/dev/r2d2 | NOT /home/user, NOT /opt |
 | Python | 3.10.6 | Via system or venv |
 
