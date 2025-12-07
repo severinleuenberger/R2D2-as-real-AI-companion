@@ -1,129 +1,126 @@
-# R2-D2 as a Real AI Companion  
-Transforming the 1:2 DeAgostini R2-D2 model into a fully autonomous, indoor AI companion robot powered by an NVIDIA Jetson AGX Orin and ROS 2 Humble.
+# R2D2 as a Real AI Companion
+
+> Transform the iconic 1:2 DeAgostini R2-D2 into a fully autonomous AI companion robot with vision, voice, navigation, and personality—powered by NVIDIA Jetson AGX Orin 64GB and ROS 2 Humble.
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
 
-This project aims to rebuild the iconic R2-D2 as a modern, ROS-based AI robot capable of perception, navigation, speech, memory, and real-time interaction.  
-Development takes place directly on the Jetson AGX Orin using a clean ROS 2 workspace, custom packages, and modular hardware integration.
-
-The repository contains:
-
-- the full ROS 2 workspace (`ros2_ws`)
-- bringup system and first functional nodes (heartbeat + beep)
-- hardware documentation and build photos
-- upcoming perception, navigation, and AI components
-
-This is a long-term hobby project focused on learning, robotics, and open-source collaboration.
+**Current Status:** Phase 1 Core System — ~85% complete  
+**Next Phase:** Speech & Language (STT + LLM + TTS)  
+**Project Timeline:** 4 phases, 280-300 hours total (7 weeks full-time, 3-4 months part-time)
 
 ---
 
-## 📚 Documentation
+## 🚀 Features (Current & Planned)
 
-Complete setup guides and technical documentation for the R2D2 project:
+### Phase 1: Core System (Current) ✅
+- [x] **Real-time Perception:** 30 FPS RGB camera stream, brightness metrics, face detection (90% accuracy)
+- [x] **Face Recognition:** LBPH-based person identification (trained for multiple users)
+- [x] **Hardware Integration:** OAK-D Lite depth camera, Jetson AGX Orin compute, ROS 2 infrastructure
+- [x] **Professional Codebase:** Clean workspace structure, modular packages, parameter-driven configuration
+- [x] **Comprehensive Docs:** Setup guides, integration patterns, operations checklist, architecture diagrams
 
-### Internal Reference (For AI Agents & Developers)
+### Phase 2: Speech & AI (Next) ⏳
+- [ ] **Speech-to-Text:** Real-time audio input with wake-word detection ("Hey R2D2")
+- [ ] **Language Model:** Local LLM inference (Llama 2 7B) for conversational responses
+- [ ] **Text-to-Speech:** Real-time voice synthesis and playback
+- [ ] **Context Awareness:** Vision-informed responses (greet by name, reference visual context)
 
-**[00_INTERNAL_AGENT_NOTES.md](00_INTERNAL_AGENT_NOTES.md)**  
-Quick reference guide for AI agents and future developers working on this project. Documents platform-specific patterns, ARM architecture quirks, performance baselines, environment setup order, debugging sequences, and institutional knowledge learned during development. Covers Jetson AGX Orin specifics, OAK-D camera integration details, expected performance metrics (12.8 Hz perception @ 132-136 brightness), and common issue solutions.
+### Phase 3: Navigation (Future) ⏳
+- [ ] **SLAM Mapping:** Autonomous room mapping and localization
+- [ ] **Autonomous Movement:** Differential drive control for 2-wheel locomotion
+- [ ] **Obstacle Avoidance:** Real-time collision detection and path replanning
+- [ ] **Room Navigation:** Go to named rooms, return to base, explore autonomously
 
-### User & Technical Documentation
-
-1. **[01_R2D2_BASIC_SETUP_AND_FINDINGS.md](01_R2D2_BASIC_SETUP_AND_FINDINGS.md)**  
-   Initial Jetson AGX Orin setup, ROS 2 Humble installation, workspace configuration, and first functional tests (heartbeat/beep nodes).
-
-2. **[02_CAMERA_SETUP_DOCUMENTATION.md](02_CAMERA_SETUP_DOCUMENTATION.md)**  
-   OAK-D Lite camera integration with ROS 2, DepthAI Python SDK setup, camera node implementation, frame capture, and topic publishing.
-
-3. **[03_PERCEPTION_SETUP_DOCUMENTATION.md](03_PERCEPTION_SETUP_DOCUMENTATION.md)**  
-   Real-time image processing pipeline with brightness metrics, downscaling (1920×1080 → 640×360), grayscale conversion, integrated launch system, and validated behavior tests.
-
-### Face Recognition System
-
-4. **[05_FACE_RECOGNITION_INTEGRATION.md](05_FACE_RECOGNITION_INTEGRATION.md)**  
-   ROS 2 integration guide for face recognition system with depth camera integration, topic publishing, and system architecture overview.
-
-5. **[06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md)**  
-   Complete face recognition training workflow, status monitoring, and LED integration guide. Covers training data collection (4-stage interactive system), model training with LBPH, real-time status reporting via JSON file, and LED integration examples for GPIO/HTTP control.
-
-6. **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)**  
-   Detailed analysis of face recognition service CPU usage and performance characteristics. Includes measured data: face detection (1.69 ms), face recognition (18.07 ms), total pipeline cost (~16 ms per frame), CPU usage at different settings (10-15% at default), and scaling analysis for multiple people recognition.
-
-### System Administration & Backup
-
-7. **[07_BACKUP_AND_RESTORE_SETUP.md](07_BACKUP_AND_RESTORE_SETUP.md)**  
-   Complete backup and restore system for reproducible Jetson deployments. Covers fresh Jetson setup, creating full-system backups, restoring from backup, Windows PowerShell automation to OneDrive, and validation procedures. Enables one-command restoration of the entire R2D2 system after hardware replacement or fresh flashing.
+### Phase 4: Memory & Personality (Future) ⏳
+- [ ] **Conversation Memory:** Persistent history, context-aware responses
+- [ ] **Learning & Adaptation:** Preference learning, anomaly detection
+- [ ] **Expression:** LED animations, motor movements, tone variation
+- [ ] **Multi-User Support:** Per-user profiles, personalized interactions
 
 ---
 
-## Project Status (as of December 2025)
+## 📖 Documentation
 
-The project is currently in **Phase 1: Core System Bringup**.  
-The NVIDIA Jetson AGX Orin (64 GB) is fully operational and runs a clean, modern ROS 2 Humble setup with a professional workspace structure.
+Comprehensive guides organized by audience and use case. **Start here:**
+
+### For First-Time Users
+1. **[Quick Start](#quick-start)** (below) — Run the system in 5 minutes
+2. **[PROJECT_GOALS.md](PROJECT_GOALS.md)** — Understand the 4-phase roadmap and success metrics
+3. **[ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md)** — See how components fit together
+
+### For Daily Operators
+- **[OPERATIONS_CHECKLIST.md](OPERATIONS_CHECKLIST.md)** — Startup, monitoring, troubleshooting, recovery procedures
+- **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)** — CPU/memory usage, performance baselines, optimization tips
+
+### For Phase 2-4 Developers
+- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** — Step-by-step guide to add speech, navigation, memory systems
+- **[00_INTERNAL_AGENT_NOTES.md](00_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
+
+### Technical Depth (Phase 1 Subsystems)
+| Component | Document | Purpose |
+|-----------|----------|---------|
+| **System Setup** | [01_BASIC_SETUP_AND_FINDINGS.md](01_R2D2_BASIC_SETUP_AND_FINDINGS.md) | Jetson flashing, ROS 2 installation, workspace setup |
+| **Camera Integration** | [02_CAMERA_SETUP_DOCUMENTATION.md](02_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
+| **Image Processing** | [03_PERCEPTION_SETUP_DOCUMENTATION.md](03_PERCEPTION_SETUP_DOCUMENTATION.md) | Brightness metrics, Haar Cascade face detection, pipeline |
+| **Face Recognition** | [05_FACE_RECOGNITION_INTEGRATION.md](05_FACE_RECOGNITION_INTEGRATION.md) & [06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md) | LBPH training, real-time recognition, model management |
+| **Backup & Restore** | [07_BACKUP_AND_RESTORE_SETUP.md](07_BACKUP_AND_RESTORE_SETUP.md) | Full-system backup for reproducible deployments |
+
+---
+
+## ✅ Phase 1 Status
+
+**Completion:** ~85% (core systems operational, documentation polishing)
 
 ![R2D2 Empty Body](docs/photos/empty_body.jpg)
 
-### ✔️ Completed so far
+### What's Working
+- ✅ **Jetson Setup:** JetPack 6.x, ROS 2 Humble, clean workspace structure
+- ✅ **Camera:** OAK-D Lite streaming 30 FPS RGB (1920×1080) at `/oak/rgb/image_raw`
+- ✅ **Perception:** Brightness metrics + Haar Cascade face detection (13 Hz) + LBPH recognition (6.5 Hz)
+- ✅ **Node Architecture:** 4 ROS 2 packages with parameter-driven configuration
+- ✅ **Performance:** ~10-15% CPU usage (perception pipeline), excellent thermal stability
+- ✅ **Documentation:** 7+ technical guides + architecture diagrams + integration templates
 
-- Jetson AGX Orin successfully flashed with JetPack 6.x  
-- Headless development workflow via VS Code Remote SSH  
-- Clean ROS 2 workspace at `~/dev/r2d2/ros2_ws`  
-- Two fully functional custom ROS 2 packages:
-  - `r2d2_hello` → first minimal nodes  
-    - `beep_node`: timer-based alive signal  
-    - `heartbeat_node`: publishes `/r2d2/heartbeat`  
-  - `r2d2_bringup` → unified bringup launch  
-- Launch file to start both nodes:
-  ```bash
-  ros2 launch r2d2_bringup bringup.launch.py
-  ```
+### Remaining Phase 1 Tasks
+- ⏳ **README Improvements** (this file — making it more accessible)
+- ⏳ **PROJECT_GOALS.md** (complete roadmap + 4-phase vision)
+- ⏳ Git commit of final documentation
 
-
-- Hardware photo documentation synchronized with GitHub
-
-- Repository reset, cleaned, and realigned to current architecture
-
-## 🔧 Next steps (short-term roadmap)
-
-- Touch-the-ground hardware tests:
-  - GPU compute validation (CUDA / Python CuPy test)
-  - Audio out (Jetson → speaker)
-  - Audio in (microphone recording test)
-  - Camera test (single-frame capture)
-
-- Add placeholder packages for:
-  - r2d2_description (URDF/Xacro)
-  - r2d2_perception (OAK-D)
-  - r2d2_navigation (Nav2 + SLAM)
-  - Add a system health/status ROS 2 node
-
-The goal of this phase is to have a fully verified hardware/software baseline
-before adding perception, navigation, speech, or AI.
+### Phase 1 Exit Criteria
+When all above are done:
+- ✅ New developers can start camera stream in 5 minutes
+- ✅ Architecture is clear (blocks, data flow, integration points)
+- ✅ Existing documentation is audited and organized
+- ✅ Path to Phase 2 (Speech) is documented
+- **→ Ready to start Phase 2**
 
 
 
-## Hardware Build Progress
+---
 
-The 1:2 DeAgostini R2-D2 body has been fully opened, stripped, and prepared for the integration of modern electronics.  
-The Jetson AGX Orin is already mounted inside the body as the central compute unit.
+## 🔧 Hardware
 
-![R2D2 Body With Jetson](docs/photos/body%20with%20jetson.jpg)
+The iconic R2-D2 is being rebuilt with modern robotics hardware and AI compute.
 
-The internal structure was reinforced and cable pathways were cleaned up to support upcoming power distribution, audio components, motor drivers, and the depth camera system.
+### Current Hardware Stack
+| Component | Model | Purpose | Status |
+|-----------|-------|---------|--------|
+| **Chassis** | DeAgostini R2-D2 1:2 Kit | Main body (48 cm tall) | ✅ Complete |
+| **Compute** | NVIDIA Jetson AGX Orin 64GB | AI brain (12-core ARM, 504-GPU cores, 100W TDP) | ✅ Mounted & Running |
+| **Camera** | Luxonis OAK-D Lite Auto Focus | Vision (1920×1080 @ 30 FPS, depth + IMU) | ✅ Integrated |
+| **Audio Input** | ReSpeaker 2-Mic HAT | Voice capture (for Phase 2 STT) | ⏳ Ordered |
+| **Drive** | DeAgostini DC Motors (2×) | Leg & dome motors with encoders | ⏳ Not yet integrated |
+| **Motor Control** | Pololu MC33926 (2×) | H-bridge drivers for DC motors | ✅ Assembled |
+| **Power** | 4S LiPo 5000 mAh (14.8V) | Main battery system | ✅ Charged & Ready |
+| **Power Dist** | Custom DC-DC (14V→12V/5V) | Jetson + ReSpeaker + motors | ⏳ Not yet integrated |
+| **Internal** | WS2812B RGB LEDs | Status & personality expression | ⏳ Coming in Phase 4 |
 
-A secondary angle of the current internal layout:
+### Inside the Bot
+![R2D2 Body With Jetson](docs/photos/body%20with%20jetson.jpg)  
+The internal structure houses the Jetson AGX Orin, OAK-D camera, power distribution, and future motor drivers. Careful cable management ensures room for Phase 2-4 additions.
 
-![R2D2 Body With Jetson - Angle 2](docs/photos/body%20with%20jetson%202.jpg)
-
-Future hardware integrations will include:
-
-- Motor drivers for dome and leg motors  
-- LiPo battery system with DC-DC regulation  
-- ReSpeaker / microphone array  
-- OAK-D Lite (or Pro) depth camera  
-- Internal cooling & airflow improvements  
-- Power distribution board and safety electronics  
-
-These photos will be updated as the internal structure evolves and new components are mounted.
+### Bill of Materials (Full Project)
+See [BOM_HARDWARE.md](BOM_HARDWARE.md) for detailed part numbers, sourcing links, and cost breakdown (~$3,600 including chassis).
 
 
 
@@ -149,100 +146,142 @@ Generated ROS 2 build artifacts are excluded via `.gitignore`, resulting in a cl
 
 
 
-## Quick Start (Current State)
+## 🚀 Quick Start
 
-### Clone the project
+### 1. Clone & Setup (5 min)
 
 ```bash
+# Clone repository
 git clone git@github.com:severinleuenberger/R2D2-as-real-AI-companion.git
 cd R2D2-as-real-AI-companion
-```
 
-### Build the ROS 2 workspace
-```bash
+# Set up environment (CRITICAL: order matters!)
+source ~/depthai_env/bin/activate
+export OPENBLAS_CORETYPE=ARMV8
+source ~/.bashrc
 cd ros2_ws
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Start the core system
-```bash
+### 2. Launch Camera & Perception (1 command)
 
-ros2 launch r2d2_bringup bringup.launch.py
+```bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
 ```
 
-### Observe the heartbeat
-```bash
-ros2 topic echo /r2d2/heartbeat
+**Expected Output (first 5 seconds):**
+```
+[INFO] [camera_node]: OAK-D camera initialized
+[INFO] [image_listener]: ImageListener node initialized
+[INFO] [image_listener]: Haar Cascade loaded successfully
+[INFO] All nodes started successfully
 ```
 
-These commands reflect the current minimum viable robot system.
-Additional nodes, packages, and hardware integrations will be added incrementally as the project evolves.
+### 3. Verify System (In another terminal, same env setup as above)
 
- 
+```bash
+# Check camera frame rate (should be ~30 Hz)
+ros2 topic hz /oak/rgb/image_raw
 
-## Bill of Materials (BOM)
+# Check perception output (should be ~13 Hz)
+ros2 topic hz /r2d2/perception/brightness
 
-| Qty | Item | Model / Part Number | Purpose | Approx. Price (USD) | Link / Source | Status |
-|-----|---------------------------------------------|---------------------|--------|---------------------|---------------|--------|
-| 1   | DeAgostini R2-D2 1:2 Kit | Complete 100-issue set | Main body, legs, dome, panels | ~1,385  | eBay / RPF Forums | got it |
-| 1   | NVIDIA Jetson AGX Orin 64 GB | 945-13730-0005-000 | Main AI brain (ROS2 + Grok fallback) | 1,999 | NVIDIA / Amazon | ordered |
-| 1   | OAK-D Lite depth camera | Luxonis OAK-D-Lite | SLAM, person recognition, obstacle avoidance | 149 | Luxonis Store | ordered |
-| 1   | ReSpeaker 4-Mic Array for Raspberry Pi | Seeed Studio | Voice input for LLM node | 30 | Seeed / Amazon | ordered |
-| 2   | Pololu Dual MC33926 Motor Driver | #2135 | Drives stock DeAgostini DC motors | 20 × 2 = 40 | Pololu | got it |
-| 2   | Stock DeAgostini DC motors + gearboxes | Original leg motors | Locomotion (2-wheel diff-drive) | Included in kit | — | got it |
-| 1   | LiPo battery 4S 22.2 V 5000 mAh | Turnigy / HobbyKing | Main power | 40–60 | HobbyKing | got it |
-| 1   | DC-DC buck converter 14 V → 12 V / 5 V | Various | Powers Jetson, ReSpeaker, motors | 10 | Amazon / AliExpress | ? |
-| 1   | IMU (in OAK-D Lite) | BMI270 + BMM150 | Used by robot_localization EKF | Included | — | ? |
+# See brightness values (should be ~130-140 in normal light)
+watch -n 0.5 'ros2 topic echo /r2d2/perception/brightness -n 1'
 
-**Total estimated cost (without DeAgostini kit):** ~2,200 USD  
-**Total with full DeAgostini kit:** ~3,600 USD
+# See face detection (0 = no one, 1+ = detected)
+ros2 topic echo /r2d2/perception/face_count
+```
 
+### 4. Troubleshooting
 
-## 2. Hardware Components
+If things don't work:
+1. Check [OPERATIONS_CHECKLIST.md](OPERATIONS_CHECKLIST.md) → Section 5 (Troubleshooting)
+2. Verify environment setup: `echo $OPENBLAS_CORETYPE` should print `ARMV8`
+3. Check camera: `lsusb | grep Movidius`
 
-### Base Model
-| Spec | Value |
-|------|-------|
-| DeAgostini 1:2-Scale R2-D2 Kit | [Buy the kit or some magazines out of it](https://www.fanhome.com/us/star-wars/r2d2-build-up) |
-| Height | 48 cm |
-| Width | 28 cm |
-| External Ø | 20 cm |
-| Internal Volume | 4.5–7.2 L |
-| Reuse | Drive/arms/dome, LED |
-| Cost | 300–700 CHF |
-
-### Compute
-| Part | Specs | Link |
-|------|--------|------|
-| NVIDIA Jetson AGX Orin 64GB Dev Kit | 100×87×47 mm, 15–60 W | [Reichelt](https://www.reichelt.com/ch/de/shop/produkt/nvidia_jetson_agx_orin_dev_kit_12-kern_cpu_64_gb_ddr5-383698) |
-
-### Sensors
-| Part | Link |
-|------|------|
-| Luxonis OAK-D Lite Auto Focus | [Mouser](https://mou.sr/4aaEfYZ) |
-| ReSpeaker 2-Mic HAT | [Mouser](https://mou.sr/49B7DHD) |
-
-### Drive System
-| Part | Link |
-|------|------|
-| Stock R2-D2 Motors | Reuse DeAgostini |
-| Pololu Dual MC33926 | [Pololu](https://www.pololu.com/product/2995) |
-
-### Power
-| Part | Specs | Link |
-|------|--------|------|
-| 4× Turnigy 2200mAh 4S 60C LiPo | 14.8V, ~32.56Wh ea., 107×35×36mm, 255g | [HobbyKing](https://hobbyking.com/) |
-| ISDT 608AC Charger | 50W AC/200W DC, 8A | [AliExpress](https://de.aliexpress.com/item/1005007512739386.html) |
+**Time to working system:** ~7 seconds from launch command
 
 ---
 
+## 📁 Repository Structure
 
+```
+r2d2/
+├── README.md                              # This file
+├── PROJECT_GOALS.md                       # 4-phase roadmap, success metrics, FAQs
+├── ARCHITECTURE_OVERVIEW.md               # System design, data flow, integration patterns
+├── OPERATIONS_CHECKLIST.md                # Daily startup, monitoring, troubleshooting
+├── INTEGRATION_GUIDE.md                   # How to add Phase 2-4 features (template + examples)
+├── 00_INTERNAL_AGENT_NOTES.md             # ARM quirks, DepthAI setup, performance baselines
+├── 01_R2D2_BASIC_SETUP_AND_FINDINGS.md   # Jetson setup, ROS 2 installation
+├── 02_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
+├── 03_PERCEPTION_SETUP_DOCUMENTATION.md  # Image processing pipeline
+├── 05_FACE_RECOGNITION_INTEGRATION.md    # Face recognition system
+├── 06_FACE_RECOGNITION_TRAINING_AND_STATUS.md # Training + status
+├── 07_BACKUP_AND_RESTORE_SETUP.md        # Backup/restore procedures
+├── COMPUTE_COST_ANALYSIS.md               # Performance profiles
+│
+├── ros2_ws/                               # ROS 2 Humble workspace
+│   ├── src/
+│   │   ├── r2d2_camera/                  # Camera node
+│   │   ├── r2d2_perception/              # Perception node
+│   │   ├── r2d2_hello/                   # Heartbeat + beep
+│   │   └── r2d2_bringup/                 # Launch files
+│   ├── build/ install/ log/              # (generated, gitignored)
+│
+├── data/
+│   └── face_recognition/models/          # Trained LBPH models
+│
+├── tests/                                 # Component test scripts
+├── docs/photos/                           # Build progress photos
+└── scripts/                               # Utility scripts
+```
 
-## Community & Contributing
-- **Discussions:** https://forums.developer.nvidia.com/t/ros2-humble-r2-d2-ai-companion-robot-jetson-agx-orin-64gb-deagostini-build-open-repo-hardware-schematics/351685
-- [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland |
-- **Contribute:** Fork, PR for launch tweaks. Report issues: [New Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
-- **License:** [MIT](LICENSE) – Free to copy/modify/distribute (code + CAD).
+---
+
+## 🔗 Bill of Materials (BOM)
+
+See [PROJECT_GOALS.md](PROJECT_GOALS.md) → "Resource Requirements" section for detailed hardware breakdown.
+
+**Quick Summary:**
+- **Total cost (compute + sensors):** ~$2,200
+- **With DeAgostini kit:** ~$3,600
+- **Key sources:** NVIDIA, Luxonis, HobbyKing, Pololu, Seeed Studio
+
+---
+
+## 🤝 Contributing & Community
+
+**GitHub:** [severinleuenberger/R2D2-as-real-AI-companion](https://github.com/severinleuenberger/R2D2-as-real-AI-companion)
+
+**Discussion:**
+- [NVIDIA Developer Forums](https://forums.developer.nvidia.com/) (R2D2 thread)
+- [GitHub Discussions](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/discussions)
+
+**How to Contribute:**
+- **Found a bug?** → [Create an Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues)
+- **Have an improvement?** → [Submit a Pull Request](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/pulls)
+- **Want to discuss?** → [Start a Discussion](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/discussions)
+- **Building your own R2D2?** → Document it and share!
+
+**License:** [MIT](LICENSE) - Free to use, modify, and distribute
+
+**Author:** [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland
+
+---
+
+## 🎯 What's Next?
+
+1. **This week:** Complete Phase 1 documentation
+2. **Next week:** Begin Phase 2 (speech-to-text) prototype
+3. **Next month:** Full speech + LLM pipeline
+4. **Q2 2026:** Navigation and autonomous movement
+5. **Q3 2026+:** Memory, personality, and deployment
+
+See [PROJECT_GOALS.md](PROJECT_GOALS.md) for the complete roadmap and timeline.
+
+---
+
+**Happy building! Questions?** Check the [docs](README.md#-documentation) or [open an issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
 
