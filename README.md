@@ -48,6 +48,11 @@ Quick reference guide for AI agents and future developers working on this projec
 6. **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)**  
    Detailed analysis of face recognition service CPU usage and performance characteristics. Includes measured data: face detection (1.69 ms), face recognition (18.07 ms), total pipeline cost (~16 ms per frame), CPU usage at different settings (10-15% at default), and scaling analysis for multiple people recognition.
 
+### System Administration & Backup
+
+7. **[07_BACKUP_AND_RESTORE_SETUP.md](07_BACKUP_AND_RESTORE_SETUP.md)**  
+   Complete backup and restore system for reproducible Jetson deployments. Covers fresh Jetson setup, creating full-system backups, restoring from backup, Windows PowerShell automation to OneDrive, and validation procedures. Enables one-command restoration of the entire R2D2 system after hardware replacement or fresh flashing.
+
 ---
 
 ## Project Status (as of December 2025)
