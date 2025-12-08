@@ -43,11 +43,90 @@ sudo journalctl -u r2d2-audio-notification.service -f
 
 ## 🔊 What You'll Hear
 
-| Event | Sound | Meaning |
-|-------|-------|---------|
-| **Face detected** | 🔊 Single beep (1000 Hz) | You're recognized! |
-| **Face lost** | 🔔🔔 Double beep (500 Hz) | You've been away > 5s |
-| **Face returns** | 🔊 Single beep (1000 Hz) | Welcome back! |
+| Event | Alert | File | Meaning |
+|-------|-------|------|---------|
+| **Face detected** | 🔊 Recognition | Voicy_R2-D2 - 2.mp3 | You're recognized! |
+| **Face lost** | 🔔 Loss Alert | Voicy_R2-D2 - 5.mp3 | Confirmed absent > 10s |
+| **Face returns** | 🔊 Recognition | Voicy_R2-D2 - 2.mp3 | Welcome back! |
+
+**Current Volume:** 5% (very quiet) - See "Volume Control" below to adjust
+
+---
+
+## 🔉 Volume Control (Global Parameter)
+
+The `audio_volume` parameter controls **ALL audio** in the system.
+
+### Quick Volume Adjustment
+
+**Check current volume:**
+```bash
+ros2 param get /audio_notification_node audio_volume
+```
+
+**Change volume (temporary - while service is running):**
+```bash
+ros2 param set /audio_notification_node audio_volume 0.3  # Set to 30%
+```
+
+**Change volume (permanent - affects future restarts):**
+
+Edit `/etc/systemd/system/r2d2-audio-notification.service`:
+```bash
+sudo nano /etc/systemd/system/r2d2-audio-notification.service
+```
+
+Find `ExecStart` line and change to:
+```ini
+ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.3
+```
+
+Then:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+### Volume Reference
+
+| Value | Level | Use Case |
+|-------|-------|----------|
+| `0.0` | Silent | Mute all audio |
+| `0.05` | Very Quiet | **← Current (5%)** |
+| `0.1` | Quiet | Library/office |
+| `0.2` | Moderate | Home use |
+| `0.5` | Loud | Standard volume |
+| `1.0` | Maximum | Outdoor/noisy |
+
+---
+
+## 📋 System Overview
+
+### Hardware Path
+```
+Audio Files (MP3)
+    ↓
+audio_player.py (playback utility)
+    ↓
+ffplay (system audio player)
+    ↓
+ALSA (Linux audio stack)
+    ↓
+PAM8403 Amplifier
+    ↓
+Speaker 🔊
+```
+
+### Software Stack
+```
+Face Recognition Service
+    ↓ (publishes person_id)
+Audio Notification Node (ROS 2)
+    ↓ (plays audio based on face events)
+audio_player.py
+    ↓
+Speaker 🔊
+```
 
 ---
 
