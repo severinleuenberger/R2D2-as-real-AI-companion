@@ -100,6 +100,34 @@ sudo systemctl restart r2d2-audio-notification.service
 
 ---
 
+## ⏱️ Loss Confirmation Time (Global Parameter)
+
+How long R2D2 waits before confirming you've left.
+
+**Current Setting:** 15 seconds
+
+**Quick Change:**
+```bash
+# Temporary (while service is running)
+ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
+
+# Permanent (edit service file)
+sudo nano /etc/systemd/system/r2d2-audio-notification.service
+# Change ExecStart line to add: loss_confirmation_seconds:=20.0
+sudo systemctl daemon-reload && sudo systemctl restart r2d2-audio-notification.service
+```
+
+**Reference:**
+| Value (sec) | Level | Use Case |
+|-----------|-------|----------|
+| `5.0` | Very responsive | Quick alerts |
+| `10.0` | Balanced | Good compromise |
+| `15.0` | Patient | **← Current default** |
+| `20.0` | Very patient | Busy environments |
+| `30.0` | Extremely patient | Long absences only |
+
+---
+
 ## 📋 System Overview
 
 ### Hardware Path

@@ -342,6 +342,99 @@ sudo systemctl restart r2d2-audio-notification.service
 
 ---
 
+## Loss Confirmation Time - Global Parameter ⭐ IMPORTANT
+
+The **`loss_confirmation_seconds`** parameter is a **GLOBAL control** for how long R2D2 waits before confirming a person has left.
+
+**What it means:**
+- When your face disappears from the camera, R2D2 waits this many seconds before playing the loss alert
+- Tolerates brief interruptions (someone walks in front, lighting changes, etc.)
+- Longer value = more patient, shorter value = faster response
+
+**Current Setting:** `loss_confirmation_seconds = 15.0` seconds
+
+**Why it matters:**
+- Too short (e.g., 2s): False alarms when you briefly leave frame
+- Too long (e.g., 30s): Slow response when you actually leave
+- Just right (15s): Balances false alarms with responsiveness
+
+### How to Adjust Loss Confirmation Time
+
+**Option 1: Runtime Change (Immediate, Temporary)**
+```bash
+# Change to 20 seconds
+ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
+
+# Verify the change
+ros2 param get /audio_notification_node loss_confirmation_seconds
+```
+
+**Option 2: Launch Command (Temporary)**
+```bash
+# Launch with 20 second timeout
+ros2 launch r2d2_audio audio_notification.launch.py loss_confirmation_seconds:=20.0
+```
+
+**Option 3: Edit Service File (Permanent)**
+```bash
+# Edit the systemd service
+sudo nano /etc/systemd/system/r2d2-audio-notification.service
+```
+
+Find the `ExecStart` line and modify:
+```ini
+ExecStart=/home/severin/dev/r2d2/start_audio_service.sh loss_confirmation_seconds:=20.0
+```
+
+Then reload and restart:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+**Option 4: Edit Source Code (Permanent)**
+
+Edit `r2d2_audio/audio_notification_node.py` line 51:
+```python
+self.declare_parameter('loss_confirmation_seconds', 20.0)  # Change to your preferred value
+```
+
+Rebuild and restart:
+```bash
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_audio
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+### Verify Current Setting
+
+**Check system logs:**
+```bash
+journalctl -u r2d2-audio-notification.service -n 5 | grep "Loss confirmation"
+```
+
+**Check ROS 2 parameter:**
+```bash
+ros2 param get /audio_notification_node loss_confirmation_seconds
+```
+
+**Expected Output:**
+```
+Float value is: 15.0  # Example: 15 seconds
+```
+
+### Recommended Values
+
+| Value (sec) | Use Case | Notes |
+|-----------|----------|-------|
+| `5.0` | Very responsive | Quick alerts, may have false positives |
+| `10.0` | Balanced (old default) | Good compromise |
+| `15.0` | Patient (current) | **← Current default** |
+| `20.0` | Very patient | For busy environments with frequent transitions |
+| `30.0` | Extremely patient | Only alert after confirmed long absence |
+
+---
+
 ### Configuration Examples
 
 **Alert Tone (Loud, shorter cooldown):**

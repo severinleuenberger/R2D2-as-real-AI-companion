@@ -26,6 +26,8 @@ import subprocess
 import time
 from pathlib import Path
 from typing import Optional
+import sys
+import os
 
 
 class AudioNotificationNode(Node):
@@ -43,23 +45,15 @@ class AudioNotificationNode(Node):
         
         # Declare parameters
         self.declare_parameter('target_person', 'severin')
-        self.declare_parameter('beep_frequency', 400.0)  # Hz (deep)
-        self.declare_parameter('beep_duration', 0.5)      # seconds
-        self.declare_parameter('beep_volume', 0.25)       # 0.0-1.0 (quieter)
-        self.declare_parameter('loss_beep_frequency', 400.0)  # Hz (same deep tone)
-        self.declare_parameter('loss_beep_duration', 0.3)     # seconds
+        self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume)
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
-        self.declare_parameter('loss_confirmation_seconds', 5.0) # Loss confirmation time
-        self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition beeps
+        self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation time (GLOBAL)
+        self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
         self.declare_parameter('enabled', True)
         
         # Get parameters
         self.target_person = self.get_parameter('target_person').value
-        self.beep_frequency = self.get_parameter('beep_frequency').value
-        self.beep_duration = self.get_parameter('beep_duration').value
-        self.beep_volume = self.get_parameter('beep_volume').value
-        self.loss_beep_frequency = self.get_parameter('loss_beep_frequency').value
-        self.loss_beep_duration = self.get_parameter('loss_beep_duration').value
+        self.audio_volume = self.get_parameter('audio_volume').value
         self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
         self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
         self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
@@ -72,14 +66,51 @@ class AudioNotificationNode(Node):
         self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
         self.last_known_state = "unknown"  # Track last known state
         
-        # Find audio_beep.py
-        self.audio_beep_path = Path.home() / 'dev' / 'r2d2' / 'audio_beep.py'
-        if not self.audio_beep_path.exists():
+        # Find audio player and audio files
+        # Get the directory where this script is located
+        script_dir = Path(__file__).parent
+        
+        # Try multiple paths for audio assets (development and installed)
+        audio_paths = [
+            script_dir / 'assets' / 'audio',  # Development path
+            Path('/home/severin/dev/r2d2/ros2_ws/install/r2d2_audio/share/r2d2_audio/assets/audio'),  # Install path
+        ]
+        
+        self.audio_assets_dir = None
+        for path in audio_paths:
+            if path.exists():
+                self.audio_assets_dir = path
+                break
+        
+        if self.audio_assets_dir is None:
             self.get_logger().warn(
-                f"audio_beep.py not found at {self.audio_beep_path}. "
-                "Notifications will be disabled."
+                f"Audio assets directory not found. Tried: {', '.join(str(p) for p in audio_paths)}"
             )
-            self.audio_beep_path = None
+            self.audio_assets_dir = audio_paths[0]  # Use first path as fallback
+        
+        self.recognition_audio = self.audio_assets_dir / 'Voicy_R2-D2 - 2.mp3'
+        self.loss_audio = self.audio_assets_dir / 'Voicy_R2-D2 - 5.mp3'
+        self.audio_player_path = script_dir / 'audio_player.py'
+        
+        if not self.audio_assets_dir.exists():
+            self.get_logger().warn(
+                f"Audio assets directory not found at {self.audio_assets_dir}"
+            )
+        
+        if not self.recognition_audio.exists():
+            self.get_logger().warn(
+                f"Recognition audio file not found at {self.recognition_audio}"
+            )
+        
+        if not self.loss_audio.exists():
+            self.get_logger().warn(
+                f"Loss audio file not found at {self.loss_audio}"
+            )
+        
+        if not self.audio_player_path.exists():
+            self.get_logger().warn(
+                f"Audio player script not found at {self.audio_player_path}"
+            )
         
         # Create subscription to person_id topic
         self.person_sub = self.create_subscription(
@@ -100,16 +131,16 @@ class AudioNotificationNode(Node):
         self.create_timer(0.5, self.check_loss_state)
         
         self.get_logger().info(
-            f"Audio Notification Node initialized (Enhanced):\n"
+            f"Audio Notification Node initialized (Audio Files):\n"
             f"  Target person: {self.target_person}\n"
-            f"  Recognition beep: {self.beep_frequency} Hz, {self.beep_duration}s, "
-            f"volume {self.beep_volume*100:.0f}%\n"
-            f"  Loss beep: {self.loss_beep_frequency} Hz, 2x{self.loss_beep_duration}s\n"
+            f"  Recognition audio: {self.recognition_audio.name}\n"
+            f"  Loss audio: {self.loss_audio.name}\n"
+            f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
-            f"  Loss confirmation: {self.loss_confirmation}s (before loss beep)\n"
-            f"  Recognition cooldown: {self.cooldown_seconds}s\n"
+            f"  Loss confirmation: {self.loss_confirmation}s (before loss alert)\n"
+            f"  Alert cooldown: {self.cooldown_seconds}s\n"
             f"  Enabled: {self.enabled}\n"
-            f"  Audio utility: {self.audio_beep_path}"
+            f"  Audio player: {self.audio_player_path}"
         )
     
     def person_callback(self, msg: String):
@@ -135,7 +166,7 @@ class AudioNotificationNode(Node):
                 # Transition: unknown -> recognized
                 self.is_currently_recognized = True
                 self.last_known_state = self.target_person
-                self._trigger_recognition_beep()
+                self._trigger_recognition_alert()
                 self._publish_event(f"🎉 Recognized {self.target_person}!")
                 self.get_logger().info(f"✓ {self.target_person} recognized!")
         else:
@@ -163,113 +194,82 @@ class AudioNotificationNode(Node):
                 # Person was recognized but now confirmed lost
                 self.is_currently_recognized = False
                 self.last_loss_notification_time = current_time
-                self._trigger_loss_beep()
+                self._trigger_loss_alert()
                 self._publish_event(f"❌ {self.target_person} lost (confirmed)")
                 self.get_logger().info(
                     f"✗ {self.target_person} lost after {time_since_last_recognition:.1f}s"
                 )
     
-    def _trigger_recognition_beep(self):
+    def _trigger_recognition_alert(self):
         """
-        Trigger single beep when target person is recognized (transition).
+        Play recognition audio when target person is recognized (transition).
         Respects cooldown to prevent spam.
         """
         current_time = time.time()
         
         # Check cooldown
         if self.last_recognition_beep_time is not None:
-            time_since_last_beep = current_time - self.last_recognition_beep_time
-            if time_since_last_beep < self.cooldown_seconds:
+            time_since_last_alert = current_time - self.last_recognition_beep_time
+            if time_since_last_alert < self.cooldown_seconds:
                 self.get_logger().debug(
-                    f"Recognition beep suppressed (cooldown: {time_since_last_beep:.1f}s "
+                    f"Recognition alert suppressed (cooldown: {time_since_last_alert:.1f}s "
                     f"< {self.cooldown_seconds}s)"
                 )
                 return
         
-        self._play_beep(
-            frequency=self.beep_frequency,
-            duration=self.beep_duration,
-            volume=self.beep_volume,
-            beep_type="RECOGNITION"
+        self._play_audio_file(
+            audio_file=self.recognition_audio,
+            alert_type="RECOGNITION"
         )
         self.last_recognition_beep_time = current_time
     
-    def _trigger_loss_beep(self):
+    def _trigger_loss_alert(self):
         """
-        Trigger double beep (loss alert) when person is confirmed lost.
-        Two rapid beeps at lower frequency to indicate loss.
+        Play loss audio when person is confirmed lost.
         """
-        if self.audio_beep_path is None:
-            self.get_logger().warn("Cannot play loss beep: audio_beep.py not found")
+        self._play_audio_file(
+            audio_file=self.loss_audio,
+            alert_type="LOSS"
+        )
+    
+    def _play_audio_file(self, audio_file: Path, alert_type: str = "GENERIC"):
+        """
+        Play an audio file using the audio player.
+        
+        Args:
+            audio_file: Path to the audio file to play
+            alert_type: Type name for logging (RECOGNITION, LOSS, etc.)
+        """
+        if not audio_file.exists():
+            self.get_logger().error(f"Audio file not found: {audio_file}")
+            return
+        
+        if not self.audio_player_path.exists():
+            self.get_logger().error(f"Audio player not found: {self.audio_player_path}")
             return
         
         try:
             self.get_logger().info(
-                f"🔔🔔 LOSS ALERT! {self.target_person} lost "
-                f"({self.loss_beep_frequency}Hz, 2x{self.loss_beep_duration}s)"
+                f"🔊 Playing {alert_type} audio: {audio_file.name} (volume {self.audio_volume*100:.0f}%)"
             )
             
-            # Play two beeps
-            for beep_num in range(2):
-                cmd = [
-                    'python3',
-                    str(self.audio_beep_path),
-                    '--frequency', str(self.loss_beep_frequency),
-                    '--duration', str(self.loss_beep_duration),
-                    '--volume', str(self.beep_volume),
-                ]
-                
-                subprocess.run(
-                    cmd,
-                    timeout=self.loss_beep_duration + 2,
-                    capture_output=True,
-                    cwd=str(Path.home() / 'dev' / 'r2d2')
-                )
-                
-                # Small gap between beeps
-                if beep_num == 0:
-                    time.sleep(0.2)
-            
-        except subprocess.TimeoutExpired:
-            self.get_logger().warn("Loss beep timed out")
-        except Exception as e:
-            self.get_logger().error(f"Error playing loss beep: {e}")
-    
-    def _play_beep(self, frequency: float, duration: float, volume: float, beep_type: str = "GENERIC"):
-        """
-        Generic beep player.
-        
-        Args:
-            frequency: Frequency in Hz
-            duration: Duration in seconds
-            volume: Volume 0.0-1.0
-            beep_type: Type name for logging (RECOGNITION, LOSS, etc.)
-        """
-        if self.audio_beep_path is None:
-            self.get_logger().warn(f"Cannot play {beep_type} beep: audio_beep.py not found")
-            return
-        
-        try:
-            # Run audio_beep.py with specified parameters
+            # Run audio player asynchronously (non-blocking)
             cmd = [
                 'python3',
-                str(self.audio_beep_path),
-                '--frequency', str(frequency),
-                '--duration', str(duration),
-                '--volume', str(volume),
+                str(self.audio_player_path),
+                str(audio_file),
+                str(self.audio_volume),
             ]
             
-            subprocess.run(
+            subprocess.Popen(
                 cmd,
-                timeout=duration + 2,
-                capture_output=True,
-                cwd=str(Path.home() / 'dev' / 'r2d2')
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
             )
             
-        except subprocess.TimeoutExpired:
-            self.get_logger().warn(f"{beep_type} beep timed out")
         except Exception as e:
-            self.get_logger().error(f"Error playing {beep_type} beep: {e}")
+            self.get_logger().error(f"Error playing {alert_type} audio: {e}")
     
     def _publish_event(self, event_description: str):
         """
