@@ -13,6 +13,8 @@ This document covers the ROS 2 audio notification system that integrates with fa
 
 **For hardware setup and ALSA configuration**, see: [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
 
+**For complete system architecture with LED feedback and database integration**, see: [`AUDIO_STATUS_SYSTEM_ARCHITECTURE.md`](AUDIO_STATUS_SYSTEM_ARCHITECTURE.md) ⭐ **START HERE FOR FULL SYSTEM OVERVIEW**
+
 ### How It Works
 
 ```
@@ -35,13 +37,15 @@ Speaker → ALERT! 🔊
 
 - ✅ **Smart State Management:** Jitter tolerance, loss confirmation
 - ✅ **Real-time Recognition Alerts:** Plays audio on face detection
-- ✅ **Loss Detection:** Audio alert when person confirmed lost (10s+ absence)
+- ✅ **Loss Detection:** Audio alert when person confirmed lost (15s confirmation window)
 - ✅ **Custom Audio Files:** MP3 files for professional alert sounds
 - ✅ **Global Volume Control:** Single `audio_volume` parameter controls all audio
 - ✅ **ROS 2 Native:** Full integration with perception pipeline
+- ✅ **Status Publishing:** Real-time status messages for LED feedback and dialogue context
+- ✅ **Visual Feedback:** RGB LED shows recognition state (RED/BLUE/GREEN) via GPIO
 - ✅ **Background Service:** SystemD service for auto-start, auto-restart
-- ✅ **Status Publishing:** Events published for monitoring/debugging
 - ✅ **Production Ready:** Error handling, logging, fallbacks
+- ✅ **Future Database:** Event logging structure ready for SQLite implementation
 
 ---
 
@@ -71,6 +75,7 @@ Speaker → ALERT! 🔊
 | Topic | Type | Rate | Description |
 |-------|------|------|-------------|
 | `/r2d2/audio/notification_event` | String | Event-based | Notification events for monitoring |
+| `/r2d2/audio/person_status` | String (JSON) | 10 Hz | **NEW:** Person recognition status (RED/BLUE/GREEN) with confidence & duration |
 
 ### State Machine Diagram
 
