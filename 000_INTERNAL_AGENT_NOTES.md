@@ -1,9 +1,9 @@
 # Internal Agent Notes for R2D2 Project
 
-**Purpose:** Quick reference guide for AI agents and developers working on R2D2. Documents patterns, quirks, and optimization tips that aren't in the formal documentation.
+**Purpose:** Quick reference guide for AI agents working on R2D2. This is FOR AGENTS, not for end users. Users read the 0XX-numbered docs; agents use THIS file to understand context, architecture, and how to work efficiently.
 
-**Last Updated:** December 7, 2025  
-**For:** Current and future Claude/AI agents, developers familiar with ROS 2
+**Last Updated:** December 8, 2025  
+**Audience:** AI agents (Claude), developers who need quick context
 
 ---
 
@@ -15,13 +15,11 @@
 - Any commits on `master` will be orphaned and lost
 - Before any `git push`: Run `git branch` and verify `* main`
 
-### Rule 2: ALWAYS VERIFY BRANCH BEFORE PUSHING
+### Rule 2: ALWAYS VERIFY BEFORE PUSHING
 ```bash
-# BEFORE every push, run:
 git branch        # Must show: * main
 git log -n 1      # See the commit you're about to push
 git status        # Must show: "nothing to commit, working tree clean"
-# THEN push:
 git push origin main
 ```
 
@@ -29,438 +27,383 @@ git push origin main
 ❌ WRONG: `git push origin master:main`  
 ✅ RIGHT: `git push origin main`
 
-### Rule 4: IF YOU ACCIDENTALLY COMMIT TO `master`
-Stop and alert user. Do not push. Merge to main and delete master:
-```bash
-git checkout main
-git merge master
-git branch -d master
-git push origin main
-git push origin --delete master
-```
-
 ---
 
-## Quick Reference
+## Quick Command Reference
 
-### Environment Setup (Correct Order!)
+### Environment Setup (CORRECT ORDER MATTERS!)
 ```bash
 # ALWAYS IN THIS ORDER - Order matters on ARM!
 source ~/depthai_env/bin/activate      # DepthAI first!
 source ~/.bashrc                        # Then bash config
 source ~/dev/r2d2/ros2_ws/install/setup.bash  # Finally ROS 2
-export OPENBLAS_CORETYPE=ARMV8          # Critical for Jetson ARM (prevents illegal instructions)
+export OPENBLAS_CORETYPE=ARMV8          # Critical for Jetson ARM
 ```
 
-### Standard Build Pattern
+### Build & Run
 ```bash
+# Standard build (one package)
 cd ~/dev/r2d2/ros2_ws
-colcon build --packages-select <package_name>  # Standard, not full build
+colcon build --packages-select <package_name>
+
+# Clean rebuild (when cache is stale)
+rm -rf build install log && colcon build --packages-select <package_name>
+
+# Launch audio notifications
+ros2 launch r2d2_audio audio_notification.launch.py
+
+# Launch camera perception
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
+
+# Check ROS 2 topics
+ros2 topic list
+ros2 topic echo /topic_name -n 20
+ros2 topic hz /topic_name -w 5
+
+# Systemd services
+sudo systemctl status r2d2-audio-notification.service
+sudo systemctl restart r2d2-audio-notification.service
+journalctl -u r2d2-audio-notification.service -f
 ```
 
-### Clean Rebuild (Debugging Tool)
+### Debug & Troubleshooting
 ```bash
-rm -rf build install log && colcon build --packages-select <package_name>
+# Process stuck?
+pkill -9 -f ros2 && sleep 2
+
+# Inspect topic data
+ros2 topic echo <topic> -n 1
+
+# Check performance
+top                    # CPU/memory
+tegrastats             # Jetson thermal/power
 ```
-**When to use:** Build cache appears stale, mysterious cmake errors, file not found errors
 
 ---
 
-## Platform-Specific Knowledge
+## System Architecture
+
+### Software Stack
+```
+ROS 2 Humble
+    ├── r2d2_audio (audio notifications)
+    ├── r2d2_perception (image processing)
+    └── r2d2_bringup (camera + perception launch)
+         ├── DepthAI Python SDK (OAK-D camera control)
+         ├── OpenCV (image processing)
+         └── NumPy/SciPy (numerical computing)
+
+Linux ALSA
+    └── PAM8403 Amplifier → Speaker
+```
+
+### ROS 2 Node Layout
+```
+r2d2_camera_perception (launches on boot)
+  ├── OAK-D Camera → /oak/rgb/image_raw (30 Hz)
+  ├── Perception Node → /r2d2/perception/brightness (13 Hz)
+  └── Face Recognition Node → /r2d2/perception/person_id (varies)
+
+r2d2-audio-notification.service (systemd service)
+  ├── Subscribes: /r2d2/perception/person_id
+  ├── Plays: Audio files via ffplay
+  └── Publishes: /r2d2/audio/notification_event
+```
+
+### Package Structure
+```
+ros2_ws/src/
+├── r2d2_audio/
+│   ├── audio_notification_node.py (subscribes to person_id, plays audio)
+│   ├── audio_player.py (MP3 playback utility)
+│   ├── assets/audio/ (MP3 files: Voicy_R2-D2 - 2.mp3, 5.mp3)
+│   └── launch/audio_notification.launch.py
+│
+├── r2d2_perception/
+│   ├── image_listener.py (face recognition, brightness analysis)
+│   └── launch/perception.launch.py
+│
+└── r2d2_bringup/
+    └── launch/r2d2_camera_perception.launch.py (main launch file)
+```
+
+---
+
+## Platform & Hardware Reference
 
 ### Hardware Fixed Constants
 | Item | Value | Notes |
 |------|-------|-------|
-| Platform | NVIDIA Jetson AGX Orin 64GB | Not x86, ARM architecture |
-| OS | Ubuntu 22.04 Jammy | Not Focal, not Jammy LTS |
-| ROS 2 Version | Humble | Not Jazzy, not Foxy |
-| Camera Model | OAK-D Lite Auto Focus | 1920×1080 @ 30 FPS |
+| Platform | NVIDIA Jetson AGX Orin 64GB | ARM64, not x86 |
+| OS | Ubuntu 22.04 Jammy | Jetson-specific image |
+| ROS 2 | Humble | Required version |
+| Camera | OAK-D Lite AF | 1920×1080 @ 30 FPS |
 | Camera Serial | 19443010E1D30C7E00 | Specific unit |
-| Audio Amplifier | PAM8403 Class-D + 8Ω/3W speaker | Connected to J511 HPO_L (Dec 7, 2025) |
-| Audio Output | Jetson J511 Pin 9 (HPO_L) via I2S | Card 1, Device 0 (tegra-dlink-0) |
-| Project Root | ~/dev/r2d2 | NOT /home/user, NOT /opt |
-| Python | 3.10.6 | Via system or venv |
+| Audio Output | Jetson J511 Pin 9 (HPO_L) via I2S | PAM8403 → 8Ω speaker |
+| Python | 3.10.6 | System or venv |
+| Project Root | ~/dev/r2d2 | NOT /opt, NOT /home/user |
 
 ### Critical ARM Issue
-**Symptom:** `Illegal instruction` error when running Python
-**Cause:** OpenBLAS running on wrong CPU architecture
-**Fix:** `export OPENBLAS_CORETYPE=ARMV8` BEFORE running any ROS 2 code
-**Prevention:** Add to ~/.bashrc or sourcing script
+**Symptom:** `Illegal instruction (core dumped)` when running Python  
+**Cause:** OpenBLAS optimized for wrong CPU architecture  
+**Fix:** `export OPENBLAS_CORETYPE=ARMV8` BEFORE any ROS 2 commands  
+**Prevention:** Add to ~/.bashrc
 
-### Path Conventions
+### Project Directory Structure
 ```
-~/dev/r2d2/                           # Project root
-├── ros2_ws/                          # ROS 2 workspace
-│   ├── src/                          # Source packages
-│   ├── build/                        # Build artifacts (ignore)
-│   ├── install/                      # Installed packages
-│   └── log/                          # ROS 2 logs
-├── tests/camera/                     # Test output location
-│   └── perception_debug*.jpg         # Always here
-├── 01_R2D2_BASIC_SETUP_AND_FINDINGS.md
-├── 020_CAMERA_SETUP_DOCUMENTATION.md
-└── 030_PERCEPTION_PIPELINE_SETUP.md
+~/dev/r2d2/
+├── ros2_ws/                                # ROS 2 workspace
+│   ├── src/r2d2_*/                        # Source packages
+│   ├── build/, install/, log/             # Build artifacts
+│   └── install/setup.bash                 # Source for ROS 2 env
+│
+├── tests/camera/                          # Test outputs
+│   ├── perception_debug.jpg               # RGB capture (1920×1080)
+│   └── perception_debug_gray.jpg          # Grayscale (640×360)
+│
+├── 000_INTERNAL_AGENT_NOTES.md            # This file
+├── 001_ARCHITECTURE_OVERVIEW.md           # System design
+├── 010_PROJECT_GOALS_AND_SETUP.md         # Project roadmap
+├── 020_CAMERA_SETUP_DOCUMENTATION.md      # Camera setup
+├── 030_PERCEPTION_PIPELINE_SETUP.md       # Perception details
+├── 040_FACE_RECOGNITION_COMPLETE.md       # Face recognition
+├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio hardware
+├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio ROS2
+│
+├── README.md                              # Main overview
+├── QUICK_START.md                         # Quick start guide
+├── AUDIO_QUICK_REFERENCE.md               # Audio reference
+│
+└── _ANALYSIS_AND_DOCUMENTATION/           # Analysis & reference
+    └── (detailed diagnostic files)
 ```
 
 ---
 
-## Development Workflows
+## Common Development Tasks
 
-### Standard ROS 2 Workflow
-1. Edit code in ~/dev/r2d2/ros2_ws/src/<package>/
-2. Build: `colcon build --packages-select <package>`
+### How to Modify Perception Pipeline
+1. Edit: `~/dev/r2d2/ros2_ws/src/r2d2_perception/image_listener.py`
+2. Build: `colcon build --packages-select r2d2_perception`
 3. Source: `source install/setup.bash`
-4. Test: `ros2 launch <package> <launch_file>.py` or `ros2 run`
+4. Test: `ros2 launch r2d2_bringup r2d2_camera_perception.launch.py`
+5. Verify: `ros2 topic echo /r2d2/perception/brightness -n 20`
 
-### When Something Breaks (Debugging Sequence)
-1. **Process stuck?** → `pkill -9 -f ros2 && sleep 2 && retry`
-2. **Build cache stale?** → `rm -rf build install log && colcon build`
-3. **Topic not found?** → `ros2 topic list` to verify publisher is running
-4. **Topic has data but wrong format?** → `ros2 topic echo <topic> -n 1` to inspect
-5. **FPS too low?** → Check CPU with `top` or GPU thermal with `tegrastats`
+### How to Modify Audio Notifications
+1. Edit: `~/dev/r2d2/ros2_ws/src/r2d2_audio/audio_notification_node.py`
+2. Build: `colcon build --packages-select r2d2_audio`
+3. Restart: `sudo systemctl restart r2d2-audio-notification.service`
+4. Verify: `journalctl -u r2d2-audio-notification.service -f`
+5. Change parameters: `ros2 param set /audio_notification_node <param> <value>`
 
-### Testing Patterns
+### How to Add a New ROS 2 Package
+1. Create: `~/dev/r2d2/ros2_ws/src/r2d2_newpackage/`
+2. Add: `package.xml` and `setup.py`
+3. Add: Source files in `r2d2_newpackage/` subdirectory
+4. Build: `colcon build --packages-select r2d2_newpackage`
+5. Launch: Add to appropriate launch file or create new one
+
+### How to Update Audio Files
+1. Copy files: `cp new-audio.mp3 ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
+2. Update code: Edit `audio_notification_node.py` to reference new files
+3. Rebuild: `colcon build --packages-select r2d2_audio`
+4. Restart: `sudo systemctl restart r2d2-audio-notification.service`
+
+### How to Adjust Global Parameters
+**Audio Volume:**
 ```bash
-# Always timeout long tests to prevent hanging
-timeout 15 <long_command>
+# Temporary (while running)
+ros2 param set /audio_notification_node audio_volume 0.5
 
-# Process cleanup between tests
-pkill -9 -f ros2 && sleep 2
+# Permanent (edit service)
+sudo nano /etc/systemd/system/r2d2-audio-notification.service
+# Change ExecStart to: audio_volume:=0.5
+sudo systemctl daemon-reload && sudo systemctl restart r2d2-audio-notification.service
+```
 
-# Capture N samples (not streaming)
-ros2 topic echo /topic_name -n 20
-
-# Measure rate across multiple windows
-ros2 topic hz /topic_name -w 5
+**Loss Confirmation Time:**
+```bash
+ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
 ```
 
 ---
 
-## Performance Baseline Expectations
+## Testing & Validation
 
-| Metric | Expected | When Lower = Problem |
-|--------|----------|---------------------|
-| Startup time | <2 seconds | Check thermal |
-| FPS (image processing) | 12-13 Hz | Check CPU load or resolution |
-| Memory (Python node) | ~50 MB baseline | Leak? Check for unbounded lists |
-| Brightness value range | Vary 1-3 points | Fluctuating > 5 points = lighting changes |
-| Topic publish jitter | 0.006-0.024s std dev | Very stable = healthy system |
+### How to Know When It Works
+| Feature | Test Command | Expected Result |
+|---------|--------------|-----------------|
+| Camera | `ros2 topic hz /oak/rgb/image_raw -w 5` | 28-30 Hz |
+| Brightness | `ros2 topic echo /r2d2/perception/brightness -n 5` | Values 0-255, ~13 Hz |
+| Audio Service | `sudo systemctl status r2d2-audio-notification.service` | `active (running)` |
+| Audio Test | `python3 ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/audio_player.py ~/audio.mp3 0.5` | Audio plays |
+| Face Recognition | `ros2 topic echo /r2d2/perception/person_id -n 5` | "severin" or "unknown" |
 
-### Known Variations
-- **First 3-5 seconds:** FPS may be lower during initialization (normal)
-- **Brightness on startup:** May be 10-20 points lower until AGC stabilizes
-- **Memory climb first minute:** Python module loading, then stable (normal)
+### Performance Baselines
+| Metric | Good | Problem When |
+|--------|------|-------------|
+| Camera startup | <2 seconds | >5 seconds = check thermal |
+| FPS (perception) | 12-13 Hz | <10 Hz = check CPU |
+| Memory (node) | ~50-60 MB | >200 MB = memory leak |
+| Audio service | active (running) | failed/inactive |
+| Brightness jitter | ±2-3 points | >10 points = lighting change |
 
----
-
-## Camera & Perception Node Specifics
-
-### OAK-D Lite Output Format
-- Topic: `/oak/rgb/image_raw`
-- Format: `sensor_msgs/Image` with encoding `bgr8`
-- Resolution: 1920×1080 (raw from camera)
-- Rate: ~30 FPS (camera hardware)
-- Frame ID: `oak_d_rgb_camera_optical_frame`
-
-### Image Processing Pipeline (Current)
-```
-Input: 1920×1080 BGR @ 30 FPS
-  ↓
-Downscale: 640×360 (11% of pixel count)
-  ↓
-Grayscale: Single channel via cv2.cvtColor()
-  ↓
-Brightness: np.mean(gray_image) → 0-255 value
-  ↓
-Output: Float32 on /r2d2/perception/brightness @ ~13 Hz
-```
-
-### Brightness Value Interpretation
-- **0-30:** Very dark (night, shadowed)
-- **60-90:** Dark indoor
-- **125-140:** Well-lit indoor (typical office)
-- **150-200:** Very bright (outdoor, bright lamps)
-- **230-255:** Overexposed (bright sunlight, reflective surfaces)
-
-**Current test environment:** 132-136 (well-lit room)
-
-### Debug Frame Locations
-```
-/home/severin/dev/r2d2/tests/camera/perception_debug.jpg       # RGB, 1920×1080, ~470 KB
-/home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg  # Grayscale, 640×360, ~30 KB
-```
+### Validation Checklist Before Commit
+- [ ] Code builds: `colcon build --packages-select <pkg>` succeeds
+- [ ] Node runs: `ros2 launch ...` starts without errors
+- [ ] Topics publish: `ros2 topic list` shows expected topics
+- [ ] Data looks good: `ros2 topic echo <topic> -n 5` shows reasonable values
+- [ ] Service works: `sudo systemctl restart ...` succeeds
+- [ ] Logs clean: `journalctl -u ...` shows no errors
+- [ ] Parameters set: `ros2 param get /node <param>` shows correct value
 
 ---
 
-## Git Workflow (Current Setup)
+## Troubleshooting Guide
 
-### ⚠️ CRITICAL: Branch Configuration
+### Topic Not Found / Not Publishing
 ```
-Local:   main
-Remote:  origin/main  (single source of truth)
-Tracking: main → origin/main
-
-❌ DO NOT USE: master branch (deleted - user only uses main)
-❌ DO NOT PUSH: git push origin master:main (wrong branch!)
-✅ DO USE: git push origin main (correct)
-```
-
-**Why this matters:** User only uses `main` branch. Commits on `master` will be orphaned and user won't see them. This happened multiple times - FIX: Always work on `main`.
-
-### Standard Flow (CORRECT)
-```bash
-git add <files>
-git commit -m "Description with WHY and implementation details"
-git push origin main
+Check: Is the publisher node running?
+  ros2 node list  # Look for publisher node
+  
+Start: Launch the publisher node first
+  ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
+  
+Wait: 1-2 seconds for topics to initialize
+  sleep 2 && ros2 topic list
 ```
 
-**Check before any git push:**
-```bash
-git branch -a           # Verify you're on 'main'
-git log --oneline -3    # See last 3 commits
-git status              # Clean working tree?
+### "Illegal instruction" Error
 ```
+Cause: OpenBLAS on wrong ARM architecture
+
+Fix:
+  export OPENBLAS_CORETYPE=ARMV8
+  # Then retry the command
+  
+Permanent fix: Add to ~/.bashrc
+```
+
+### Build Cache Stale (CMakeError)
+```
+Signs: File not found, CMakeError, mysterious build failures
+
+Fix:
+  rm -rf build install log
+  colcon build --packages-select <package>
+```
+
+### ROS 2 Commands Hung/Not Responding
+```
+Quick fix:
+  pkill -9 -f ros2
+  sleep 2
+  # Retry your command
+```
+
+### Service Not Starting / Failed
+```
+Check: Service status and logs
+  sudo systemctl status r2d2-audio-notification.service
+  journalctl -u r2d2-audio-notification.service -n 20
+
+Common causes:
+  1. Python environment not sourced (check service file)
+  2. Audio file missing (check path in code)
+  3. Port already in use (check other running services)
+  4. Permission denied (check file ownership)
+```
+
+---
+
+## Documentation Standards
+
+### What Gets Documented (In 0XX Files)
+✅ User-facing setup and configuration  
+✅ How to run and test the system  
+✅ What each parameter does  
+✅ Configuration examples  
+✅ Troubleshooting guide  
+
+### What Goes in _ANALYSIS_AND_DOCUMENTATION/
+✅ Detailed analysis and diagnostics  
+✅ Cost breakdowns and research  
+✅ Technical deep-dives  
+✅ Historical notes and process documents  
+✅ (Link these from main docs!)
+
+### What Goes in _TEMP/
+✅ Agent working notes (temporary)  
+✅ Draft analysis (work-in-progress)  
+✅ Command output captures  
+✅ Multi-step work tracking  
+✅ (Delete when done - never commit!)
+
+### Documentation Workflow
+1. Work in `_TEMP/` for drafts and working notes
+2. Extract key findings to main docs (000-060)
+3. Link detailed analysis in `_ANALYSIS_AND_DOCUMENTATION/`
+4. Delete `_TEMP/` files when complete
+5. Commit only permanent content to git
+
+---
+
+## Git Best Practices
 
 ### Commit Message Pattern
-Include:
-- What changed
-- Why it matters
-- Measured results (if applicable)
-- Learning points (if novel)
+```
+<Type>: <Short summary (50 chars)>
+
+<Body: What changed, why, and measured results>
 
 Example:
-```
-Add brightness behavior validation test results
-
-- Document live hardware test execution (December 5, 2025)
-- Publishing rate: 12.8 Hz average (12.5-13.5 Hz range)
-- Brightness values: 132-136 range (0-255 scale), mean 134.1
-- Grayscale debug frame: 640×360, 29.9 KB, successfully verified
-- Learning: Image processing pipeline confirmed working correctly
-```
-
 ---
+feat: Add audio volume parameter to audio notification node
 
-## Common Issues & Solutions
+- Implement global audio_volume parameter (0.0-1.0)
+- Current default: 0.05 (5% - very quiet)
+- Tested: Audio plays at 50% volume as expected
+- Updated: Both source code and systemd service
+- Measured: Service restart successful, no errors
+```
 
-### Issue: "topic [X] does not appear to be published yet"
-**Likely cause:** Publisher node not running or not subscribed yet  
-**Check:**
+### Before Every Push
 ```bash
-ros2 node list                    # Is publisher running?
-ros2 topic list                   # Does topic exist?
-ros2 topic info <topic>           # How many subscribers?
-```
-**Fix:** Start the publisher node first, give it 1-2 seconds to initialize
-
-### Issue: "Illegal instruction (core dumped)"
-**Likely cause:** OpenBLAS on wrong ARM architecture  
-**Fix:**
-```bash
-export OPENBLAS_CORETYPE=ARMV8
-# Then run again
-```
-
-### Issue: Build cache seems stale (CMakeError or file not found)
-**Standard fix:**
-```bash
-rm -rf build install log
-colcon build --packages-select <package>
-```
-**When to try:** After renaming files, after .gitignore changes, after package.xml edits
-
-### Issue: "permission denied" on file write
-**Check:** Path exists and is writable
-```bash
-ls -la /home/severin/dev/r2d2/tests/camera/
-touch /home/severin/dev/r2d2/tests/camera/test.txt  # Can you write?
-```
-
-### Issue: ROS 2 commands seem hung or don't work
-**Quick fix:**
-```bash
-pkill -9 -f ros2
-sleep 2
-# Retry your command
+git branch -a           # Verify on 'main'
+git log --oneline -3    # Check last 3 commits
+git status              # Clean working tree?
+git push origin main    # Push
 ```
 
 ---
 
-## Documentation Standards for This Project
+## For Future Agents Reading This
 
-### Format Conventions
-- Use markdown with clear hierarchy (# ## ### ####)
-- Tables for specifications, commands, results
-- Code blocks with language tags (bash, python, cmake)
-- Bold for emphasis, links for cross-references
-- Include actual measured values, not theoretical
+### What You Need to Know From This File
+- Critical git rules (always use main branch)
+- Environment setup order (DepthAI → bashrc → ROS2)
+- System architecture (nodes, packages, topics)
+- How to modify, test, and validate changes
+- Troubleshooting common issues
+- Documentation management rules
 
-### What Gets Documented
-✅ **Document:**
-- How to set up and run (in 01, 02, 03)
-- What was tested and results (in 03 Comprehensive Testing)
-- Code patterns and "why" decisions
-- Actual error messages encountered
-- Solutions that worked (anti-patterns too!)
+### What to Read in 0XX Files
+- `001_ARCHITECTURE_OVERVIEW.md` - System design
+- `010_PROJECT_GOALS_AND_SETUP.md` - Project roadmap
+- `020-060_*.md` - Feature-specific setup and configuration
+- `QUICK_START.md` - Quick start for users
 
-❌ **Don't document:**
-- Generic ROS 2 info (link to official docs instead)
-- Standard Linux commands (assume reader knows)
-- Third-party library internals (document only OUR usage)
-
----
-
-## Documentation Management Guidelines
-
-### Core Documentation Structure
-
-**Root directory** contains main documentation:
-- `000-060_*.md` - Core numbered documentation (system setup, config, architecture)
-- `README.md` - Project overview and main entry point
-- `QUICK_START.md`, `AUDIO_QUICK_REFERENCE.md` - Quick reference guides
-
-### Folder Organization
-
-**`_ANALYSIS_AND_DOCUMENTATION/`** - Reference documentation
-- For detailed analysis, diagnostics, and working notes
-- For documentation that doesn't belong in main docs
-- Can contain checklists, detailed technical analysis, cost breakdowns, etc.
-- **IMPORTANT:** Must be linked from appropriate main doc with a reference/link
-- Example: Hardware diagnostic results → Link from 050_AUDIO_SETUP_AND_CONFIGURATION.md
-
-**`_TEMP/`** - Temporary working space for AI agents only
-- Use for internal agent notes, analysis snippets, command outputs
-- Use for "continue-style" coding sequences (multi-step work tracking)
-- Use for temporary debugging information
-- **CRITICAL:** Nothing permanent should go here
-- **Cleanup rule:** Delete temporary files when task is complete
-- **All permanent information** must be moved to main docs or `_ANALYSIS_AND_DOCUMENTATION/`
-- Example: Intermediate analysis scripts, draft changes, debugging command outputs
-
-### Documentation Workflow for Agents
-
-**When creating new documentation:**
-
-1. **Primary content** (000-060 files)
-   - User-facing, production documentation
-   - Clear instructions, parameters, examples
-   - Includes quick reference sections
-
-2. **Analysis/Reference content** (_ANALYSIS_AND_DOCUMENTATION/)
-   - Supporting analysis, detailed diagnostics
-   - Historical notes, cost analyses
-   - Technical deep-dives
-   - **Must have links from main docs** pointing to detailed analysis
-
-3. **Temporary work** (_TEMP/ folder)
-   - Draft analysis, command outputs
-   - Multi-step work tracking
-   - Debug information
-   - **Delete when complete** - don't commit unless it's becoming permanent
-
-### Examples
-
-✅ **Correct Workflow:**
-```
-1. Agent creates: _TEMP/audio_volume_analysis.txt (draft analysis)
-2. Agent refines: Moves valuable findings to 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md
-3. Agent adds: Link in main doc → "_ANALYSIS_AND_DOCUMENTATION/AUDIO_DIAGNOSTICS.md"
-4. Agent cleans: Deletes _TEMP/audio_volume_analysis.txt
-5. Agent commits: Main docs + analysis files to git
-```
-
-✗ **Wrong Workflow:**
-```
-1. Agent creates: _TEMP/myanalysis.md
-2. Agent commits: _TEMP/myanalysis.md to git (permanent!)
-3. Agent deletes: Later realizes it was temporary
-4. Creates confusion about what's permanent vs working notes
-```
-
-### Rules for AI Agents
-
-- ✅ Use `_TEMP/` to organize multi-step work in progress
-- ✅ Use `_TEMP/` for agent-internal notes and debugging
-- ✅ Reference `_ANALYSIS_AND_DOCUMENTATION/` from main docs when needed
-- ✅ Move all permanent content to appropriate location before committing
-- ✗ Don't commit temporary files to git
-- ✗ Don't leave permanent information in `_TEMP/`
-- ✗ Don't create random markdown files in root (use 000-060 series or analysis folder)
+### When You're Done Working
+1. Test your changes thoroughly
+2. Validate with checklist above
+3. Update documentation if needed
+4. Clean up `_TEMP/` folder
+5. Commit with descriptive message
+6. Push to main branch
+7. Verify on GitHub
 
 ---
 
-## For Future AI Agents Working Here
+**This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-### I (Claude) Know From Context
-✅ You'll know from reading 01, 02, 03:
-- Hardware setup
-- Camera integration
-- Perception pipeline
-
-### I (Claude) Learn From Working With Severin
-✅ Through interaction, I learn:
-- Debugging patterns that work
-- Performance baselines
-- When to try clean rebuild vs incremental
-- File naming conventions
-- Commit message style
-- Communication preferences
-
-### What This File Adds
-✅ Quick reference without reading all 3 docs:
-- "What's the env sourcing order?" → See top
-- "When should I clean rebuild?" → See Debugging Sequence
-- "What's a good brightness value?" → See Brightness Interpretation
-- "How do I know FPS is healthy?" → See Performance Baseline
-
----
-
-## Evolution Log
-
-### Changes Made (This Session - Dec 5, 2025)
-- ✅ Fixed git master/main branch confusion
-- ✅ Renamed docs with 01_, 02_, 03_ prefixes
-- ✅ Added documentation links to README.md
-- ✅ Executed brightness behavior validation tests (12.8 Hz, 132-136 brightness)
-- ✅ Documented complete perception pipeline with image processing
-- ✅ Created this internal notes file for future reference
-
-### Known Limitations / TODOs
-- [ ] Depth stream integration not yet implemented
-- [ ] Bright/dark scene extremes not fully tested (only well-lit indoor)
-- [ ] Edge detection not added
-- [ ] Only single camera (no fusion)
-
----
-
-## Quick Command Reference
-
-```bash
-# Setup (do once per terminal session)
-source ~/depthai_env/bin/activate && source ~/.bashrc && cd ~/dev/r2d2/ros2_ws && source install/setup.bash
-
-# Build
-colcon build --packages-select r2d2_perception
-
-# Clean rebuild (debugging)
-rm -rf build install log && colcon build --packages-select r2d2_perception
-
-# Test camera + perception
-ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
-
-# Test camera + perception with grayscale debug
-ros2 launch r2d2_bringup r2d2_camera_perception.launch.py save_debug_gray_frame:=true
-
-# Monitor brightness
-ros2 topic echo /r2d2/perception/brightness -n 20
-
-# Check rate
-ros2 topic hz /r2d2/perception/brightness -w 5
-
-# Cleanup if stuck
-pkill -9 -f ros2 && sleep 2
-```
-
----
-
-**This document is a living reference. Update it when patterns change, new quirks are discovered, or best practices evolve.**
+**Last Updated:** December 8, 2025
