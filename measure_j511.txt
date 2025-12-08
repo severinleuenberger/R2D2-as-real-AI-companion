@@ -1,0 +1,119 @@
+═══════════════════════════════════════════════════════════════════════════════
+HARDWARE MEASUREMENT CHECKLIST FOR J511 AUDIO HEADER
+═══════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Locate J511 Audio Panel Header
+───────────────────────────────────────────────────────────────────────────────
+Find the small 10-pin header on the Jetson board labeled "J511"
+Location: Near the J30 40-pin header on Jetson AGX Orin
+
+J511 Pinout (top view):
+┌───────────────────────────────────┐
+│  1   2   3   4   5               │
+│ NC  AGND NC  NC  NC               │ ← Top row
+│                                   │
+│  6   7   8   9   10              │
+│ NC  NC  NC  HPO_L HPO_R           │ ← Bottom row
+└───────────────────────────────────┘
+
+Pin 9: HPO_L (Left Headphone Output) - THIS IS YOUR AUDIO SIGNAL
+Pin 2: AGND (Audio Ground) - THIS IS YOUR AUDIO RETURN
+
+STEP 2: Measure Voltage on J511 Pin 9 (HPO_L) DURING PLAYBACK
+───────────────────────────────────────────────────────────────────────────────
+Equipment needed:
+  - Digital Multimeter (AC voltage mode or oscilloscope)
+  - Two hands (one to hold probe, one to run command)
+
+Instructions:
+  1. Set multimeter to AC voltage (typically 2V or 5V AC range)
+  2. Place RED probe on J511 Pin 9 (HPO_L)
+  3. Place BLACK probe on J511 Pin 2 (AGND) or Jetson GND
+  4. In another terminal, RUN:
+     aplay -D hw:1,0 /tmp/test_1khz_2sec.wav
+  5. WATCH the multimeter DURING playback (should show 0.3-1.0V AC)
+  
+Expected results:
+  ✓ With audio playing: 0.3-1.0V AC voltage (sine wave)
+  ✗ With audio playing: 0V AC (no signal = broken connection or codec issue)
+  ✗ With audio playing: DC voltage (wrong codec output)
+
+STEP 3: Measure Voltage on PAM8403 LIN Pin DURING PLAYBACK
+───────────────────────────────────────────────────────────────────────────────
+1. Place RED probe on PAM8403 LIN pin
+2. Place BLACK probe on PAM8403 GND pin
+3. RUN same command: aplay -D hw:1,0 /tmp/test_1khz_2sec.wav
+4. WATCH multimeter DURING playback
+
+Expected results:
+  ✓ Same voltage as J511 Pin 9 (means wiring is correct)
+  ✗ 0V (means wire is disconnected or shorted)
+  ✗ Different voltage (means wrong connection or missing ground)
+
+STEP 4: Check PAM8403 Power Supply
+───────────────────────────────────────────────────────────────────────────────
+Set multimeter to DC voltage (20V range):
+  
+  Check PAM8403 +5V pin:
+  1. Place RED probe on PAM8403 +5V
+  2. Place BLACK probe on PAM8403 GND
+  3. Read voltage
+  
+  Expected: 4.8V - 5.2V
+  
+  If LOWER than 4.5V:
+    - Jetson Pin 2 (5V) may not be properly connected
+    - PAM8403 +5V pin may have poor solder connection
+    - Check Jetson Pin 2 output directly
+
+STEP 5: Check PAM8403 Output Pins During Playback
+───────────────────────────────────────────────────────────────────────────────
+With multimeter in AC voltage mode (2V range):
+  
+  Check PAM8403 L+ pin:
+  1. Place RED probe on PAM8403 L+ (left positive output)
+  2. Place BLACK probe on PAM8403 L− (left negative output)
+  3. RUN: aplay -D hw:1,0 /tmp/test_1khz_2sec.wav
+  4. WATCH multimeter DURING playback
+  
+  Expected: 1.0-3.0V AC (amplified signal)
+  
+  If 0V:
+    - Signal from LIN pin is not reaching the amplifier
+    - PAM8403 may be broken or unpowered
+    - Check DAC routing in codec
+
+STEP 6: Test Speaker Directly
+───────────────────────────────────────────────────────────────────────────────
+If PAM8403 L+/L− shows voltage but speaker has no sound:
+  
+  1. Disconnect speaker from PAM8403
+  2. Connect speaker directly to PAM8403 L+ and L− during playback
+  3. Listen for sound
+  
+  If still silent:
+    - Speaker may be defective (open circuit)
+    - Try different speaker (different impedance/brand)
+    - Check speaker polarity (though this shouldn't cause complete silence)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+SUMMARY OF POSSIBLE ISSUES:
+
+Issue 1: No voltage on J511 Pin 9 during playback
+→ Problem: Codec not routing audio to J511 header
+→ Solution: Check alsamixer DAI routing (may need asound.conf)
+
+Issue 2: Voltage on J511 Pin 9 but not on PAM8403 LIN
+→ Problem: Wire is disconnected or shorted
+→ Solution: Check solder connections on J511 and PAM8403
+
+Issue 3: Voltage on PAM8403 LIN but not on L+/L−
+→ Problem: PAM8403 amplifier is broken or depowered
+→ Solution: Check PAM8403 power supply and GAIN pin
+
+Issue 4: Voltage on PAM8403 L+/L− but no speaker sound
+→ Problem: Speaker is broken or reversed polarity
+→ Solution: Test with different speaker
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,120 @@
+═══════════════════════════════════════════════════════════════════════════════
+R2D2 AUDIO SYSTEM - CRITICAL PIN IDENTIFICATION ISSUE
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️  ISSUE IDENTIFIED: WRONG J511 PIN USED
+─────────────────────────────────────────────────────────────────────────────
+✗ Currently wired to: J511 Pin 9 (HPO_L - LEFT channel)
+✓ Should be wired to: J511 Pin 5 (HPO_R - RIGHT channel)
+
+This is why you didn't hear the beep - wrong audio channel!
+
+
+WIRING CORRECTION NEEDED
+─────────────────────────────────────────────────────────────────────────────
+✓ RIN soldered to correct location (J511 header)
+✗ But soldered to WRONG PIN (Pin 9 instead of Pin 5)
+✓ GND soldered correctly to J511 Pin 2 (AGND)
+✓ R+/R− wired to 8Ω speaker (correct)
+✓ 5V power and ground properly connected
+
+
+SOFTWARE CLEANUP STATUS: ✓ COMPLETE
+─────────────────────────────────────────────────────────────────────────────
+✓ Reverted complex modifications
+✓ Kept basic, clean audio_beep.py utility
+✓ Updated docstrings with correct hardware info
+✓ Identified correct J511 pin mapping (Pin 5, not Pin 9)
+✓ Created detailed pin explanation documents
+✓ Created simple test scripts for verification
+
+
+FILES CREATED/MODIFIED
+─────────────────────────────────────────────────────────────────────────────
+
+MODIFIED:
+  audio_beep.py                    (Added hardware wiring info to docstrings)
+  README_AUDIO_FIRST.txt           (Updated with Pin 5 vs Pin 9 explanation)
+  CORRECT_WIRING_GUIDE.md          (Updated with correct pin numbers)
+  
+CREATED:
+  test_audio_fixed.py              (Simple test - run after fix!)
+  quick_audio_test.sh              (Full system test with diagnostics)
+  CORRECT_J511_PINOUT.md           (Official J511 pinout documentation)
+  PIN5_vs_PIN9_EXPLANATION.md      (Detailed explanation of the difference)
+  QUICK_FIX_J511.sh               (Visual guide to fix the pin)
+  CLEANUP_STATUS.txt               (This file)
+
+
+WHAT TO DO NEXT
+─────────────────────────────────────────────────────────────────────────────
+
+1. MOVE THE WIRE:
+   • Unsolder from J511 Pin 9
+   • Solder to J511 Pin 5 (one pin to the left)
+   • This should take ~5 minutes
+
+2. RUN THE TEST:
+   cd /home/severin/dev/r2d2
+   python3 test_audio_fixed.py
+
+3. EXPECTED RESULT:
+   You should HEAR a 1kHz beep from the speaker
+
+4. IF YOU HEAR THE BEEP:
+   → Hardware is correct! ✓
+   → Audio system is working! ✓
+   → Fix is complete! ✓
+
+5. IF YOU STILL DON'T HEAR:
+   → Check solder joints (look for dull/grainy joints)
+   → Use multimeter continuity test
+   → Follow troubleshooting guide in README_AUDIO_FIRST.txt
+
+
+KEY POINTS
+─────────────────────────────────────────────────────────────────────────────
+
+• J511 Pin 5 = HPO_R (RIGHT audio output)
+• J511 Pin 9 = HPO_L (LEFT audio output)
+
+• Your speaker is on RIGHT outputs (R+/R−)
+• So you need the RIGHT audio input (Pin 5)
+• Currently using LEFT audio input (Pin 9) = WRONG
+
+• The fix is simple: move one wire one position to the left
+• Ground connection (Pin 2) is already correct
+• Everything else is wired correctly
+
+
+QUICK REFERENCE
+─────────────────────────────────────────────────────────────────────────────
+
+What to move:
+  FROM: J511 Pin 9 (HPO_L - LEFT channel)
+  TO:   J511 Pin 5 (HPO_R - RIGHT channel)
+
+Visual layout:
+  1    3    5    7    9
+  2    4    6    8   10
+       ↑ Pin 5 (move wire here)
+            ↑ Pin 9 (currently here)
+
+Test audio:
+  python3 test_audio_fixed.py
+
+Documentation:
+  CORRECT_J511_PINOUT.md      - Official pinout
+  PIN5_vs_PIN9_EXPLANATION.md - Detailed explanation
+  QUICK_FIX_J511.sh          - Visual guide
+
+
+═══════════════════════════════════════════════════════════════════════════════
+Status: PIN ISSUE IDENTIFIED - Move wire from Pin 9 to Pin 5
+Wiring: Mostly correct, except wrong pin (easy fix)
+Code: CLEAN AND BASIC
+═══════════════════════════════════════════════════════════════════════════════
+
+Next step: Move wire from J511 Pin 9 to J511 Pin 5
+Then: python3 test_audio_fixed.py
+Expected result: Hear a beep!

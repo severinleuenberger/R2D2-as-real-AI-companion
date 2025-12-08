@@ -18,7 +18,13 @@ def generate_beep(
     volume: float = 0.5,
 ) -> bytes:
     """
-    Generate a sine wave beep as WAV audio data
+    Generate a sine wave beep as WAV audio data (stereo - both channels identical)
+    
+    PAM8403 Wiring:
+    - Right channel (R+/R−): Connected to 8Ω speaker
+    - Input RIN: Connected to J511 Pin 9 (HPO_R)
+    - Ground: Connected to J511 Pin 2 (AGND)
+    - Power: 5V + GND
     
     Args:
         frequency: Tone frequency in Hz (default 1000 Hz)
@@ -39,7 +45,7 @@ def generate_beep(
     num_samples = int(sample_rate * duration)
     amplitude = int(32767 * volume)  # 16-bit signed max
     
-    # Build WAV header
+    # Build WAV header (stereo)
     wav_data = b'RIFF'
     file_size = 36 + num_samples * 4  # 4 bytes per sample (stereo 16-bit)
     wav_data += struct.pack('<I', file_size)
@@ -69,16 +75,22 @@ def play_beep(
     frequency: float = 1000.0,
     duration: float = 0.5,
     volume: float = 0.5,
-    device: Optional[str] = None,
+    device: Optional[str] = "hw:1,0",
 ) -> bool:
     """
-    Generate and play a beep sound
+    Generate and play a beep sound via PAM8403 amplifier
+    
+    Correct Hardware Setup:
+    - Right channel (R+/R−) → 8Ω speaker
+    - RIN → Jetson J511 Pin 9 (HPO_R)
+    - GND → Jetson J511 Pin 2 (AGND)
+    - Power: 5V + GND
     
     Args:
         frequency: Tone frequency in Hz (default 1000)
         duration: Duration in seconds (default 0.5)
         volume: Volume 0.0-1.0 (default 0.5 = 50%)
-        device: ALSA device (e.g., 'hw:1,0'). If None, uses system default
+        device: ALSA device (default 'hw:1,0' for Jetson I2S)
     
     Returns:
         True if successful, False if failed
@@ -148,8 +160,8 @@ def main():
     parser.add_argument(
         "--device",
         type=str,
-        default=None,
-        help="ALSA device, e.g. hw:1,0 for I2S speaker"
+        default="hw:1,0",
+        help="ALSA device (default: hw:1,0 for Jetson I2S PAM8403)"
     )
     parser.add_argument(
         "--list-devices",

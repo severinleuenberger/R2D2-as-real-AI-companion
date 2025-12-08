@@ -1,0 +1,32 @@
+[Unit]
+Description=R2D2 Audio Notification Service
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/AUDIO_NOTIFICATION_BACKGROUND_SERVICE.md
+
+[Service]
+Type=simple
+User=severin
+Group=severin
+WorkingDirectory=/home/severin/dev/r2d2
+
+# Use the startup script (direct node launch - avoids launch_ros libexec issue)
+ExecStart=/home/severin/dev/r2d2/start_audio_notification.sh
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-audio
+
+# Service hardening
+NoNewPrivileges=true
+ProtectHome=no
+ReadWritePaths=/home/severin/dev/r2d2
+
+[Install]
+WantedBy=multi-user.target
