@@ -66,7 +66,7 @@ class AudioNotificationNode(Node):
         
         # Declare parameters
         self.declare_parameter('target_person', 'severin')
-        self.declare_parameter('audio_volume', 0.3)        # 0.0-1.0 (audio file volume) - increased for audibility
+        self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume) - 5% volume
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
         self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
