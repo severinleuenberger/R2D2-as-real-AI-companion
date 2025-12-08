@@ -15,7 +15,7 @@ I'm working on the R2D2 project in /home/severin/dev/r2d2
 
 Please read these foundation documents first to understand the full context:
 - 000_INTERNAL_AGENT_NOTES.md (CRITICAL: git rules, environment setup, hardware constants)
-- 001_ARCHITECTURE_OVERVIEW.md (system architecture and design)
+- [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) (system architecture and design)
 - 003_JETSON_FLASHING_AND_DISPLAY_SETUP.md (hardware setup if relevant)
 - 004_BACKUP_AND_RESTORE.md (for recovery procedures if needed)
 

@@ -1145,7 +1145,7 @@ rosdep check --all --rosdistro humble
 
 ### R2D2 Project Resources
 - [Project Repository](https://github.com/severinleuenberger/R2D2-as-real-AI-companion)
-- [Camera Setup Documentation](CAMERA_SETUP_DOCUMENTATION.md)
+- [Camera Setup Documentation](020_CAMERA_SETUP_DOCUMENTATION.md)
 - [ROS 2 Workspace](~/dev/r2d2/ros2_ws)
 
 ---

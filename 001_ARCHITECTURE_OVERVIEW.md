@@ -376,7 +376,7 @@ ros2 node info /image_listener
 3. **Extend**: Add Phase 2 features using integration patterns above
 4. **Monitor**: Use provided commands to track performance
 
-**Next Document**: `OPERATIONS_CHECKLIST.md` (daily startup, monitoring, recovery)
+**Next Document**: `010_PROJECT_GOALS_AND_SETUP.md` (project roadmap and setup) or `QUICK_START.md` (quick reference)
 
 ---
 

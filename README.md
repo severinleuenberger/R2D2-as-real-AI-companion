@@ -75,16 +75,16 @@ Comprehensive guides organized by audience and use case. **Start here:**
 
 ### For First-Time Users
 1. **[Quick Start](#quick-start)** (below) — Run the system in 5 minutes
-2. **[PROJECT_GOALS.md](PROJECT_GOALS.md)** — Understand the 4-phase roadmap and success metrics
-3. **[ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md)** — See how components fit together
+2. **[010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md)** — Jetson setup, ROS 2 installation, workspace structure
+3. **[001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md)** — System design, software stack, data flow
 
 ### For Daily Operators
-- **[OPERATIONS_CHECKLIST.md](OPERATIONS_CHECKLIST.md)** — Startup, monitoring, troubleshooting, recovery procedures
-- **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)** — CPU/memory usage, performance baselines, optimization tips
+- **[QUICK_START.md](QUICK_START.md)** — Quick reference for common tasks
+- **[AUDIO_QUICK_REFERENCE.md](AUDIO_QUICK_REFERENCE.md)** — Audio system quick reference
 
-### For Phase 2-4 Developers
+### For Phase 1 (Current) Developers
 - **[000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
-- **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** — Step-by-step guide to add speech, navigation, memory systems
+- **[002_HOW_TO_INSTRUCT_CLAUDE.md](002_HOW_TO_INSTRUCT_CLAUDE.md)** — Guidelines for working with AI agents on this project
 
 ### Technical Depth (Phase 1 Subsystems)
 | Component | Document | Purpose |
@@ -204,7 +204,7 @@ Based on your goals to implement **mic & speaker integration → STT/LLM/TTS**, 
 **Deliverable:** 
 - ROS 2 topics for microphone input and speaker output
 - Test recording + playback cycle working
-- Document in INTEGRATION_GUIDE
+- Document in phase-specific guides
 
 ---
 
@@ -333,7 +333,7 @@ The iconic R2-D2 is being rebuilt with modern robotics hardware and AI compute.
 The internal structure houses the Jetson AGX Orin, OAK-D camera, power distribution, and future motor drivers. Careful cable management ensures room for Phase 2-4 additions.
 
 ### Bill of Materials (Full Project)
-See [BOM_HARDWARE.md](BOM_HARDWARE.md) for detailed part numbers, sourcing links, and cost breakdown (~$3,600 including chassis).
+See the **Hardware** section below and [003_JETSON_FLASHING_AND_DISPLAY_SETUP.md](003_JETSON_FLASHING_AND_DISPLAY_SETUP.md) for component details (~$3,600 including chassis).
 
 
 
@@ -409,7 +409,7 @@ ros2 topic echo /r2d2/perception/face_count
 ### 4. Troubleshooting
 
 If things don't work:
-1. Check [OPERATIONS_CHECKLIST.md](OPERATIONS_CHECKLIST.md) → Section 5 (Troubleshooting)
+1. Check **[Troubleshooting](#troubleshooting)** section below or [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md)
 2. Verify environment setup: `echo $OPENBLAS_CORETYPE` should print `ARMV8`
 3. Check camera: `lsusb | grep Movidius`
 
@@ -457,7 +457,7 @@ r2d2/
 
 ## 🔗 Bill of Materials (BOM)
 
-See [PROJECT_GOALS.md](PROJECT_GOALS.md) → "Resource Requirements" section for detailed hardware breakdown.
+See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) → "Hardware & Resource Requirements" section for detailed breakdown.
 
 **Quick Summary:**
 - **Total cost (compute + sensors):** ~$2,200
@@ -494,7 +494,7 @@ See [PROJECT_GOALS.md](PROJECT_GOALS.md) → "Resource Requirements" section for
 4. **Q2 2026:** Navigation and autonomous movement
 5. **Q3 2026+:** Memory, personality, and deployment
 
-See [PROJECT_GOALS.md](PROJECT_GOALS.md) for the complete roadmap and timeline.
+See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) for the complete Phase 1 roadmap and Phase 2-4 timeline.
 
 ---
 

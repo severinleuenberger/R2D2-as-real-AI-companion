@@ -17,7 +17,7 @@ The R2D2 face recognition system operates at two levels:
 This document covers both levels with complete setup, configuration, training, monitoring, and troubleshooting.
 
 **Prerequisites:**
-- Face detection working (see `04_FACE_DETECTION_SETUP.md` in [`_ARCHIVED_FACE_RECOGNITION_DOCS_v1/`](_ARCHIVED_FACE_RECOGNITION_DOCS_v1/04_FACE_DETECTION_SETUP.md))
+- Face detection working (see archived documentation in [`_ARCHIVED_FACE_RECOGNITION_DOCS_v1/`](_ARCHIVED_FACE_RECOGNITION_DOCS_v1/))
 - OAK-D camera configured (see [`020_CAMERA_SETUP_DOCUMENTATION.md`](020_CAMERA_SETUP_DOCUMENTATION.md))
 - ROS 2 perception pipeline running (see [`030_PERCEPTION_PIPELINE_SETUP.md`](030_PERCEPTION_PIPELINE_SETUP.md))
 
@@ -1113,7 +1113,7 @@ RGB LED (Green = recognized, Red = unknown)
 **Related Documentation:**
 - [`020_CAMERA_SETUP_DOCUMENTATION.md`](020_CAMERA_SETUP_DOCUMENTATION.md) - OAK-D setup
 - [`030_PERCEPTION_PIPELINE_SETUP.md`](030_PERCEPTION_PIPELINE_SETUP.md) - Perception pipeline
-- [`04_FACE_DETECTION_SETUP.md`](04_FACE_DETECTION_SETUP.md) - Face detection (prerequisite)
+- Archived face detection documentation in `_ARCHIVED_FACE_RECOGNITION_DOCS_v1/`
 - [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) - Audio integration
 
 **External References:**

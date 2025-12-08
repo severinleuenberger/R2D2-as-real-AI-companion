@@ -552,7 +552,7 @@ Once this audio output is confirmed working:
 4. **Implement TTS** (text-to-speech) using this audio output
 5. **Integrate with r2d2_perception** to create full conversational loop
 
-See PROJECT_GOALS.md for Phase 2 timeline and milestones.
+See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) for Phase 2 timeline and milestones.
 
 ---
 
