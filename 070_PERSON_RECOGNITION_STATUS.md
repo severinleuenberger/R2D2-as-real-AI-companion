@@ -210,7 +210,7 @@ target_person = "severin"                    # Target to recognize
 jitter_tolerance_seconds = 5.0               # Brief interruption tolerance
 loss_confirmation_seconds = 15.0             # Confirmation window AFTER jitter
 cooldown_seconds = 2.0                       # Min between same alert type
-audio_volume = 0.3                           # Volume level (0.0-1.0, default 30%)
+audio_volume = 0.05                          # Volume level (0.0-1.0, default 5%)
 
 recognition_audio_file = "Voicy_R2-D2 - 2.mp3"    # "Hello!" file
 loss_audio_file = "Voicy_R2-D2 - 5.mp3"           # "Lost you!" file
@@ -223,7 +223,7 @@ Timeline: Person recognition cycle
 
 0:00 ┌─── RED state enters (severin detected) ────────────────────┐
      │   • Status: RED                                             │
-     │   • Audio: "Hello!" plays (30% volume, ~2 seconds)          │
+     │   • Audio: "Hello!" plays (5% volume, ~2 seconds)           │
      │   • LED: Solid RED                                          │
      │   • 15s beep cooldown starts                                │
      │                                                              │
@@ -256,7 +256,7 @@ Timeline: Person recognition cycle
      │                                                              │
 0:35 ├─── LOSS CONFIRMED: 5s jitter + 15s confirmation ──────────┤
      │   • Status: BLUE (loss confirmed, entering idle)            │
-     │   • Audio: "Oh, I lost you!" plays (30% volume, ~2s)        │
+     │   • Audio: "Oh, I lost you!" plays (5% volume, ~2s)         │
      │   • LED: Solid BLUE (idle state)                            │
      │   • Loss cooldown starts (2 seconds)                        │
      │                                                              │
@@ -267,7 +267,7 @@ Timeline: Person recognition cycle
      │                                                              │
 1:00 │   Severin returns                                           │
      │   • Status: RED (re-recognition)                            │
-     │   • Audio: "Hello!" plays again (30% volume)                │
+     │   • Audio: "Hello!" plays again (5% volume)                 │
      │   • LED: Solid RED (engaged again)                          │
      │   • Cycle repeats                                           │
      │                                                              │
@@ -712,7 +712,7 @@ cat ~/.asoundrc | grep -i "hw:1,0"
 ls -l ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/
 
 # Test ffplay directly
-ffplay -nodisp -autoexit -af "volume=0.3" /path/to/audio.mp3
+ffplay -nodisp -autoexit -af "volume=0.05" /path/to/audio.mp3
 ```
 
 **Solutions:**
