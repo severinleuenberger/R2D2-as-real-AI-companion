@@ -2,8 +2,8 @@
 """
 R2D2 Audio Notification Node - Enhanced Recognition State Management
 
-Subscribes to face recognition results and triggers audio alerts when
-specific people are recognized.
+Subscribes to face recognition results and triggers MP3 audio alerts when
+specific people are recognized or confirmed lost.
 
 Subscribes to:
   - /r2d2/perception/person_id (String): Person name or "unknown"
@@ -12,10 +12,10 @@ Publishes:
   - /r2d2/audio/notification_event (String): Event descriptions for debugging
 
 Features:
-  - Single beep when target person is recognized (transition)
+  - MP3 audio alert when target person is recognized (transition "Hello!")
   - Tolerates brief gaps (< 5 seconds) in recognition (jitter tolerance)
-  - Double beep when person is continuously lost for > 5 seconds
-  - Configurable parameters
+  - MP3 audio alert when person confirmed lost (> 5s jitter + 15s confirmation "Oh, I lost you!")
+  - Fully parameterizable audio files, timing, and volume
   - Background service ready
 """
 
@@ -32,10 +32,12 @@ import os
 
 class AudioNotificationNode(Node):
     """
-    ROS 2 node for audio notifications based on face recognition.
-    Enhanced with improved state tracking:
-    - Tolerates brief recognition gaps (< 5 seconds)
-    - Triggers double beep on confirmed loss (> 5 seconds)
+    ROS 2 node for MP3 audio notifications based on face recognition.
+    
+    State machine:
+    - Tolerates brief recognition gaps (< 5 seconds jitter tolerance)
+    - Triggers loss alert after jitter exceeded + 15 second confirmation window
+    - Plays parameterizable MP3 audio files for recognition and loss events
     """
     
     def __init__(self):
@@ -47,8 +49,10 @@ class AudioNotificationNode(Node):
         self.declare_parameter('target_person', 'severin')
         self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume)
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
-        self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation time (GLOBAL)
+        self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
+        self.declare_parameter('recognition_audio_file', 'Voicy_R2-D2 - 2.mp3')  # Recognition alert audio
+        self.declare_parameter('loss_audio_file', 'Voicy_R2-D2 - 5.mp3')  # Loss alert audio
         self.declare_parameter('enabled', True)
         
         # Get parameters
@@ -57,12 +61,14 @@ class AudioNotificationNode(Node):
         self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
         self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
         self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
+        recognition_audio_filename = self.get_parameter('recognition_audio_file').value
+        loss_audio_filename = self.get_parameter('loss_audio_file').value
         self.enabled = self.get_parameter('enabled').value
         
         # Enhanced state tracking
         self.is_currently_recognized = False  # True if logically "recognized" (tolerates brief gaps)
         self.last_recognition_time: Optional[float] = None  # Last time saw target person
-        self.last_loss_notification_time: Optional[float] = None  # Last time notified of loss
+        self.loss_jitter_exceeded_time: Optional[float] = None  # When jitter tolerance was first exceeded
         self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
         self.last_known_state = "unknown"  # Track last known state
         
@@ -88,8 +94,8 @@ class AudioNotificationNode(Node):
             )
             self.audio_assets_dir = audio_paths[0]  # Use first path as fallback
         
-        self.recognition_audio = self.audio_assets_dir / 'Voicy_R2-D2 - 2.mp3'
-        self.loss_audio = self.audio_assets_dir / 'Voicy_R2-D2 - 5.mp3'
+        self.recognition_audio = self.audio_assets_dir / recognition_audio_filename
+        self.loss_audio = self.audio_assets_dir / loss_audio_filename
         self.audio_player_path = script_dir / 'audio_player.py'
         
         if not self.audio_assets_dir.exists():
@@ -137,7 +143,7 @@ class AudioNotificationNode(Node):
             f"  Loss audio: {self.loss_audio.name}\n"
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
-            f"  Loss confirmation: {self.loss_confirmation}s (before loss alert)\n"
+            f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
             f"  Alert cooldown: {self.cooldown_seconds}s\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
@@ -165,6 +171,7 @@ class AudioNotificationNode(Node):
             if not self.is_currently_recognized:
                 # Transition: unknown -> recognized
                 self.is_currently_recognized = True
+                self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
                 self.last_known_state = self.target_person
                 self._trigger_recognition_alert()
                 self._publish_event(f"🎉 Recognized {self.target_person}!")
@@ -177,7 +184,13 @@ class AudioNotificationNode(Node):
     def check_loss_state(self):
         """
         Timer callback: Check if person has been continuously lost for > loss_confirmation seconds.
-        Handles jitter tolerance for brief recognition gaps.
+        
+        Timing logic:
+        1. Jitter tolerance window (0 to 5s absence): No action - brief gap tolerance
+        2. Loss confirmation window (5s to 20s absence): Monitoring for confirmed loss
+        3. At 20s+ continuous absence: Fire loss alert
+        
+        Resets when person is re-recognized.
         """
         if not self.enabled or not self.is_currently_recognized:
             return
@@ -185,19 +198,27 @@ class AudioNotificationNode(Node):
         current_time = time.time()
         time_since_last_recognition = current_time - (self.last_recognition_time or current_time)
         
-        # If person not seen for longer than jitter tolerance
+        # STEP 1: Check if jitter tolerance window has been exceeded (5 seconds)
         if time_since_last_recognition > self.jitter_tolerance:
-            # Check if we should notify about loss
-            if self.last_loss_notification_time is None or \
-               (current_time - self.last_loss_notification_time) > self.loss_confirmation:
-                
-                # Person was recognized but now confirmed lost
+            # Person has been absent for > 5 seconds
+            
+            # Track when jitter tolerance was first exceeded
+            if self.loss_jitter_exceeded_time is None:
+                self.loss_jitter_exceeded_time = current_time
+            
+            # STEP 2: Check if loss confirmation window has been met
+            # (15 seconds of continuous absence AFTER jitter tolerance exceeded)
+            time_in_loss_window = current_time - self.loss_jitter_exceeded_time
+            
+            if time_in_loss_window > self.loss_confirmation:
+                # Confirmed loss: Jitter exceeded + 15 seconds confirmed
                 self.is_currently_recognized = False
-                self.last_loss_notification_time = current_time
+                self.loss_jitter_exceeded_time = None  # Reset for next cycle
                 self._trigger_loss_alert()
-                self._publish_event(f"❌ {self.target_person} lost (confirmed)")
+                self._publish_event(f"❌ {self.target_person} lost (confirmed after {time_since_last_recognition:.1f}s absence)")
                 self.get_logger().info(
-                    f"✗ {self.target_person} lost after {time_since_last_recognition:.1f}s"
+                    f"✗ {self.target_person} lost (after {time_since_last_recognition:.1f}s absence, "
+                    f"{time_in_loss_window:.1f}s in loss window)"
                 )
     
     def _trigger_recognition_alert(self):

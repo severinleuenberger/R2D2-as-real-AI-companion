@@ -77,25 +77,25 @@ Speaker → ALERT! 🔊
 ```
 UNKNOWN
   ↓ (face detected, person_id != "unknown")
-RECOGNIZED 🔊 (single beep at 1000 Hz)
+RECOGNIZED 🔊 (plays "Hello!" MP3)
   ├─ (brief loss < 5s jitter tolerance)
-  │ (status unchanged - no beep)
+  │ (status unchanged - no alert)
   │ ↓
   └─ RECOGNIZED (maintains state through jitter)
   
-  ↓ (continuous loss > 5 seconds)
-LOST 🔔🔔 (double beep at 500 Hz)
+  ↓ (continuous loss > 5s jitter + 15s confirmation)
+LOST 🔔 (plays "Oh, I lost you!" MP3)
   ↓ (face detected again)
-RECOGNIZED 🔊 (single beep)
+RECOGNIZED 🔊 (plays "Hello!" MP3)
 ```
 
 ### Notification Meanings
 
-| Alert | Event | File | Duration | Meaning |
-|-------|-------|------|----------|---------|
-| 🔊 Recognition Alert | Recognition | Voicy_R2-D2 - 2.mp3 | ~2s | Face recognized (unknown→recognized transition) |
-| 🔔 Loss Alert | Loss Confirmed | Voicy_R2-D2 - 5.mp3 | ~5s | Confirmed loss (continuous absence > 10s) |
-| (silent) | Jitter | - | - | Brief gap (< 5s) during recognition (no alert) |
+| Alert | Event | Audio File | Duration | Meaning |
+|-------|-------|-----------|----------|---------|
+| 🔊 Recognition Alert | Recognition Detected | Voicy_R2-D2 - 2.mp3 | ~2 sec | "Hello!" - Face recognized (unknown→recognized transition) |
+| 🔔 Loss Alert | Loss Confirmed | Voicy_R2-D2 - 5.mp3 | ~5 sec | "Oh, I lost you!" - Confirmed loss (continuous absence ≥ 15s + 5s jitter) |
+| (silent) | Jitter | (none) | — | Brief gap (< 5s) during recognition (no alert) |
 
 **Volume Control:** All alerts use the global `audio_volume` parameter (currently 0.05 = 5%)
 
@@ -193,15 +193,18 @@ sudo systemctl is-enabled r2d2-audio-notification.service
 | Parameter | Default | Type | Range | Description |
 |-----------|---------|------|-------|-------------|
 | `target_person` | `severin` | string | any name | Person to recognize and alert on |
-| `beep_frequency` | `1000.0` | float (Hz) | 20-20000 | Recognition beep tone frequency |
-| `beep_duration` | `0.5` | float (sec) | 0.1-10.0 | Recognition beep duration |
-| `beep_volume` | `0.7` | float | 0.0-1.0 | Recognition beep volume (0=silent, 1=max) |
-| `loss_beep_frequency` | `500.0` | float (Hz) | 20-20000 | Loss alert beep frequency (lower=warning tone) |
-| `loss_beep_duration` | `0.3` | float (sec) | 0.1-10.0 | Loss alert beep duration per beep |
+| `audio_volume` | `0.05` | float | 0.0-1.0 | Global volume control for all audio (0=silent, 1=max) |
 | `jitter_tolerance_seconds` | `5.0` | float | 0.1-60.0 | Brief gap tolerance (ignores gaps < this) |
-| `loss_confirmation_seconds` | `5.0` | float | 0.1-60.0 | Confirms loss after continuous absence |
-| `cooldown_seconds` | `2.0` | float | 0.1-60.0 | Min time between recognition beeps |
+| `loss_confirmation_seconds` | `15.0` | float | 0.1-60.0 | Minimum continuous absence (seconds) before loss alert |
+| `cooldown_seconds` | `2.0` | float | 0.1-60.0 | Min time between recognition alerts |
 | `enabled` | `true` | bool | true/false | Enable/disable notifications |
+
+**Audio Files (Parameterizable):**
+
+| Audio Event | Default File | Semantic Meaning | Duration | Usage |
+|-----------|-------------|------------------|----------|-------|
+| **Recognition** | `Voicy_R2-D2 - 2.mp3` | "Hello!" | ~2 sec | Plays when target person is recognized |
+| **Loss** | `Voicy_R2-D2 - 5.mp3` | "Oh, I lost you!" | ~5 sec | Plays when person confirmed lost (15s absence) |
 
 ---
 
@@ -353,10 +356,15 @@ The **`loss_confirmation_seconds`** parameter is a **GLOBAL control** for how lo
 
 **Current Setting:** `loss_confirmation_seconds = 15.0` seconds
 
+**What it means:**
+- The system waits for **continuous absence** of this many seconds before firing a loss alert
+- Brief gaps shorter than `jitter_tolerance_seconds` (5s) are ignored—no loss timer starts
+- Once absence exceeds both the jitter tolerance AND the loss confirmation window, the loss alert fires
+
 **Why it matters:**
-- Too short (e.g., 2s): False alarms when you briefly leave frame
-- Too long (e.g., 30s): Slow response when you actually leave
-- Just right (15s): Balances false alarms with responsiveness
+- Too short (e.g., 2s): False alarms when you briefly step out of frame (even briefly)
+- Too long (e.g., 30s): Slow response when you actually leave the room
+- Just right (15s): Balances false alarms with responsiveness—tolerates normal movement while catching real departures
 
 ### How to Adjust Loss Confirmation Time
 
@@ -425,13 +433,13 @@ Float value is: 15.0  # Example: 15 seconds
 
 ### Recommended Values
 
-| Value (sec) | Use Case | Notes |
-|-----------|----------|-------|
-| `5.0` | Very responsive | Quick alerts, may have false positives |
-| `10.0` | Balanced (old default) | Good compromise |
-| `15.0` | Patient (current) | **← Current default** |
-| `20.0` | Very patient | For busy environments with frequent transitions |
-| `30.0` | Extremely patient | Only alert after confirmed long absence |
+| Value (sec) | Use Case | Practical Impact |
+|-----------|----------|---------|
+| `5.0` | Hyperactive | Beeps within 10 seconds if you leave (5s jitter + 5s confirmation) |
+| `10.0` | Responsive | Alerts after ~15 seconds of absence (5s jitter + 10s confirmation) |
+| `15.0` | Patient (current) | **← Current default** • Alerts after ~20 seconds (5s jitter + 15s confirmation) |
+| `20.0` | Very patient | For active environments • Alerts after ~25 seconds (5s jitter + 20s confirmation) |
+| `30.0` | Extremely patient | Only alerts for confirmed long absence (~35+ seconds) |
 
 ---
 
@@ -490,7 +498,12 @@ sudo systemctl restart r2d2-audio-notification.service
 
 ## Behavior & Timeline Examples
 
-### Basic Timeline (5 seconds per event)
+### Timeline with 15-Second Loss Confirmation
+
+**Key timing references:**
+- **Jitter tolerance:** 5 seconds (brief gaps ignored, no loss timer starts)
+- **Loss confirmation:** 15 seconds (continuous absence required before loss alert)
+- **Total before loss alert:** ~20 seconds (5s jitter + 15s confirmation)
 
 ```
 T=0s:   Status: UNKNOWN
@@ -499,70 +512,114 @@ T=0s:   Status: UNKNOWN
 T=5s:   Face detected!
         person_id = "severin"
         Status: UNKNOWN → RECOGNIZED
-        🔊 BEEP! (1000 Hz, 0.5s)
+        🔊 BEEP! (recognition alert plays)
         Message: "🎉 Recognized severin!"
+        Reset: last_recognition_time = T=5s
 
-T=7s:   Brief camera jitter (face tracking loss)
-        person_id = "unknown" (momentary)
+T=7s:   Brief camera jitter (face tracking momentary loss)
+        person_id = "unknown" (1 frame)
+        Time since last recognition: 2s (< 5s jitter tolerance)
         Status: RECOGNIZED (unchanged - within jitter tolerance)
-        ⏸ (silent - within 5s window)
+        ⏸ (silent - jitter ignored, no loss timer)
 
-T=8s:   Face re-appears
+T=8s:   Face re-appears in frame
         person_id = "severin"
         Status: RECOGNIZED (maintains state)
+        Update: last_recognition_time = T=8s (resets the clock)
         ⏸ (silent - same state, no transition)
 
-T=15s:  Person moves out of frame
-        person_id = "unknown"
-        Status: RECOGNIZED (monitoring, loss timer starts)
-        ⏸ (silent - loss confirmation timer ticking)
+T=15s:  Person walks out of frame
+        person_id = "unknown" (sustained loss begins)
+        Time since last recognition: 7s (> 5s jitter tolerance)
+        Status: RECOGNIZED (but now monitoring for loss)
+        Loss confirmation timer starts: counts from 0s
+        ⏸ (silent - entering loss confirmation window)
 
-T=20s:  Continuous loss confirmed (5s+ absence)
-        Status: RECOGNIZED → LOST
-        🔔🔔 DOUBLE BEEP! (500 Hz, 0.3s × 2)
+T=20s:  Continuous absence: 12 seconds
+        Time since last recognition: 12s
+        Loss confirmation elapsed: 12s (< 15s needed)
+        Status: RECOGNIZED (still - waiting for confirmation)
+        ⏸ (silent - not yet confirmed lost)
+
+T=25s:  Continuous absence: 17 seconds
+        Time since last recognition: 17s (> 5s jitter)
+        Loss confirmation elapsed: 17s (> 15s confirmation required)
+        Status: RECOGNIZED → LOST (CONFIRMED!)
+        🔔🔔 DOUBLE BEEP! (loss alert plays ~5s audio)
         Message: "❌ severin lost (confirmed)"
+        Reset: last_loss_notification_time = T=25s
 
-T=22s:  Face returns to frame
+T=30s:  Face returns to frame
         person_id = "severin"
         Status: LOST → RECOGNIZED
-        🔊 BEEP! (1000 Hz, 0.5s)
+        🔊 BEEP! (recognition alert plays)
         Message: "🎉 Recognized severin!"
+        Reset: last_recognition_time = T=30s
+        Reset: loss timer cleared
 
-T=23s:  Face leaves again (faster this time)
-        person_id = "unknown"
+T=32s:  Face leaves frame again
+        person_id = "unknown" (new loss period begins)
+        Time since last recognition: 2s
         Status: RECOGNIZED (monitoring)
-        ⏸ (silent)
+        ⏸ (silent - < 5s jitter tolerance)
 
-T=26s:  Still absent (monitoring continues)
-        Status: RECOGNIZED (still - within jitter window)
-        ⏸ (silent)
+T=38s:  Still absent (5 seconds gone)
+        Time since last recognition: 8s (> 5s jitter tolerance)
+        Loss confirmation timer starts counting from this point
+        Status: RECOGNIZED (monitoring loss)
+        ⏸ (silent - within 15s loss confirmation window)
 
-T=29s:  Loss confirmed (continuous 4s+)
-        Status: RECOGNIZED → LOST
-        🔔🔔 DOUBLE BEEP!
+T=53s:  Continuous absence: 21 seconds
+        Time since last recognition: 21s
+        Loss confirmation elapsed: 15s (triggered at T=53s = T=38s + 15s)
+        Status: RECOGNIZED → LOST (CONFIRMED!)
+        🔔🔔 DOUBLE BEEP! (loss alert plays)
         Message: "❌ severin lost (confirmed)"
 ```
+
+**Summary of state transitions:**
+- **UNKNOWN → RECOGNIZED:** Immediate beep on detection (transition)
+- **RECOGNIZED → RECOGNIZED (jitter):** Brief gap < 5s = silent, state unchanged
+- **RECOGNIZED → LOST:** After 5s jitter + 15s confirmation = loss alert fires
+- **LOST → RECOGNIZED:** Immediate beep on re-detection (transition)
+- **Each cycle:** Loss timer fully resets when person returns
 
 ### Cooldown Management
 
-The node maintains a cooldown between recognition beeps to prevent spam:
+The node maintains a cooldown between recognition **transition** beeps to prevent spam. The cooldown only affects recognition alerts, not loss alerts.
 
 ```
-T=0s:   face detected
-        → BEEP! "Recognized severin"
+T=0s:   face detected → unknown to recognized transition
+        🔊 BEEP! "Recognized severin"
         → start cooldown timer (default 2s)
 
 T=1s:   face still in frame
+        → Status: RECOGNIZED (same state)
         → NO BEEP (within cooldown period)
 
-T=2.5s: cooldown expires, face still there
-        → recognition rebegin allowed
+T=2.5s: cooldown expires
+        → face still recognized
+        → NO BEEP (same state, not a transition)
+        → recognition alerts only beep on transitions, not continuous presence
 
-T=3s:   face leaves frame, returns
-        → Status transition RECOGNIZED → LOST → RECOGNIZED
-        → Wait, cooldown still active (expires at T=2.5s... already passed!)
-        → BEEP! (sufficient time elapsed, new transition)
+T=5s:   person leaves frame
+        → Wait 5s jitter tolerance + 15s loss confirmation
+        → (Loss alert is separate from cooldown - will fire at T=25s regardless)
+
+T=25s:  Loss confirmed
+        🔔🔔 DOUBLE BEEP! "severin lost"
+        → Loss beeps are NOT subject to cooldown (separate mechanism)
+
+T=30s:  Face returns (transition LOST → RECOGNIZED)
+        🔊 BEEP! "Recognized severin"
+        → start NEW cooldown timer (default 2s)
 ```
+
+**Cooldown behavior:**
+- Applies to **recognition alerts only** (beeping when person is recognized)
+- Does NOT apply to **loss alerts** (loss beeps fire on schedule)
+- Prevents rapid beeping if person is flickering in/out during a 2-second window
+- Reset on each loss/recognition state transition
 
 ---
 
