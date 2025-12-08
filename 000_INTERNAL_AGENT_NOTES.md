@@ -310,6 +310,85 @@ sleep 2
 
 ---
 
+## Documentation Management Guidelines
+
+### Core Documentation Structure
+
+**Root directory** contains main documentation:
+- `000-060_*.md` - Core numbered documentation (system setup, config, architecture)
+- `README.md` - Project overview and main entry point
+- `QUICK_START.md`, `AUDIO_QUICK_REFERENCE.md` - Quick reference guides
+
+### Folder Organization
+
+**`_ANALYSIS_AND_DOCUMENTATION/`** - Reference documentation
+- For detailed analysis, diagnostics, and working notes
+- For documentation that doesn't belong in main docs
+- Can contain checklists, detailed technical analysis, cost breakdowns, etc.
+- **IMPORTANT:** Must be linked from appropriate main doc with a reference/link
+- Example: Hardware diagnostic results → Link from 050_AUDIO_SETUP_AND_CONFIGURATION.md
+
+**`_TEMP/`** - Temporary working space for AI agents only
+- Use for internal agent notes, analysis snippets, command outputs
+- Use for "continue-style" coding sequences (multi-step work tracking)
+- Use for temporary debugging information
+- **CRITICAL:** Nothing permanent should go here
+- **Cleanup rule:** Delete temporary files when task is complete
+- **All permanent information** must be moved to main docs or `_ANALYSIS_AND_DOCUMENTATION/`
+- Example: Intermediate analysis scripts, draft changes, debugging command outputs
+
+### Documentation Workflow for Agents
+
+**When creating new documentation:**
+
+1. **Primary content** (000-060 files)
+   - User-facing, production documentation
+   - Clear instructions, parameters, examples
+   - Includes quick reference sections
+
+2. **Analysis/Reference content** (_ANALYSIS_AND_DOCUMENTATION/)
+   - Supporting analysis, detailed diagnostics
+   - Historical notes, cost analyses
+   - Technical deep-dives
+   - **Must have links from main docs** pointing to detailed analysis
+
+3. **Temporary work** (_TEMP/ folder)
+   - Draft analysis, command outputs
+   - Multi-step work tracking
+   - Debug information
+   - **Delete when complete** - don't commit unless it's becoming permanent
+
+### Examples
+
+✅ **Correct Workflow:**
+```
+1. Agent creates: _TEMP/audio_volume_analysis.txt (draft analysis)
+2. Agent refines: Moves valuable findings to 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md
+3. Agent adds: Link in main doc → "_ANALYSIS_AND_DOCUMENTATION/AUDIO_DIAGNOSTICS.md"
+4. Agent cleans: Deletes _TEMP/audio_volume_analysis.txt
+5. Agent commits: Main docs + analysis files to git
+```
+
+✗ **Wrong Workflow:**
+```
+1. Agent creates: _TEMP/myanalysis.md
+2. Agent commits: _TEMP/myanalysis.md to git (permanent!)
+3. Agent deletes: Later realizes it was temporary
+4. Creates confusion about what's permanent vs working notes
+```
+
+### Rules for AI Agents
+
+- ✅ Use `_TEMP/` to organize multi-step work in progress
+- ✅ Use `_TEMP/` for agent-internal notes and debugging
+- ✅ Reference `_ANALYSIS_AND_DOCUMENTATION/` from main docs when needed
+- ✅ Move all permanent content to appropriate location before committing
+- ✗ Don't commit temporary files to git
+- ✗ Don't leave permanent information in `_TEMP/`
+- ✗ Don't create random markdown files in root (use 000-060 series or analysis folder)
+
+---
+
 ## For Future AI Agents Working Here
 
 ### I (Claude) Know From Context
