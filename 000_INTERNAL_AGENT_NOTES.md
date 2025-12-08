@@ -98,8 +98,8 @@ rm -rf build install log && colcon build --packages-select <package_name>
 ├── tests/camera/                     # Test output location
 │   └── perception_debug*.jpg         # Always here
 ├── 01_R2D2_BASIC_SETUP_AND_FINDINGS.md
-├── 02_CAMERA_SETUP_DOCUMENTATION.md
-└── 03_PERCEPTION_SETUP_DOCUMENTATION.md
+├── 020_CAMERA_SETUP_DOCUMENTATION.md
+└── 030_PERCEPTION_PIPELINE_SETUP.md
 ```
 
 ---

@@ -1,22 +1,34 @@
-# Audio Setup & Configuration: PAM8403 Speaker Integration
+# Audio Setup & Configuration: Hardware to ROS 2 Integration
 
-**Date:** December 7, 2025  
+**Date:** December 8, 2025 (Consolidated)  
 **Hardware:** NVIDIA Jetson AGX Orin 64GB with PAM8403 Class-D amplifier + 8Ω / 3W speaker  
-**Goal:** Enable analog audio output on HPO_L (J511 Pin 9) for speaker playback  
+**Scope:** Complete audio stack from hardware wiring through ROS 2 integration  
 
 ---
 
 ## Executive Summary
 
+This document covers the complete audio system for R2D2, from physical hardware connections through software integration. It is organized in three sections:
+
+1. **Hardware & Wiring** (physical connections, soldering, verification)
+2. **ALSA Configuration** (Linux audio stack setup)
+3. **Testing & Troubleshooting** (verification procedures)
+
+For **ROS 2 audio notifications integration**, see: [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
+
+---
+
+## Architecture Overview
+
 The Jetson AGX Orin has two audio subsystems:
 1. **HDA (High Definition Audio)** - Card 0 - HDMI outputs only (no analog)
-2. **APE (Audio Processing Engine)** - Card 1 - I2S interface (requires codec driver)
+2. **APE (Audio Processing Engine)** - Card 1 - I2S interface (direct analog output)
 
-**Current Status:** The I2S interface exists (snd_soc_tegra210_i2s kernel module loaded), but there is **no codec driver or device tree entry** connecting the I2S DAI to the physical HPO_L pin on the J511 header.
+**Current Configuration:** Using APE Card 1 with I2S interface to drive the HPO_R (right channel) pin on J511 header via PAM8403 amplifier.
 
-**Challenge:** NVIDIA's developer kit doesn't ship with a pre-configured analog audio output codec or simple pass-through DAI. The HPO_L pin on J511 is a hardware feature, but the Linux audio stack has no configured endpoint.
+**Challenge:** NVIDIA's Jetson doesn't ship with pre-configured analog output codec, but the hardware exists. We route I2S audio directly to the physical HPO pin using ALSA.
 
-**Recommended Solution Path:** Use a simple **headless ALSA configuration** with the APE I2S device + custom ALSA PCM plugin to directly drive the HPO_L output with proper mixer controls.
+**Solution:** Simple **ALSA configuration** with APE I2S device for direct HPO output control.
 
 ---
 

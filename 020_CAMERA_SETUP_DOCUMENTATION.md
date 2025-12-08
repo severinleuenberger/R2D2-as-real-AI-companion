@@ -767,3 +767,38 @@ All code, configuration, and documentation have been published to GitHub and are
 **Status**: ✅ **COMPLETE & TESTED**  
 **Last Updated**: December 4, 2025  
 **Next Review**: Upon ROS 2 integration
+
+---
+
+## Next Steps: Perception Pipeline & Face Recognition
+
+With the camera fully operational, the next phases involve building perception and recognition systems.
+
+### Perception Pipeline (ROS 2 Integration)
+
+See: **[`030_PERCEPTION_PIPELINE_SETUP.md`](030_PERCEPTION_PIPELINE_SETUP.md)** for complete ROS 2 perception pipeline setup, including:
+- Image listener node with frame capture and publishing
+- FPS monitoring and camera intrinsics
+- Debug frame capture to disk
+- Launch file configuration
+
+### Face Recognition System
+
+See: **[`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)** for complete face recognition system including:
+- Personal face identification via LBPH recognizer
+- ROS 2 integration (topics: `/r2d2/perception/person_id`, `/r2d2/perception/face_confidence`)
+- Training pipeline for recognizer model
+- Background service for monitoring and LED integration
+- Complete troubleshooting and configuration
+
+**System Flow:**
+```
+OAK-D Lite Camera (this document)
+    ↓
+ROS 2 Perception Pipeline (030_PERCEPTION_PIPELINE_SETUP.md)
+    ↓
+Face Recognition System (040_FACE_RECOGNITION_COMPLETE.md)
+    ↓
+Audio Integration (060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
+```
+

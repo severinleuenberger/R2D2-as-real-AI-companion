@@ -83,17 +83,19 @@ Comprehensive guides organized by audience and use case. **Start here:**
 - **[COMPUTE_COST_ANALYSIS.md](COMPUTE_COST_ANALYSIS.md)** — CPU/memory usage, performance baselines, optimization tips
 
 ### For Phase 2-4 Developers
+- **[000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
 - **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** — Step-by-step guide to add speech, navigation, memory systems
-- **[00_INTERNAL_AGENT_NOTES.md](00_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
 
 ### Technical Depth (Phase 1 Subsystems)
 | Component | Document | Purpose |
 |-----------|----------|---------|
-| **System Setup** | [01_BASIC_SETUP_AND_FINDINGS.md](01_R2D2_BASIC_SETUP_AND_FINDINGS.md) | Jetson flashing, ROS 2 installation, workspace setup |
-| **Camera Integration** | [02_CAMERA_SETUP_DOCUMENTATION.md](02_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
-| **Image Processing** | [03_PERCEPTION_SETUP_DOCUMENTATION.md](03_PERCEPTION_SETUP_DOCUMENTATION.md) | Brightness metrics, Haar Cascade face detection, pipeline |
-| **Face Recognition** | [05_FACE_RECOGNITION_INTEGRATION.md](05_FACE_RECOGNITION_INTEGRATION.md) & [06_FACE_RECOGNITION_TRAINING_AND_STATUS.md](06_FACE_RECOGNITION_TRAINING_AND_STATUS.md) | LBPH training, real-time recognition, model management |
-| **Backup & Restore** | [07_BACKUP_AND_RESTORE_SETUP.md](07_BACKUP_AND_RESTORE_SETUP.md) | Full-system backup for reproducible deployments |
+| **Foundations** | [000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md) | Critical git rules, environment setup, hardware constants |
+| **Architecture** | [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System design, software stack, ROS 2 topics |
+| **System Setup** | [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) | Jetson flashing, ROS 2 installation, workspace setup |
+| **Camera Integration** | [020_CAMERA_SETUP_DOCUMENTATION.md](020_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
+| **Image Processing** | [030_PERCEPTION_PIPELINE_SETUP.md](030_PERCEPTION_PIPELINE_SETUP.md) | Brightness metrics, Haar Cascade face detection, pipeline |
+| **Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | LBPH training, real-time recognition, model management |
+| **Backup & Restore** | [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md) | Full-system backup for reproducible deployments |
 
 ---
 
@@ -420,17 +422,19 @@ If things don't work:
 ```
 r2d2/
 ├── README.md                              # This file
-├── PROJECT_GOALS.md                       # 4-phase roadmap, success metrics, FAQs
-├── ARCHITECTURE_OVERVIEW.md               # System design, data flow, integration patterns
+├── 000_INTERNAL_AGENT_NOTES.md             # ARM quirks, DepthAI setup, performance baselines
+├── 001_ARCHITECTURE_OVERVIEW.md            # System design, data flow, integration patterns
+├── 002_HOW_TO_INSTRUCT_CLAUDE.md           # How to ask Claude for R2D2 task help
+├── 003_JETSON_FLASHING_AND_DISPLAY_SETUP.md # Hardware setup procedures
+├── 004_BACKUP_AND_RESTORE.md              # Backup/restore procedures
+├── 010_PROJECT_GOALS_AND_SETUP.md         # 4-phase roadmap, success metrics
+├── 020_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
+├── 030_PERCEPTION_PIPELINE_SETUP.md       # Image processing pipeline
+├── 040_FACE_RECOGNITION_COMPLETE.md       # Face recognition system + training
+├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio system setup
+├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio integration
 ├── OPERATIONS_CHECKLIST.md                # Daily startup, monitoring, troubleshooting
 ├── INTEGRATION_GUIDE.md                   # How to add Phase 2-4 features (template + examples)
-├── 00_INTERNAL_AGENT_NOTES.md             # ARM quirks, DepthAI setup, performance baselines
-├── 01_R2D2_BASIC_SETUP_AND_FINDINGS.md   # Jetson setup, ROS 2 installation
-├── 02_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
-├── 03_PERCEPTION_SETUP_DOCUMENTATION.md  # Image processing pipeline
-├── 05_FACE_RECOGNITION_INTEGRATION.md    # Face recognition system
-├── 06_FACE_RECOGNITION_TRAINING_AND_STATUS.md # Training + status
-├── 07_BACKUP_AND_RESTORE_SETUP.md        # Backup/restore procedures
 ├── COMPUTE_COST_ANALYSIS.md               # Performance profiles
 │
 ├── ros2_ws/                               # ROS 2 Humble workspace

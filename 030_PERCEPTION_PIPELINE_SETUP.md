@@ -1623,3 +1623,45 @@ All tests completed
 - ✅ Test suite script verified all 7 core functions
 - ✅ All test scripts timeout at 15 seconds maximum
 
+
+---
+
+## Next Steps: Face Recognition & Detection
+
+Once the perception pipeline is operational, the next phase is **personal face recognition and detection**. This leverages the camera and perception framework established here.
+
+### Face Recognition System (Complete Integration)
+
+The R2D2 face recognition system adds personal identification to the perception pipeline:
+
+**See: [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)** – Consolidated documentation for:
+- ROS 2 integration (person_id, face_confidence topics)
+- LBPH recognizer setup and configuration
+- Training pipeline (capture → train → test)
+- Face recognition service and background monitoring
+- LED controller integration
+- Complete troubleshooting guide
+
+**Architecture:**
+```
+Camera Frame (30 FPS)
+    ↓ image_listener.py (from this perception pipeline)
+    ↓
+Face Detection (via Haar Cascade, 13 Hz)
+    ↓
+Face Recognition (LBPH model, 6-13 Hz)
+    ↓
+Publishers: /r2d2/perception/person_id
+            /r2d2/perception/face_confidence
+            /r2d2/perception/is_severin
+```
+
+**Prerequisites:**
+- ✅ Camera setup complete (see [`020_CAMERA_SETUP_DOCUMENTATION.md`](020_CAMERA_SETUP_DOCUMENTATION.md))
+- ✅ Perception pipeline running (this document)
+
+**Related Documentation:**
+- [`020_CAMERA_SETUP_DOCUMENTATION.md`](020_CAMERA_SETUP_DOCUMENTATION.md) – OAK-D camera setup
+- [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md) – Face recognition (complete system)
+- [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) – Audio integration with face recognition
+
