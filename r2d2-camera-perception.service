@@ -1,7 +1,6 @@
 [Unit]
 Description=R2D2 Camera Perception Service (Face Recognition)
-After=network.target ros2-core.service
-Requires=ros2-core.service
+After=network.target audio-notification.service
 Documentation=file:///home/severin/dev/r2d2/QUICK_START.md
 
 [Service]
@@ -10,7 +9,6 @@ User=severin
 WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
 Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-EnvironmentFile=/home/severin/.ros_env
 
 # Source ROS 2 setup and launch camera
 ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_bringup r2d2_camera_perception.launch.py enable_face_recognition:=true'

@@ -51,7 +51,7 @@ class ImageListener(Node):
         # Face recognition parameters (LBPH)
         self.declare_parameter('enable_face_recognition', False)  # Enable personal face recognition
         self.declare_parameter('face_recognition_model_path', '/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml')
-        self.declare_parameter('recognition_confidence_threshold', 70.0)  # Confidence threshold for "Severin"
+        self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for "Severin" (lower is better, set high to accept training variations)
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         
         # Get parameter values
@@ -256,6 +256,9 @@ class ImageListener(Node):
                         # Interpret result (label=0 is Severin, lower confidence is better)
                         is_severin = (confidence < self.recognition_threshold)
                         person_name = "severin" if is_severin else "unknown"
+                        
+                        # Debug log confidence
+                        self.get_logger().info(f"Face detected: label={label}, confidence={confidence:.2f}, threshold={self.recognition_threshold}, recognized={person_name}")
                         
                         # Publish person ID
                         person_id_msg = String()

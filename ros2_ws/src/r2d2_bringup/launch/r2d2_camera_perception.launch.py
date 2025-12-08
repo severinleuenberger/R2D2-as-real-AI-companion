@@ -58,7 +58,7 @@ def generate_launch_description():
     
     recognition_threshold_arg = DeclareLaunchArgument(
         'recognition_confidence_threshold',
-        default_value='70.0',
+        default_value='150.0',
         description='Confidence threshold for recognizing Severin (lower is higher confidence)'
     )
     
