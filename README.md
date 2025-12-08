@@ -95,6 +95,9 @@ Comprehensive guides organized by audience and use case. **Start here:**
 | **Camera Integration** | [020_CAMERA_SETUP_DOCUMENTATION.md](020_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
 | **Image Processing** | [030_PERCEPTION_PIPELINE_SETUP.md](030_PERCEPTION_PIPELINE_SETUP.md) | Brightness metrics, Haar Cascade face detection, pipeline |
 | **Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | LBPH training, real-time recognition, model management |
+| **Audio Hardware** | [050_AUDIO_SETUP_AND_CONFIGURATION.md](050_AUDIO_SETUP_AND_CONFIGURATION.md) | ALSA configuration, ffplay setup, PAM8403 amplifier |
+| **👉 Person Recognition (MAIN REF)** | **[070_PERSON_RECOGNITION_STATUS.md](070_PERSON_RECOGNITION_STATUS.md)** | **Complete state machine, audio alerts, LED feedback, testing, troubleshooting** |
+| **ROS 2 Audio Integration** | [060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) | Audio ROS 2 node implementation, systemd service setup |
 | **Backup & Restore** | [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md) | Full-system backup for reproducible deployments |
 
 ---

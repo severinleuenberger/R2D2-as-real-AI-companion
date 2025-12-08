@@ -7,13 +7,22 @@
 
 ---
 
+## ⭐ START HERE: Master Documentation
+
+**👉 For complete person recognition system documentation, state machine details, and integration guide, see:**  
+**[`070_PERSON_RECOGNITION_STATUS.md`](070_PERSON_RECOGNITION_STATUS.md) (MAIN REFERENCE)**
+
+This document is kept for historical reference and detailed ROS 2 implementation notes. The 070 document is the authoritative reference for the entire person recognition status system.
+
+---
+
 ## Overview
 
 This document covers the ROS 2 audio notification system that integrates with face recognition to provide real-time audio alerts.
 
 **For hardware setup and ALSA configuration**, see: [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
 
-**For complete system architecture with LED feedback and database integration**, see: [`AUDIO_STATUS_SYSTEM_ARCHITECTURE.md`](AUDIO_STATUS_SYSTEM_ARCHITECTURE.md) ⭐ **START HERE FOR FULL SYSTEM OVERVIEW**
+**For complete state machine, status messages, and testing**, see: [`070_PERSON_RECOGNITION_STATUS.md`](070_PERSON_RECOGNITION_STATUS.md) ⭐ **MAIN REFERENCE**
 
 ### How It Works
 
