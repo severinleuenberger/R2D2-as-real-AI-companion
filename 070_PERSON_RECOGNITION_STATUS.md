@@ -210,6 +210,7 @@ target_person = "severin"                    # Target to recognize
 jitter_tolerance_seconds = 5.0               # Brief interruption tolerance
 loss_confirmation_seconds = 15.0             # Confirmation window AFTER jitter
 cooldown_seconds = 2.0                       # Min between same alert type
+recognition_cooldown_after_loss_seconds = 5.0  # Quiet period after loss alert (NEW!)
 audio_volume = 0.05                          # Volume level (0.0-1.0, default 5%)
 
 recognition_audio_file = "Voicy_R2-D2 - 2.mp3"    # "Hello!" file
@@ -258,22 +259,35 @@ Timeline: Person recognition cycle
      │   • Status: BLUE (loss confirmed, entering idle)            │
      │   • Audio: "Oh, I lost you!" plays (5% volume, ~2s)         │
      │   • LED: Solid BLUE (idle state)                            │
-     │   • Loss cooldown starts (2 seconds)                        │
+     │   • QUIET PERIOD STARTS: 5s suppression window              │
      │                                                              │
-0:40 │   BLUE: Idle state, waiting for recognition                │
-     │   • Status: BLUE (no_person)                                │
-     │   • Audio: Silent (waiting for next recognition)            │
-     │   • LED: Still BLUE (idle)                                  │
+0:37 │   Severin reappears (DURING quiet period)                   │
+     │   • Status: Still BLUE (quiet period blocks RED transition) │
+     │   • Audio: Silent (quiet period suppresses 'Hello!' beep)   │
+     │   • LED: Still BLUE (no transition during quiet period)     │
      │                                                              │
-1:00 │   Severin returns                                           │
-     │   • Status: RED (re-recognition)                            │
-     │   • Audio: "Hello!" plays again (5% volume)                 │
+0:40 ├─── QUIET PERIOD EXPIRES ─────────────────────────────────┤
+     │   • Status transitions allowed again                        │
+     │   • If severin still visible: RED state + "Hello!" beep     │
+     │   • If severin gone: stays BLUE (idle)                      │
+     │                                                              │
+0:41 │   Severin still visible (after quiet period)                │
+     │   • Status: RED (finally recognized, 5s+ after loss beep)   │
+     │   • Audio: "Hello!" plays (5% volume)                       │
      │   • LED: Solid RED (engaged again)                          │
      │   • Cycle repeats                                           │
      │                                                              │
      └──────────────────────────────────────────────────────────────┘
 
+KEY TIMING:
+- 0:00-0:05: Jitter tolerance (brief interruptions ignored)
+- 0:05-0:20: Loss confirmation window (waiting 15s after jitter)
+- 0:20-0:35: Detection + confirmation (~20s total to loss alert)
+- 0:35-0:40: QUIET PERIOD (5s calm period, no new alerts)
+- 0:40+: Recognition allowed again (no nervous rapid beeping)
+
 TOTAL TIME TO LOSS ALERT: ~20 seconds (5s jitter + 15s confirmation)
+CALM DELAY BEFORE RE-RECOGNITION: 5 seconds (prevents nervous rapid cycles)
 ```
 
 ---
@@ -492,10 +506,11 @@ sudo nano /etc/systemd/system/r2d2-audio-notification.service
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `target_person` | String | `severin` | any name | Person to recognize |
-| `audio_volume` | Float | `0.3` | 0.0-1.0 | Audio playback volume (0-100%) |
-| `jitter_tolerance_seconds` | Float | `5.0` | 1.0-10.0 | Brief gap tolerance |
-| `loss_confirmation_seconds` | Float | `15.0` | 5.0-30.0 | Confirmation window |
-| `cooldown_seconds` | Float | `2.0` | 1.0-5.0 | Min between alerts |
+| `audio_volume` | Float | `0.05` | 0.0-1.0 | Audio playback volume (0-100%) |
+| `jitter_tolerance_seconds` | Float | `5.0` | 1.0-10.0 | Brief gap tolerance (before loss detection) |
+| `loss_confirmation_seconds` | Float | `15.0` | 5.0-30.0 | Confirmation window (after jitter) |
+| `cooldown_seconds` | Float | `2.0` | 1.0-5.0 | Min between same alert type |
+| `recognition_cooldown_after_loss_seconds` | Float | `5.0` | 3.0-10.0 | **NEW:** Quiet period after loss alert (prevents nervous rapid beeping) |
 | `recognition_audio_file` | String | `Voicy_R2-D2 - 2.mp3` | filename | Audio file for "Hello!" |
 | `loss_audio_file` | String | `Voicy_R2-D2 - 5.mp3` | filename | Audio file for "Lost you!" |
 | `enabled` | Boolean | `true` | true/false | Enable/disable system |
@@ -903,13 +918,14 @@ Before implementing new features:
 ros2 param list /audio_notification_node
 
 # Example output:
-/audio_notification_node.audio_volume: 0.3
+/audio_notification_node.audio_volume: 0.05
 /audio_notification_node.cooldown_seconds: 2.0
 /audio_notification_node.enabled: True
 /audio_notification_node.jitter_tolerance_seconds: 5.0
 /audio_notification_node.loss_audio_file: 'Voicy_R2-D2 - 5.mp3'
 /audio_notification_node.loss_confirmation_seconds: 15.0
 /audio_notification_node.recognition_audio_file: 'Voicy_R2-D2 - 2.mp3'
+/audio_notification_node.recognition_cooldown_after_loss_seconds: 5.0
 /audio_notification_node.target_person: 'severin'
 ```
 
@@ -917,13 +933,16 @@ ros2 param list /audio_notification_node
 
 ```bash
 # Increase volume (hearing issues)
-ros2 param set /audio_notification_node audio_volume 0.7
+ros2 param set /audio_notification_node audio_volume 0.1
 
 # Faster loss detection (5s jitter + 10s confirmation = 15s total)
 ros2 param set /audio_notification_node loss_confirmation_seconds 10.0
 
 # Slower loss detection (5s jitter + 20s confirmation = 25s total)
 ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
+
+# Change quiet period after loss alert (calm down rapid transitions)
+ros2 param set /audio_notification_node recognition_cooldown_after_loss_seconds 3.0
 
 # Different target person
 ros2 param set /audio_notification_node target_person "alice"
