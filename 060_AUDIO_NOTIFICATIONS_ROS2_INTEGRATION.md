@@ -22,19 +22,22 @@ Face Recognition Service (background)
           ↓
 Audio Notification Node (ROS 2)
           ↓
-audio_beep.py utility (uses ALSA)
+MP3 Audio Files + audio_player.py utility
+          ↓
+ffplay audio player (system audio)
           ↓
 PAM8403 Amplifier (via J511 I2S)
           ↓
-Speaker → BEEP! 🔊
+Speaker → ALERT! 🔊
 ```
 
 ### Key Features
 
 - ✅ **Smart State Management:** Jitter tolerance, loss confirmation
-- ✅ **Real-time Recognition Alerts:** Single beep on face detection
-- ✅ **Loss Detection:** Double beep when person confirmed lost (5s+ absence)
-- ✅ **Configurable Beeps:** Frequency, duration, volume adjustable
+- ✅ **Real-time Recognition Alerts:** Plays audio on face detection
+- ✅ **Loss Detection:** Audio alert when person confirmed lost (10s+ absence)
+- ✅ **Custom Audio Files:** MP3 files for professional alert sounds
+- ✅ **Global Volume Control:** Single `audio_volume` parameter controls all audio
 - ✅ **ROS 2 Native:** Full integration with perception pipeline
 - ✅ **Background Service:** SystemD service for auto-start, auto-restart
 - ✅ **Status Publishing:** Events published for monitoring/debugging
@@ -88,11 +91,13 @@ RECOGNIZED 🔊 (single beep)
 
 ### Notification Meanings
 
-| Sound | Event | Frequency | Duration | Meaning |
-|-------|-------|-----------|----------|---------|
-| 🔊 Single beep | Recognition | 1000 Hz | 0.5s | Face recognized (unknown→recognized transition) |
-| 🔔🔔 Double beep | Loss Alert | 500 Hz | 0.3s × 2 | Confirmed loss (continuous absence > 5s) |
-| (silent) | Jitter | - | - | Brief gap (< 5s) during recognition |
+| Alert | Event | File | Duration | Meaning |
+|-------|-------|------|----------|---------|
+| 🔊 Recognition Alert | Recognition | Voicy_R2-D2 - 2.mp3 | ~2s | Face recognized (unknown→recognized transition) |
+| 🔔 Loss Alert | Loss Confirmed | Voicy_R2-D2 - 5.mp3 | ~5s | Confirmed loss (continuous absence > 10s) |
+| (silent) | Jitter | - | - | Brief gap (< 5s) during recognition (no alert) |
+
+**Volume Control:** All alerts use the global `audio_volume` parameter (currently 0.05 = 5%)
 
 ---
 
@@ -198,38 +203,175 @@ sudo systemctl is-enabled r2d2-audio-notification.service
 | `cooldown_seconds` | `2.0` | float | 0.1-60.0 | Min time between recognition beeps |
 | `enabled` | `true` | bool | true/false | Enable/disable notifications |
 
-### Configuration Examples
+---
 
-**Alert Tone (High pitch, longer, louder):**
-```bash
-ros2 launch r2d2_audio audio_notification.launch.py \
-  beep_frequency:=2000 \
-  beep_duration:=1.0 \
-  beep_volume:=0.9 \
-  cooldown_seconds:=3
+## Audio Files & Global Volume Control
+
+### Audio File System (Current)
+
+The audio notification system uses **custom MP3 audio files** for alert sounds.
+
+**Installed Audio Files:**
+
+| Alert Type | Filename | Duration | Purpose |
+|-----------|----------|----------|---------|
+| **Recognition Alert** | `Voicy_R2-D2 - 2.mp3` | ~2 seconds | Plays when face is recognized |
+| **Loss Alert** | `Voicy_R2-D2 - 5.mp3` | ~5 seconds | Plays when person confirmed lost (after 10 seconds absence) |
+
+**File Location (Installed):**
+```
+~/dev/r2d2/ros2_ws/install/r2d2_audio/share/r2d2_audio/assets/audio/
 ```
 
-**Gentle Alert (Lower pitch, quieter, patient):**
+**File Location (Source):**
+```
+~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/
+```
+
+### Global Volume Parameter ⭐ IMPORTANT
+
+The **`audio_volume`** parameter is the **CENTRAL, GLOBAL control** for ALL audio output in the R2D2 audio system.
+
+**This single parameter controls the volume of:**
+- ✅ Recognition alerts
+- ✅ Loss alerts
+- ✅ All future audio notifications
+
+**Current Setting:** `audio_volume = 0.05` (5% - very quiet)
+
+#### Volume Levels Reference
+
+| Value | Percentage | Level | Use Case |
+|-------|-----------|-------|----------|
+| `0.0` | 0% | Silent | Mute all audio (testing) |
+| `0.05` | 5% | Very Quiet | **← Current default** |
+| `0.1` | 10% | Quiet | Library/office environment |
+| `0.2` | 20% | Moderate | Balanced for home use |
+| `0.5` | 50% | Loud | Normal room volume |
+| `0.8` | 80% | Very Loud | Noisy environments |
+| `1.0` | 100% | Maximum | Emergency/outdoor scenarios |
+
+#### How to Adjust Volume
+
+**Option 1: Runtime Change (Immediate, Temporary)**
+```bash
+# Change volume while service is running
+ros2 param set /audio_notification_node audio_volume 0.3
+
+# Verify the change took effect
+ros2 param get /audio_notification_node audio_volume
+```
+
+**Option 2: Launch Command (Temporary)**
+```bash
+# Launch with custom volume
+ros2 launch r2d2_audio audio_notification.launch.py audio_volume:=0.4
+```
+
+**Option 3: Edit Service File (Permanent)**
+```bash
+# Edit the systemd service
+sudo nano /etc/systemd/system/r2d2-audio-notification.service
+```
+
+Find the `ExecStart` line and add/modify:
+```ini
+ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.3
+```
+
+Save, reload, and restart:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+**Option 4: Edit Source Code (Permanent)**
+
+Edit `r2d2_audio/audio_notification_node.py` line 48:
+```python
+self.declare_parameter('audio_volume', 0.3)  # Change 0.3 to your desired value (0.0-1.0)
+```
+
+Rebuild and restart:
+```bash
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_audio
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+#### Verify Current Volume
+
+**Check system logs:**
+```bash
+journalctl -u r2d2-audio-notification.service -n 5 | grep "Audio volume"
+```
+
+**Check ROS 2 parameter:**
+```bash
+ros2 param get /audio_notification_node audio_volume
+```
+
+**Expected Output:**
+```
+String value is: 0.05  # Example: volume is at 5%
+```
+
+### Audio File Replacement
+
+To replace with different audio files:
+
+**Step 1: Copy new MP3 files**
+```bash
+cp your-recognition-sound.mp3 \
+  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 2.mp3
+
+cp your-loss-sound.mp3 \
+  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 5.mp3
+```
+
+**Step 2: Rebuild package**
+```bash
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_audio
+```
+
+**Step 3: Restart service**
+```bash
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+---
+
+### Configuration Examples
+
+**Alert Tone (Loud, shorter cooldown):**
 ```bash
 ros2 launch r2d2_audio audio_notification.launch.py \
-  beep_frequency:=500 \
-  beep_duration:=0.25 \
-  beep_volume:=0.4 \
+  audio_volume:=0.8 \
+  cooldown_seconds:=2.0
+```
+
+**Gentle Alert (Quiet, patient):**
+```bash
+ros2 launch r2d2_audio audio_notification.launch.py \
+  audio_volume:=0.2 \
   jitter_tolerance_seconds:=10.0 \
   loss_confirmation_seconds:=10.0
 ```
 
-**Fast Loss Detection (Immediate alerts):**
+**Fast Loss Detection (Immediate alerts, medium volume):**
 ```bash
 ros2 launch r2d2_audio audio_notification.launch.py \
+  audio_volume:=0.5 \
   jitter_tolerance_seconds:=2.0 \
   loss_confirmation_seconds:=2.0
 ```
 
-**Different Person:**
+**Different Person with Custom Volume:**
 ```bash
 ros2 launch r2d2_audio audio_notification.launch.py \
-  target_person:=alice
+  target_person:=alice \
+  audio_volume:=0.4
 ```
 
 ### Service Configuration
@@ -242,7 +384,7 @@ sudo nano /etc/systemd/system/r2d2-audio-notification.service
 
 Modify the `ExecStart` line to add custom parameters:
 ```ini
-ExecStart=/home/severin/dev/r2d2/start_audio_service.sh beep_volume:=0.4 beep_frequency:=800
+ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.4 target_person:=severin
 ```
 
 Reload and restart:
