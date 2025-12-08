@@ -14,7 +14,7 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*.launch.py'))),
         (os.path.join('share', package_name, 'assets', 'audio'), glob(os.path.join('r2d2_audio', 'assets', 'audio', '*.mp3'))),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'rosidl_runtime_py'],
     zip_safe=True,
     maintainer='Severin',
     maintainer_email='severin@r2d2.local',
@@ -25,6 +25,8 @@ setup(
         'console_scripts': [
             'audio_beep_node=r2d2_audio.audio_beep_node:main',
             'audio_notification_node=r2d2_audio.audio_notification_node:main',
+            'status_led_node=r2d2_audio.status_led_node:main',
+            'database_logger_node=r2d2_audio.database_logger_node:main',
         ],
     },
 )

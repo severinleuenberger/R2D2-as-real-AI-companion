@@ -28,6 +28,25 @@ from pathlib import Path
 from typing import Optional
 import sys
 import os
+from dataclasses import dataclass, asdict
+import json
+from builtin_interfaces.msg import Time as RosTime
+
+
+# Simple PersonStatus data class (alternative to ROS message)
+@dataclass
+class PersonStatusData:
+    """Person recognition status data."""
+    status: str  # "red" | "blue" | "green"
+    person_identity: str  # "severin" | "unknown" | "no_person"
+    timestamp_sec: int  # ROS 2 time seconds
+    timestamp_nanosec: int  # ROS 2 time nanoseconds
+    confidence: float  # 0.0-1.0
+    duration_in_state: float  # seconds
+    
+    def to_json(self) -> str:
+        """Convert to JSON string for publishing."""
+        return json.dumps(asdict(self))
 
 
 class AudioNotificationNode(Node):
@@ -70,7 +89,14 @@ class AudioNotificationNode(Node):
         self.last_recognition_time: Optional[float] = None  # Last time saw target person
         self.loss_jitter_exceeded_time: Optional[float] = None  # When jitter tolerance was first exceeded
         self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
-        self.last_known_state = "unknown"  # Track last known state
+        self.last_loss_beep_time: Optional[float] = None  # Cooldown for loss beeps (after 15s confirmation)
+        
+        # Status tracking (for LED, STT-LLM-TTS, database)
+        self.current_status = "blue"  # "red" (recognized) | "blue" (lost) | "green" (unknown)
+        self.current_person = "no_person"  # "severin" | "unknown" | "no_person"
+        self.status_changed_time = time.time()
+        self.unknown_person_detected = False
+        self.last_known_state = "unknown"
         
         # Find audio player and audio files
         # Get the directory where this script is located
@@ -133,6 +159,13 @@ class AudioNotificationNode(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
+        # Create publisher for person status (for LED, STT-LLM-TTS, database logging)
+        self.status_pub = self.create_publisher(
+            PersonStatus,
+            '/r2d2/audio/person_status',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
         # Create timer for loss detection (check every 500ms)
         self.create_timer(0.5, self.check_loss_state)
         
@@ -144,7 +177,7 @@ class AudioNotificationNode(Node):
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
             f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
-            f"  Alert cooldown: {self.cooldown_seconds}s\n"
+            f"  Alert cooldown: {self.cooldown_seconds}s (applies after 15s loss confirmation)\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
         )
@@ -169,17 +202,42 @@ class AudioNotificationNode(Node):
             self.last_recognition_time = current_time
             
             if not self.is_currently_recognized:
-                # Transition: unknown -> recognized
+                # Transition: LOST/UNKNOWN → RECOGNIZED (RED)
                 self.is_currently_recognized = True
                 self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
+                self.current_status = "red"
+                self.current_person = self.target_person
+                self.status_changed_time = current_time
+                self.unknown_person_detected = False
                 self.last_known_state = self.target_person
+                
+                # Publish status FIRST (so LED lights up immediately)
+                self._publish_status("red", self.target_person, confidence=0.95)
+                
+                # Then trigger beep
                 self._trigger_recognition_alert()
                 self._publish_event(f"🎉 Recognized {self.target_person}!")
                 self.get_logger().info(f"✓ {self.target_person} recognized!")
-        else:
-            # Target person not detected, but don't immediately mark as lost
-            # Let the timer handle the loss detection with jitter tolerance
-            pass
+            else:
+                # Already in RECOGNIZED state - just reset timer
+                self.last_recognition_time = current_time
+                # Publish status update (duration keeps updating)
+                self._publish_status("red", self.target_person, confidence=0.95)
+        
+        elif person_id == "unknown":
+            # Unknown person detected (not the target)
+            if not self.unknown_person_detected:
+                self.unknown_person_detected = True
+                self.current_status = "green"
+                self.current_person = "unknown"
+                self.status_changed_time = current_time
+                
+                # Publish status
+                self._publish_status("green", "unknown", confidence=0.70)
+                self.get_logger().info("🟢 Unknown person detected")
+            else:
+                # Update duration while unknown person present
+                self._publish_status("green", "unknown", confidence=0.70)
     
     def check_loss_state(self):
         """
@@ -188,7 +246,7 @@ class AudioNotificationNode(Node):
         Timing logic:
         1. Jitter tolerance window (0 to 5s absence): No action - brief gap tolerance
         2. Loss confirmation window (5s to 20s absence): Monitoring for confirmed loss
-        3. At 20s+ continuous absence: Fire loss alert
+        3. At 20s+ continuous absence: Fire loss alert (with cooldown to prevent spam)
         
         Resets when person is re-recognized.
         """
@@ -212,14 +270,61 @@ class AudioNotificationNode(Node):
             
             if time_in_loss_window > self.loss_confirmation:
                 # Confirmed loss: Jitter exceeded + 15 seconds confirmed
-                self.is_currently_recognized = False
-                self.loss_jitter_exceeded_time = None  # Reset for next cycle
-                self._trigger_loss_alert()
-                self._publish_event(f"❌ {self.target_person} lost (confirmed after {time_since_last_recognition:.1f}s absence)")
-                self.get_logger().info(
-                    f"✗ {self.target_person} lost (after {time_since_last_recognition:.1f}s absence, "
-                    f"{time_in_loss_window:.1f}s in loss window)"
-                )
+                # Check cooldown to prevent spam
+                if self.last_loss_beep_time is None or \
+                   (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
+                    self.is_currently_recognized = False
+                    self.loss_jitter_exceeded_time = None  # Reset for next cycle
+                    self.unknown_person_detected = False
+                    
+                    # UPDATE STATUS FIRST (so LED lights up immediately)
+                    self.current_status = "blue"
+                    self.current_person = "no_person"
+                    self.status_changed_time = current_time
+                    self._publish_status("blue", "no_person", confidence=0.0)
+                    
+                    # THEN trigger beep
+                    self._trigger_loss_alert()
+                    self.last_loss_beep_time = current_time  # Set loss alert cooldown
+                    self._publish_event(f"❌ {self.target_person} lost (confirmed after {time_since_last_recognition:.1f}s absence)")
+                    self.get_logger().info(
+                        f"✗ {self.target_person} lost (after {time_since_last_recognition:.1f}s absence, "
+                        f"{time_in_loss_window:.1f}s in loss window)"
+                    )
+    
+    def _publish_status(self, status: str, person_identity: str, confidence: float):
+        """
+        Publish current recognition status for LED, STT-LLM-TTS, and database logging.
+        
+        Publishes as JSON String message to /r2d2/audio/person_status
+        
+        Args:
+            status: "red" (recognized) | "blue" (lost) | "green" (unknown)
+            person_identity: "severin" | "unknown" | "no_person"
+            confidence: 0.0-1.0 detection confidence
+        """
+        current_time = time.time()
+        duration = current_time - self.status_changed_time
+        
+        # Create status data
+        ros_now = self.get_clock().now()
+        status_data = PersonStatusData(
+            status=status,
+            person_identity=person_identity,
+            timestamp_sec=ros_now.seconds_nanoseconds()[0],
+            timestamp_nanosec=ros_now.seconds_nanoseconds()[1],
+            confidence=confidence,
+            duration_in_state=duration
+        )
+        
+        # Publish as JSON string
+        msg = String()
+        msg.data = status_data.to_json()
+        self.status_pub.publish(msg)
+        
+        self.get_logger().debug(
+            f"📊 Status: {status.upper()} | Person: {person_identity} | Duration: {duration:.1f}s"
+        )
     
     def _trigger_recognition_alert(self):
         """
