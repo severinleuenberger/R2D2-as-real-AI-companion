@@ -66,7 +66,7 @@ class AudioNotificationNode(Node):
         
         # Declare parameters
         self.declare_parameter('target_person', 'severin')
-        self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume)
+        self.declare_parameter('audio_volume', 0.3)        # 0.0-1.0 (audio file volume) - increased for audibility
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
         self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
@@ -161,7 +161,7 @@ class AudioNotificationNode(Node):
         
         # Create publisher for person status (for LED, STT-LLM-TTS, database logging)
         self.status_pub = self.create_publisher(
-            PersonStatus,
+            String,
             '/r2d2/audio/person_status',
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
