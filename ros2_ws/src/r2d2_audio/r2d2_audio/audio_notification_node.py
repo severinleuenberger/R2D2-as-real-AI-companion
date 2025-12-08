@@ -70,6 +70,7 @@ class AudioNotificationNode(Node):
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
         self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
+        self.declare_parameter('recognition_cooldown_after_loss_seconds', 5.0)  # Quiet period after loss alert
         self.declare_parameter('recognition_audio_file', 'Voicy_R2-D2 - 2.mp3')  # Recognition alert audio
         self.declare_parameter('loss_audio_file', 'Voicy_R2-D2 - 5.mp3')  # Loss alert audio
         self.declare_parameter('enabled', True)
@@ -80,6 +81,7 @@ class AudioNotificationNode(Node):
         self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
         self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
         self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
+        self.recognition_cooldown_after_loss = self.get_parameter('recognition_cooldown_after_loss_seconds').value
         recognition_audio_filename = self.get_parameter('recognition_audio_file').value
         loss_audio_filename = self.get_parameter('loss_audio_file').value
         self.enabled = self.get_parameter('enabled').value
@@ -90,6 +92,7 @@ class AudioNotificationNode(Node):
         self.loss_jitter_exceeded_time: Optional[float] = None  # When jitter tolerance was first exceeded
         self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
         self.last_loss_beep_time: Optional[float] = None  # Cooldown for loss beeps (after 15s confirmation)
+        self.loss_alert_time: Optional[float] = None  # When loss alert was triggered (for quiet period)
         
         # Status tracking (for LED, STT-LLM-TTS, database)
         self.current_status = "blue"  # "red" (recognized) | "blue" (lost) | "green" (unknown)
@@ -177,7 +180,8 @@ class AudioNotificationNode(Node):
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
             f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
-            f"  Alert cooldown: {self.cooldown_seconds}s (applies after 15s loss confirmation)\n"
+            f"  Alert cooldown: {self.cooldown_seconds}s (min between alerts)\n"
+            f"  Recognition cooldown after loss: {self.recognition_cooldown_after_loss}s (quiet period after loss alert)\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
         )
@@ -201,23 +205,39 @@ class AudioNotificationNode(Node):
             # Target person detected
             self.last_recognition_time = current_time
             
+            # Check if we're in the quiet period after a loss alert
+            in_quiet_period = False
+            if self.loss_alert_time is not None:
+                time_since_loss_alert = current_time - self.loss_alert_time
+                if time_since_loss_alert < self.recognition_cooldown_after_loss:
+                    in_quiet_period = True
+            
             if not self.is_currently_recognized:
-                # Transition: LOST/UNKNOWN → RECOGNIZED (RED)
-                self.is_currently_recognized = True
-                self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
-                self.current_status = "red"
-                self.current_person = self.target_person
-                self.status_changed_time = current_time
-                self.unknown_person_detected = False
-                self.last_known_state = self.target_person
-                
-                # Publish status FIRST (so LED lights up immediately)
-                self._publish_status("red", self.target_person, confidence=0.95)
-                
-                # Then trigger beep
-                self._trigger_recognition_alert()
-                self._publish_event(f"🎉 Recognized {self.target_person}!")
-                self.get_logger().info(f"✓ {self.target_person} recognized!")
+                # Only transition to RECOGNIZED if NOT in quiet period
+                if not in_quiet_period:
+                    # Transition: LOST/UNKNOWN → RECOGNIZED (RED)
+                    self.is_currently_recognized = True
+                    self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
+                    self.current_status = "red"
+                    self.current_person = self.target_person
+                    self.status_changed_time = current_time
+                    self.unknown_person_detected = False
+                    self.last_known_state = self.target_person
+                    
+                    # Publish status FIRST (so LED lights up immediately)
+                    self._publish_status("red", self.target_person, confidence=0.95)
+                    
+                    # Then trigger beep
+                    self._trigger_recognition_alert()
+                    self._publish_event(f"🎉 Recognized {self.target_person}!")
+                    self.get_logger().info(f"✓ {self.target_person} recognized!")
+                else:
+                    # In quiet period - stay in BLUE state but update last_recognition_time
+                    # This way if person stays visible after quiet period, we'll transition to RED
+                    self.get_logger().debug(
+                        f"In quiet period ({self.recognition_cooldown_after_loss}s): "
+                        f"suppressing recognition alert for {self.target_person}"
+                    )
             else:
                 # Already in RECOGNIZED state - just reset timer
                 self.last_recognition_time = current_time
@@ -276,6 +296,9 @@ class AudioNotificationNode(Node):
                     self.is_currently_recognized = False
                     self.loss_jitter_exceeded_time = None  # Reset for next cycle
                     self.unknown_person_detected = False
+                    
+                    # Record when loss alert fires (start of quiet period)
+                    self.loss_alert_time = current_time
                     
                     # UPDATE STATUS FIRST (so LED lights up immediately)
                     self.current_status = "blue"
