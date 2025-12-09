@@ -1,0 +1,31 @@
+[Unit]
+Description=R2D2 Unified Power Button Handler
+Documentation=https://github.com/severinleuenberger/R2D2-as-real-AI-companion
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/r2d2_power_button.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Run as root (required for GPIO access and shutdown command)
+User=root
+Group=root
+
+# Security and isolation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-powerbutton
+NoNewPrivileges=true
+
+# Resource limits
+MemoryLimit=128M
+CPUQuota=10%
+
+[Install]
+WantedBy=multi-user.target
