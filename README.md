@@ -37,7 +37,6 @@ The R2D2 project is designed to achieve the following functional capabilities:
 - The robot must **respond with emotional or expressive sounds** similar to R2-D2 beeps
 - The robot must **be able to play audio files**, including R2-D2 sound effects
 - The robot must **combine perception, navigation, and conversation** so that it can interact socially and physically at the same time
-
 ---
 
 ## 🚀 Features (Current & Planned)
@@ -48,6 +47,7 @@ The R2D2 project is designed to achieve the following functional capabilities:
 - [x] **Hardware Integration:** OAK-D Lite depth camera, Jetson AGX Orin compute, ROS 2 infrastructure
 - [x] **Professional Codebase:** Clean workspace structure, modular packages, parameter-driven configuration
 - [x] **Comprehensive Docs:** Setup guides, integration patterns, operations checklist, architecture diagrams
+- [x] **Power Button Control:** Shutdown control via Pin 32, boot/wake via J42 automation header ✅ TESTED
 
 ### Phase 2: Speech & AI (Next) ⏳
 - [ ] **Speech-to-Text:** Real-time audio input with wake-word detection ("Hey R2D2")
@@ -98,6 +98,7 @@ Comprehensive guides organized by audience and use case. **Start here:**
 | **Audio Hardware** | [050_AUDIO_SETUP_AND_CONFIGURATION.md](050_AUDIO_SETUP_AND_CONFIGURATION.md) | ALSA configuration, ffplay setup, PAM8403 amplifier |
 | **👉 Person Recognition (MAIN REF)** | **[070_PERSON_RECOGNITION_STATUS.md](070_PERSON_RECOGNITION_STATUS.md)** | **Complete state machine, audio alerts, LED feedback, testing, troubleshooting** |
 | **ROS 2 Audio Integration** | [060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) | Audio ROS 2 node implementation, systemd service setup |
+| **Power Button Control** | [080_POWER_BUTTON_FINAL_DOCUMENTATION.md](080_POWER_BUTTON_FINAL_DOCUMENTATION.md) | Shutdown (Pin 32) + boot/wake (J42) control, tested ✅ |
 | **Backup & Restore** | [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md) | Full-system backup for reproducible deployments |
 
 ---
