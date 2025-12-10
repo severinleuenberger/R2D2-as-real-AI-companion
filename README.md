@@ -166,12 +166,13 @@ Phase 1: Core System Bringup (30% total project)
 └─ 📍 Current: ~85% complete
 
 Phase 2: Speech & Language (35% total project)
-├─ ⏳ Audio hardware integration (ReSpeaker 2-Mic HAT)
-├─ ⏳ Speech-to-Text (Whisper or similar)
-├─ ⏳ Local LLM (Ollama + Llama 2 7B)
-├─ ⏳ Text-to-Speech (synthesis engine)
-├─ ⏳ Wake-word detection ("Hey R2D2")
-└─ 🎯 Target: 6-8 weeks, complete by mid-January 2026
+├─ ✅ Microphone integration (HyperX QuadCast S USB - working perfectly)
+├─ ✅ Speech-to-Text (Faster-Whisper large-v2 - 100% accuracy)
+├─ ✅ Local LLM (Grok-3 API - intelligent contextual responses)
+├─ ✅ Text-to-Speech (Piper TTS German - natural synthesis)
+├─ ⏳ GPU acceleration for STT (PyTorch CUDA setup pending)
+├─ ⏳ Speaker output (PAM8403 - hardware issue, needs debugging)
+└─ 📍 Current: ~90% complete (software), speaker hardware blocked
 
 Phase 3: Navigation & Movement (20% total project)
 ├─ Motor control (PWM drivers, encoders)
@@ -194,20 +195,20 @@ Phase 4: Memory & Personality (15% total project)
 
 Based on your goals to implement **mic & speaker integration → STT/LLM/TTS**, here's the optimal order:
 
-### Step 1: Audio Hardware Integration (Week 1-2)
-**Goal:** Get microphone and speaker working with Jetson
+### Step 1: GPU Acceleration for STT (Week 1)
+**Goal:** Enable PyTorch GPU support for 4-6x STT speed improvement
 
 **Tasks:**
-1. ✅ ReSpeaker 2-Mic HAT hardware setup (physical connection + power)
-2. ⏳ ReSpeaker driver installation (SAI sound card)
-3. ⏳ Audio input test (`arecord`, `aplay`)
-4. ⏳ Create `r2d2_audio` ROS 2 package
-5. ⏳ Audio node: publish raw audio frames to `/r2d2/audio/raw`
-6. ⏳ Speaker node: subscribe to `/r2d2/audio/output` and play
+1. ⏳ Reinstall PyTorch with CUDA 12.4 support (from CPU-only build)
+2. ⏳ Update STT config to use GPU device
+3. ⏳ Optimize STT model (large-v2 → base)
+4. ⏳ Verify GPU acceleration working
 
-**Deliverable:** 
-- ROS 2 topics for microphone input and speaker output
-- Test recording + playback cycle working
+**Status:** See `999_NEXT_TASKS.md` for detailed implementation guide
+
+**Deliverable:**
+- STT processing time: 3-5 sec → 0.5-0.8 sec (6x improvement)
+- Total conversation latency: 15-20 sec → 5-7 sec
 - Document in phase-specific guides
 
 ---
@@ -305,11 +306,11 @@ Based on your goals to implement **mic & speaker integration → STT/LLM/TTS**, 
 
 | Challenge | Phase | Solution |
 |-----------|-------|----------|
-| ReSpeaker audio not detected | 2.1 | Check SAI kernel module load, verify USB connection |
-| STT too slow on Jetson ARM | 2.2 | Use quantized models, reduce batch size, profile CPU |
-| LLM memory overflow | 2.3 | Use 7B model max, enable 8-bit quantization |
-| TTS latency > 2 sec | 2.4 | Pre-encode common responses, use faster model |
-| Conversation feels unnatural | 2.5 | Add system prompt for R2D2 personality, context memory |
+| STT runs on CPU (slow) | 2.1 | Install PyTorch with CUDA support, use smaller model (Task #0) |
+| Speaker amplifier not working | 2.2 | Hardware debugging needed (power/wiring issue), fallback to file output |
+| Latency still high | 2.3 | Enable GPU acceleration, optimize model inference |
+| Integration with perception | 2.4 | Wire speech to `/r2d2/perception/person_id` for context-aware responses |
+| Conversation context memory | 2.5 | Add conversation history to LLM prompts, implement memory system |
 
 ---
 
@@ -325,11 +326,12 @@ The iconic R2-D2 is being rebuilt with modern robotics hardware and AI compute.
 | **Chassis** | DeAgostini R2-D2 1:2 Kit | Main body (48 cm tall) | ✅ Complete |
 | **Compute** | NVIDIA Jetson AGX Orin 64GB | AI brain (12-core ARM, 504-GPU cores, 100W TDP) | ✅ Mounted & Running |
 | **Camera** | Luxonis OAK-D Lite Auto Focus | Vision (1920×1080 @ 30 FPS, depth + IMU) | ✅ Integrated |
-| **Audio Input** | ReSpeaker 2-Mic HAT | Voice capture (for Phase 2 STT) | ⏳ Ordered |
+| **Audio Input** | HyperX QuadCast S USB | Voice capture (44.1kHz stereo) | ✅ Working |
+| **Audio Output** | PAM8403 Amplifier + Speaker | Voice synthesis playback | ❌ Hardware Issue |
 | **Drive** | DeAgostini DC Motors (2×) | Leg & dome motors with encoders | ⏳ Not yet integrated |
 | **Motor Control** | Pololu MC33926 (2×) | H-bridge drivers for DC motors | ✅ Assembled |
 | **Power** | 4S LiPo 5000 mAh (14.8V) | Main battery system | ✅ Charged & Ready |
-| **Power Dist** | Custom DC-DC (14V→12V/5V) | Jetson + ReSpeaker + motors | ⏳ Not yet integrated |
+| **Power Dist** | Custom DC-DC (14V→12V/5V) | Jetson + peripherals + motors | ⏳ Partial (Jetson only) |
 | **Internal** | WS2812B RGB LEDs | Status & personality expression | ⏳ Coming in Phase 4 |
 
 ### Inside the Bot
