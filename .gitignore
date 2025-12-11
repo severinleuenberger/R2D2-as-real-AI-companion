@@ -24,3 +24,15 @@ data/face_recognition/*/
 # Temporary files
 *.swp
 *.swo
+
+# VPN Configuration - SENSITIVE (never commit!)
+vpn_config/client_wg0.conf
+vpn_config/*.key
+vpn_config/keys_backup/
+vpn_config/*.backup
+*.key
+*_private.key
+*_public.key
+
+# Python virtual environments
+r2d2_speech_env/
