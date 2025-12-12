@@ -736,7 +736,7 @@ ls -lh ~/.local/share/piper-tts/models/
 
 ## Next: Test Scripts (Part 2)
 
-Once installation is complete, proceed to: **102_PHASE_2_TEST_SCRIPTS.md**
+Once installation is complete, proceed to: **203_TEST_SCRIPTS.md**
 
 This will guide you through testing each component individually before integrating them.
 
@@ -745,4 +745,4 @@ This will guide you through testing each component individually before integrati
 **Installation Guide Version:** 1.0  
 **Status:** Complete  
 **Estimated Total Time:** 90 minutes  
-**Next Step:** Run the test scripts (102_PHASE_2_TEST_SCRIPTS.md)
+**Next Step:** Run the test scripts (203_TEST_SCRIPTS.md)

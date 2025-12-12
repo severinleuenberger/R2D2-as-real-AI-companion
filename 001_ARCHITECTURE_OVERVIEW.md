@@ -839,7 +839,7 @@ COMMAND EXTRACTION (only discrete actions go to ROS)
 - Publish to `/r2d2/cmd/*` topics (discrete commands)
 - Follow naming convention: `/r2d2/<subsystem>/<metric>`
 
-**For detailed Phase 2 architecture, see:** [`100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
+**For detailed Phase 2 architecture, see:** [`200_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](200_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
 
 ### 8.3 Adding Phase 3 Components (Navigation)
 
@@ -907,7 +907,7 @@ DOCUMENTATION:
   ~/dev/r2d2/101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md (Audio hardware - prerequisite)
   ~/dev/r2d2/050_AUDIO_SETUP_AND_CONFIGURATION.md (Alternative audio documentation)
   ~/dev/r2d2/080_POWER_BUTTON_FINAL_DOCUMENTATION.md
-  ~/dev/r2d2/100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md
+  ~/dev/r2d2/200_SPEECH_ARCHITECTURE_RECOMMENDATION.md
 ```
 
 ---
@@ -958,7 +958,7 @@ sudo systemctl status r2d2-powerbutton.service
 - `100_PERSON_RECOGNITION_AND_STATUS.md` - ⭐ Complete setup guide for person recognition and status system
 - `102_CAMERA_SETUP_DOCUMENTATION.md` - Camera hardware setup (prerequisite for 100_)
 - `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` - Audio hardware setup (prerequisite for 100_)
-- `100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md` - Phase 2 planning
+- `200_SPEECH_ARCHITECTURE_RECOMMENDATION.md` - Phase 2 planning
 - `QUICK_START.md` - Quick reference guide
 
 ---
@@ -971,7 +971,7 @@ sudo systemctl status r2d2-powerbutton.service
 - **Audio Hardware:** [`101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md`](101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md)
 - **Audio Hardware (Alternative):** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
 - **Power Button:** [`080_POWER_BUTTON_FINAL_DOCUMENTATION.md`](080_POWER_BUTTON_FINAL_DOCUMENTATION.md)
-- **Phase 2 Architecture:** [`100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
+- **Phase 2 Architecture:** [`200_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](200_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
 
 **Analysis & Planning:**
 - `ARCHITECTURE_ANALYSIS.md` - Comprehensive architecture analysis

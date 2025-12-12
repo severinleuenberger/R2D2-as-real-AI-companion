@@ -13,10 +13,10 @@ You now have **4 comprehensive guides**:
 
 | Document | Purpose | Time | Read First |
 |----------|---------|------|-----------|
-| **101_PHASE_2_SPEECH_SWISS_GERMAN_PREMIUM.md** | Architecture & rationale | 20 min | YES |
-| **102_PHASE_2_INSTALLATION_GUIDE.md** | Step-by-step install | 90 min | FOLLOW |
-| **102_PHASE_2_TEST_SCRIPTS.md** | Test each component | 90 min | FOLLOW |
-| **103_PHASE_2_BUILD_GUIDE.md** | Full build walkthrough | 180 min | FOLLOW |
+| **201_SPEECH_SWISS_GERMAN_PREMIUM.md** | Architecture & rationale | 20 min | YES |
+| **202_INSTALLATION_GUIDE.md** | Step-by-step install | 90 min | FOLLOW |
+| **203_TEST_SCRIPTS.md** | Test each component | 90 min | FOLLOW |
+| **204_BUILD_GUIDE.md** | Full build walkthrough | 180 min | FOLLOW |
 
 ---
 
@@ -24,7 +24,7 @@ You now have **4 comprehensive guides**:
 
 ### Hour 1: Installation (60 minutes)
 
-**Follow:** `102_PHASE_2_INSTALLATION_GUIDE.md` → Parts 1-8
+**Follow:** `202_INSTALLATION_GUIDE.md` → Parts 1-8
 
 ```bash
 # Summary of what you'll do:
@@ -70,7 +70,7 @@ nano ~/.r2d2/.env
 
 ### Hour 2: Testing (60 minutes)
 
-**Follow:** `102_PHASE_2_TEST_SCRIPTS.md` → Tests 1-6
+**Follow:** `203_TEST_SCRIPTS.md` → Tests 1-6
 
 ```bash
 # Run tests in order (copy test code from document first)
@@ -98,7 +98,7 @@ Total: ~90 minutes
 
 ### Hour 3: Build Components (60 minutes)
 
-**Follow:** `103_PHASE_2_BUILD_GUIDE.md` → Phase 2.3
+**Follow:** `204_BUILD_GUIDE.md` → Phase 2.3
 
 Create 4 Python classes (copy from document):
 
@@ -122,7 +122,7 @@ Total: ~20 minutes copying, ~40 minutes learning/tweaking
 
 ### Hour 4: ROS 2 Integration (60 minutes)
 
-**Follow:** `103_PHASE_2_BUILD_GUIDE.md` → Phases 2.4-2.6
+**Follow:** `204_BUILD_GUIDE.md` → Phases 2.4-2.6
 
 ```bash
 # Create ROS 2 package
@@ -196,22 +196,22 @@ R2D2 Speech System (PREMIUM)
 ## 📋 Document Reading Order
 
 **For Initial Understanding:**
-1. Read: `101_PHASE_2_SPEECH_SWISS_GERMAN_PREMIUM.md` (20 min)
+1. Read: `201_SPEECH_SWISS_GERMAN_PREMIUM.md` (20 min)
    - Understand the "why" behind each component
    - See performance metrics
    - Review cost analysis
 
 **For Implementation:**
-2. Follow: `102_PHASE_2_INSTALLATION_GUIDE.md` (90 min)
+2. Follow: `202_INSTALLATION_GUIDE.md` (90 min)
    - Step-by-step installation
    - Troubleshooting if issues
    
-3. Follow: `102_PHASE_2_TEST_SCRIPTS.md` (90 min)
+3. Follow: `203_TEST_SCRIPTS.md` (90 min)
    - Copy each test script
    - Run tests in order
    - Verify each component works
 
-4. Follow: `103_PHASE_2_BUILD_GUIDE.md` (180 min)
+4. Follow: `204_BUILD_GUIDE.md` (180 min)
    - Build Python classes
    - Create ROS 2 node
    - Final integration and testing
@@ -292,9 +292,9 @@ source ~/dev/r2d2/ros2_ws/install/setup.bash
 
 If you get stuck on:
 
-1. **Installation issues** → Check `102_PHASE_2_INSTALLATION_GUIDE.md` troubleshooting
+1. **Installation issues** → Check `202_INSTALLATION_GUIDE.md` troubleshooting
 2. **Test failures** → Show me which test fails (1-6) + error message
-3. **ROS 2 integration** → Check sourcing steps in `103_PHASE_2_BUILD_GUIDE.md`
+3. **ROS 2 integration** → Check sourcing steps in `204_BUILD_GUIDE.md`
 4. **Audio not working** → Review `050_AUDIO_SETUP_AND_CONFIGURATION.md`
 
 ---
@@ -312,7 +312,7 @@ To understand the system better:
 
 ## 🚀 Ready to Start?
 
-**Next action:** Open `102_PHASE_2_INSTALLATION_GUIDE.md` and start with Part 1.
+**Next action:** Open `202_INSTALLATION_GUIDE.md` and start with Part 1.
 
 Expected timeline:
 - **Today:** Installation + Testing (3 hours)

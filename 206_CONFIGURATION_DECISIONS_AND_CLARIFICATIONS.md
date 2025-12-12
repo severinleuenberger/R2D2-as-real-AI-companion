@@ -269,24 +269,24 @@ tts = PiperTTS(voice="de_DE-kerstin-medium")  # Fallback
 
 All documentation has been updated with your choices:
 
-✅ **102_PHASE_2_INSTALLATION_GUIDE.md**
+✅ **202_INSTALLATION_GUIDE.md**
 - Whisper: float32 (all references updated)
 - Piper: kerstin-high (all voice downloads)
 - Folder structure: Added ~/.r2d2/ config pattern
 - Groq API: Clarified in Part 5 with full explanation
 
-✅ **102_PHASE_2_TEST_SCRIPTS.md**
+✅ **203_TEST_SCRIPTS.md**
 - Test 3 (STT): Uses large-v2 with float32
 - Test 4 (TTS): Tests kerstin-high voice
 - Test 5 (LLM): Uses your Groq API key
 - Test 6 (E2E): Full pipeline with high-quality voices
 
-✅ **103_PHASE_2_BUILD_GUIDE.md**
+✅ **204_BUILD_GUIDE.md**
 - All class definitions: float32 in SwissGermanSTT
 - PiperTTS: Initialized with kerstin-high
 - Code examples: Match your configuration exactly
 
-✅ **104_PHASE_2_QUICK_START.md**
+✅ **205_QUICK_START.md**
 - Download times: Updated for float32 + high voices
 - Voice selection: Shows kerstin-high as default
 - Troubleshooting: References correct voice names
@@ -297,7 +297,7 @@ All documentation has been updated with your choices:
 
 ### ✅ Ready to Start Installation?
 
-You have everything locked in. Just follow **102_PHASE_2_INSTALLATION_GUIDE.md**:
+You have everything locked in. Just follow **202_INSTALLATION_GUIDE.md**:
 
 1. **Part 1:** Environment verification (5 min)
 2. **Part 2:** Python venv setup (5 min)
@@ -313,9 +313,9 @@ You have everything locked in. Just follow **102_PHASE_2_INSTALLATION_GUIDE.md**
 
 **Total: ~2 hours installation**
 
-Then run tests from **102_PHASE_2_TEST_SCRIPTS.md** (~90 minutes)
+Then run tests from **203_TEST_SCRIPTS.md** (~90 minutes)
 
-Then build components from **103_PHASE_2_BUILD_GUIDE.md** (~90 minutes)
+Then build components from **204_BUILD_GUIDE.md** (~90 minutes)
 
 ---
 
@@ -351,7 +351,7 @@ Then build components from **103_PHASE_2_BUILD_GUIDE.md** (~90 minutes)
 
 All systems configured. Your choices are locked in and documented.
 
-**Next action:** Start installation with **102_PHASE_2_INSTALLATION_GUIDE.md Part 1**
+**Next action:** Start installation with **202_INSTALLATION_GUIDE.md Part 1**
 
 Any questions about the choices? Refer back to this document for clarifications.
 

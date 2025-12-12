@@ -285,7 +285,7 @@ Now we test each component individually. Follow the tests in order.
 ```bash
 cd ~/dev/r2d2/r2d2_speech
 
-# Copy test script (see 102_PHASE_2_TEST_SCRIPTS.md)
+# Copy test script (see 203_TEST_SCRIPTS.md)
 # then run:
 
 python3 tests/test_environment.py

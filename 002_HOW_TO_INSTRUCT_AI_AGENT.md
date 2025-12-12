@@ -1,14 +1,14 @@
-# How to Instruct Claude on R2D2 Tasks
+# How to Instruct an AI Agent on R2D2 Tasks
 
-**Purpose:** Simple directive for giving Claude new tasks.
+**Purpose:** Simple directive for giving an AI agent new tasks.
 
-**Key Rule:** Claude should read the 000-004 meta documents to fully understand the project context, then complete your task.
+**Key Rule:** The AI agent should read the 000-004 meta documents to fully understand the project context, then complete your task.
 
 ---
 
 ## When Starting a New Chat
 
-Simply tell Claude:
+Simply tell the AI agent:
 
 ```
 I'm working on the R2D2 project in /home/severin/dev/r2d2
@@ -40,9 +40,9 @@ What I need:
 
 ---
 
-## What Claude Will Do
+## What the AI Agent Will Do
 
-Claude will:
+The AI agent will:
 1. Read README.md for the overall project vision and goals
 2. Review 000_INTERNAL_AGENT_NOTES.md for critical rules and environment
 3. Review 001_ARCHITECTURE_OVERVIEW.md for system architecture
@@ -55,7 +55,7 @@ Claude will:
 
 ## That's It
 
-Don't overthink it. Just describe your task clearly, and Claude will read the documents to understand the context fully.
+Don't overthink it. Just describe your task clearly, and the AI agent will read the documents to understand the context fully.
 
 The reading order matters:
 1. **README.md:** Project vision and overall goals
@@ -63,3 +63,4 @@ The reading order matters:
 3. **Project-specific docs (003-004):** Only as relevant to your task
 4. **Implementation details (010-089):** Feature-specific guidance
 5. **Analysis docs:** Deep background if needed
+
