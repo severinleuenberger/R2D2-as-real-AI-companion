@@ -30,10 +30,18 @@ sudo apt install ros-humble-rosbridge-suite
 
 ### 3. Start rosbridge (in one terminal)
 
+**Option 1: Using the startup script (recommended)**
 ```bash
 cd ~/dev/r2d2/web_dashboard
+./start_rosbridge.sh
+```
+
+**Option 2: Using ros2 run directly**
+```bash
 source /opt/ros/humble/setup.bash
-ros2 launch web_dashboard/launch/rosbridge.launch.py
+source ~/dev/r2d2/ros2_ws/install/setup.bash
+ros2 run rosbridge_server rosbridge_websocket --ros-args -p port:=9090 -p address:=0.0.0.0 &
+ros2 run rosapi rosapi_node &
 ```
 
 ### 4. Start Web Dashboard (in another terminal)

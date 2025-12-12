@@ -101,7 +101,7 @@ function updateConnectionStatus(connected) {
     } else {
         statusIndicator.className = 'status-indicator disconnected';
         statusText.textContent = '✗ Real-time Disconnected';
-        statusDetails.textContent = 'Start rosbridge: ros2 launch web_dashboard/launch/rosbridge.launch.py';
+        statusDetails.textContent = 'Start rosbridge: ./start_rosbridge.sh (or: ros2 run rosbridge_server rosbridge_websocket)';
         statusDetails.className = 'status-details-text disconnected';
     }
 }
