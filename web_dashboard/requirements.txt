@@ -2,8 +2,7 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
-rclpy==3.3.4
-std_msgs==4.2.3
-sensor_msgs==4.2.3
 python-dotenv==1.0.0
+# Note: rclpy, std_msgs, sensor_msgs are ROS 2 packages installed via apt
+# They are available when ROS 2 environment is sourced
 
