@@ -164,9 +164,8 @@ ros2_ws/src/
 ├── 000_INTERNAL_AGENT_NOTES.md            # This file
 ├── 001_ARCHITECTURE_OVERVIEW.md           # System design
 ├── 010_PROJECT_GOALS_AND_SETUP.md         # Project roadmap
-├── 020_CAMERA_SETUP_DOCUMENTATION.md      # Camera setup
-├── 030_PERCEPTION_PIPELINE_SETUP.md       # Perception details
-├── 040_FACE_RECOGNITION_COMPLETE.md       # Face recognition
+├── 041_CAMERA_SETUP_DOCUMENTATION.md      # Camera setup
+├── 040_FACE_RECOGNITION_COMPLETE.md       # Perception pipeline & Face recognition
 ├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio hardware
 ├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio ROS2
 │

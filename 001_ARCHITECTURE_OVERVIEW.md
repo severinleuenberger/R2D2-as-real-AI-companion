@@ -901,9 +901,8 @@ HARDWARE CONTROL:
   /etc/systemd/system/r2d2-powerbutton.service
 
 DOCUMENTATION:
-  ~/dev/r2d2/020_CAMERA_SETUP_DOCUMENTATION.md
-  ~/dev/r2d2/030_PERCEPTION_PIPELINE_SETUP.md
-  ~/dev/r2d2/040_FACE_RECOGNITION_COMPLETE.md
+  ~/dev/r2d2/041_CAMERA_SETUP_DOCUMENTATION.md
+  ~/dev/r2d2/040_FACE_RECOGNITION_COMPLETE.md (includes perception pipeline)
   ~/dev/r2d2/050_AUDIO_SETUP_AND_CONFIGURATION.md
   ~/dev/r2d2/060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md
   ~/dev/r2d2/070_PERSON_RECOGNITION_STATUS.md (⭐ Master reference for state machine)
@@ -967,9 +966,8 @@ sudo systemctl status r2d2-powerbutton.service
 ## Related Documentation
 
 **Component-Specific Documentation:**
-- **Camera Setup:** [`020_CAMERA_SETUP_DOCUMENTATION.md`](020_CAMERA_SETUP_DOCUMENTATION.md)
-- **Perception Pipeline:** [`030_PERCEPTION_PIPELINE_SETUP.md`](030_PERCEPTION_PIPELINE_SETUP.md)
-- **Face Recognition:** [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)
+- **Camera Setup:** [`041_CAMERA_SETUP_DOCUMENTATION.md`](041_CAMERA_SETUP_DOCUMENTATION.md)
+- **Perception Pipeline & Face Recognition:** [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md) (includes both)
 - **Audio Hardware:** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
 - **Audio ROS 2 Integration:** [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
 - **State Machine (Master):** [`070_PERSON_RECOGNITION_STATUS.md`](070_PERSON_RECOGNITION_STATUS.md) ⭐

@@ -92,9 +92,8 @@ Comprehensive guides organized by audience and use case. **Start here:**
 | **Foundations** | [000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md) | Critical git rules, environment setup, hardware constants |
 | **Architecture** | [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System design, software stack, ROS 2 topics |
 | **System Setup** | [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) | Jetson flashing, ROS 2 installation, workspace setup |
-| **Camera Integration** | [020_CAMERA_SETUP_DOCUMENTATION.md](020_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
-| **Image Processing** | [030_PERCEPTION_PIPELINE_SETUP.md](030_PERCEPTION_PIPELINE_SETUP.md) | Brightness metrics, Haar Cascade face detection, pipeline |
-| **Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | LBPH training, real-time recognition, model management |
+| **Camera Integration** | [041_CAMERA_SETUP_DOCUMENTATION.md](041_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
+| **Perception & Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | Perception pipeline, brightness metrics, LBPH training, real-time recognition |
 | **Audio Hardware** | [050_AUDIO_SETUP_AND_CONFIGURATION.md](050_AUDIO_SETUP_AND_CONFIGURATION.md) | ALSA configuration, ffplay setup, PAM8403 amplifier |
 | **👉 Person Recognition (MAIN REF)** | **[070_PERSON_RECOGNITION_STATUS.md](070_PERSON_RECOGNITION_STATUS.md)** | **Complete state machine, audio alerts, LED feedback, testing, troubleshooting** |
 | **ROS 2 Audio Integration** | [060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) | Audio ROS 2 node implementation, systemd service setup |
@@ -434,9 +433,8 @@ r2d2/
 ├── 003_JETSON_FLASHING_AND_DISPLAY_SETUP.md # Hardware setup procedures
 ├── 004_BACKUP_AND_RESTORE.md              # Backup/restore procedures
 ├── 010_PROJECT_GOALS_AND_SETUP.md         # 4-phase roadmap, success metrics
-├── 020_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
-├── 030_PERCEPTION_PIPELINE_SETUP.md       # Image processing pipeline
-├── 040_FACE_RECOGNITION_COMPLETE.md       # Face recognition system + training
+├── 041_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
+├── 040_FACE_RECOGNITION_COMPLETE.md       # Perception pipeline + Face recognition system
 ├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio system setup
 ├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio integration
 ├── OPERATIONS_CHECKLIST.md                # Daily startup, monitoring, troubleshooting

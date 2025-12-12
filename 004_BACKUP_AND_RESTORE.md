@@ -1142,7 +1142,7 @@ bash ~/dev/r2d2/scripts/r2d2_backup.sh
 
 See also:
 - `01_R2D2_BASIC_SETUP_AND_FINDINGS.md` — Initial Jetson setup and system architecture
-- `020_CAMERA_SETUP_DOCUMENTATION.md` — OAK-D camera integration
+- `041_CAMERA_SETUP_DOCUMENTATION.md` — OAK-D camera integration
 - `06_FACE_RECOGNITION_TRAINING_AND_STATUS.md` — Training data structure
 - `README.md` — Project overview
 

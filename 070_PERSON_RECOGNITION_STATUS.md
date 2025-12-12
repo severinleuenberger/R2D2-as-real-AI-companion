@@ -14,8 +14,7 @@ This is the **master document** for the person recognition status system. Relate
 
 - **System Overview** → [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md)
 - **Audio Hardware Setup** → [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
-- **Face Recognition** → [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)
-- **Perception Pipeline** → [`030_PERCEPTION_PIPELINE_SETUP.md`](030_PERCEPTION_PIPELINE_SETUP.md)
+- **Perception Pipeline & Face Recognition** → [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)
 - **Audio ROS 2 Integration** → [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
 - **Agent Instructions** → [`000_INTERNAL_AGENT_NOTES.md`](000_INTERNAL_AGENT_NOTES.md)
 
@@ -972,11 +971,12 @@ Face Recognition (Person Detection)
    ├─ Recognition training
    └─ /r2d2/perception/person_id topic source
 
-Perception Pipeline
-└─ 030_PERCEPTION_PIPELINE_SETUP.md
+Perception Pipeline & Face Recognition
+└─ 040_FACE_RECOGNITION_COMPLETE.md
    ├─ Image processing nodes
    ├─ OAK-D camera integration
-   └─ ROS 2 perception topics
+   ├─ ROS 2 perception topics
+   └─ Face recognition system
 
 Audio ROS 2 Integration (Previous Document)
 └─ 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md
