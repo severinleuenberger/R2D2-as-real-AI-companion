@@ -150,7 +150,14 @@ class TrainingModule:
             print('  2. Train LBPH face recognizer')
             print('  3. Save trained model')
             print()
-            input('Press ENTER to continue...')
+            # Auto-continue if not in interactive terminal, otherwise wait for input
+            import sys
+            if sys.stdin.isatty():
+                input('Press ENTER to continue...')
+            else:
+                print('Auto-continuing...')
+                import time
+                time.sleep(1)
             
             self.train()
             self.save_model()
