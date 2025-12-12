@@ -18,6 +18,15 @@ let lastHeartbeatTime = null;
 let heartbeatCheckInterval = null;
 let cameraStreamServiceRunning = false;
 
+// Metrics tracking
+let metricsCounters = {
+    camera: { count: 0, lastReset: Date.now() },
+    faceDetection: { count: 0, lastReset: Date.now() },
+    personId: { count: 0, lastReset: Date.now() },
+    status: { count: 0, lastReset: Date.now() }
+};
+let metricsUpdateInterval = null;
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeROS();
@@ -32,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
     startHeartbeatMonitoring();
     // Initialize camera stream display
     updateCameraStreamDisplay();
+    // Start metrics tracking
+    startMetricsTracking();
 });
 
 // Check overall system status
@@ -130,6 +141,7 @@ function subscribeToTopics() {
             const status = JSON.parse(message.data);
             updateStatusDisplay(status);
             addStreamMessage('status', `Status: ${status.status.toUpperCase()} - ${status.person_identity}`);
+            metricsCounters.status.count++;
         } catch (e) {
             console.error('Failed to parse status:', e);
         }
@@ -145,6 +157,7 @@ function subscribeToTopics() {
     personIdTopic.subscribe((message) => {
         const personId = message.data;
         document.getElementById('person-id').textContent = personId;
+        metricsCounters.personId.count++;
         if (personId !== 'unknown' && personId !== 'no_person') {
             addStreamMessage('recognition', `✅ Person recognized: ${personId}`);
         } else if (personId === 'unknown') {
@@ -161,6 +174,18 @@ function subscribeToTopics() {
 
     faceCountTopic.subscribe((message) => {
         document.getElementById('face-count').textContent = message.data;
+        metricsCounters.faceDetection.count++;
+    });
+    
+    // Subscribe to camera topic for rate calculation
+    const cameraTopic = new ROSLIB.Topic({
+        ros: ros,
+        name: '/oak/rgb/image_raw',
+        messageType: 'sensor_msgs/Image'
+    });
+    
+    cameraTopic.subscribe(() => {
+        metricsCounters.camera.count++;
     });
 
     // Subscribe to heartbeat
@@ -709,6 +734,48 @@ function addStreamMessage(type, message) {
     // Keep only last 50 messages
     while (container.children.length > 50) {
         container.removeChild(container.lastChild);
+    }
+}
+
+// Metrics Tracking
+function startMetricsTracking() {
+    // Update metrics every second
+    metricsUpdateInterval = setInterval(() => {
+        updateMetricsDisplay();
+    }, 1000);
+}
+
+function updateMetricsDisplay() {
+    const now = Date.now();
+    const interval = (now - metricsCounters.camera.lastReset) / 1000; // seconds
+    
+    if (interval > 0) {
+        // Calculate rates (Hz)
+        const cameraRate = (metricsCounters.camera.count / interval).toFixed(1);
+        const faceDetectionRate = (metricsCounters.faceDetection.count / interval).toFixed(1);
+        const personIdRate = (metricsCounters.personId.count / interval).toFixed(1);
+        const statusRate = (metricsCounters.status.count / interval).toFixed(1);
+        
+        // Update display
+        const cameraRateEl = document.getElementById('camera-rate');
+        const faceDetectionRateEl = document.getElementById('face-detection-rate');
+        const personIdRateEl = document.getElementById('person-id-rate');
+        const statusRateEl = document.getElementById('status-rate');
+        
+        if (cameraRateEl) cameraRateEl.textContent = `${cameraRate} Hz`;
+        if (faceDetectionRateEl) faceDetectionRateEl.textContent = `${faceDetectionRate} Hz`;
+        if (personIdRateEl) personIdRateEl.textContent = `${personIdRate} Hz`;
+        if (statusRateEl) statusRateEl.textContent = `${statusRate} Hz`;
+        
+        // Reset counters
+        metricsCounters.camera.count = 0;
+        metricsCounters.faceDetection.count = 0;
+        metricsCounters.personId.count = 0;
+        metricsCounters.status.count = 0;
+        metricsCounters.camera.lastReset = now;
+        metricsCounters.faceDetection.lastReset = now;
+        metricsCounters.personId.lastReset = now;
+        metricsCounters.status.lastReset = now;
     }
 }
 

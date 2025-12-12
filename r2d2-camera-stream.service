@@ -1,6 +1,7 @@
 [Unit]
 Description=R2D2 Camera Stream Service (MJPEG)
-After=network.target
+After=network.target r2d2-camera-perception.service
+Wants=r2d2-camera-perception.service
 Documentation=file:///home/severin/dev/r2d2/001_ARCHITECTURE_OVERVIEW.md
 
 [Service]
@@ -12,11 +13,11 @@ WorkingDirectory=/home/severin/dev/r2d2
 # Use the startup script (direct node launch)
 ExecStart=/home/severin/dev/r2d2/start_camera_stream.sh
 
-# Auto-restart on failure
+# Auto-restart on failure (but wait longer to avoid rapid restarts)
 Restart=on-failure
-RestartSec=5s
-StartLimitInterval=60
-StartLimitBurst=3
+RestartSec=10s
+StartLimitInterval=300
+StartLimitBurst=5
 
 # Logging
 StandardOutput=journal
