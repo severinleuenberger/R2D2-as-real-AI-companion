@@ -119,15 +119,15 @@ class TrainingManager:
     
     def run_interactive_training(self, person_name):
         """
-        Run the simplified interactive training system (4 tasks).
+        Run the improved capture system with quality filtering (NEW METHOD).
         
         Args:
             person_name: Name of person being trained
         """
-        script_path = self.script_dir / 'interactive_training_simple.py'
+        script_path = self.script_dir / '1_capture_training_data.py'
         
         if not script_path.exists():
-            print(f'❌ Error: interactive_training_simple.py not found at {script_path}')
+            print(f'❌ Error: 1_capture_training_data.py not found at {script_path}')
             return False
         
         # Set up environment
@@ -143,7 +143,7 @@ class TrainingManager:
         env['OPENBLAS_CORETYPE'] = 'ARMV8'
         
         try:
-            # Run interactive training script with person_name and output_dir as arguments
+            # Run improved capture script with person_name and base_dir as arguments
             result = subprocess.run(
                 ['python3', str(script_path), person_name, str(self.base_dir)],
                 env=env,
@@ -152,7 +152,7 @@ class TrainingManager:
             return result.returncode == 0
         
         except Exception as e:
-            print(f'❌ Error running interactive training: {e}')
+            print(f'❌ Error running improved capture: {e}')
             return False
     
     def main_menu(self):

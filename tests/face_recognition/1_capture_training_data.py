@@ -16,10 +16,14 @@ Key Improvements:
 Usage:
   source ~/depthai_env/bin/activate
   export OPENBLAS_CORETYPE=ARMV8
-  python3 1_capture_training_data.py
+  python3 1_capture_training_data.py [person_name] [base_dir]
+  
+  Arguments (optional):
+    person_name: Name of person (default: 'severin')
+    base_dir: Base data directory (default: ~/dev/r2d2/data/face_recognition)
 
 Output:
-  Saves 40-50 high-quality images to ~/dev/r2d2/data/face_recognition/severin/
+  Saves 40-50 high-quality images to ~/dev/r2d2/data/face_recognition/<person_name>/
 
 Author: R2D2 Perception Pipeline
 Date: December 9, 2025
@@ -46,9 +50,20 @@ cv2.setNumThreads(2)  # ARM optimization
 class ImprovedTrainingDataCapture:
     """Captures high-quality, diverse face training images with quality filtering."""
     
-    def __init__(self):
-        """Initialize camera pipeline and face cascade."""
-        self.output_dir = os.path.expanduser('~/dev/r2d2/data/face_recognition/severin')
+    def __init__(self, person_name='severin', base_dir=None):
+        """
+        Initialize camera pipeline and face cascade.
+        
+        Args:
+            person_name: Name of person to train (default: 'severin')
+            base_dir: Base data directory (default: ~/dev/r2d2/data/face_recognition)
+        """
+        if base_dir is None:
+            base_dir = os.path.expanduser('~/dev/r2d2/data/face_recognition')
+        
+        self.person_name = person_name
+        self.base_dir = base_dir
+        self.output_dir = os.path.join(base_dir, person_name)
         self.frame_count = 0
         self.total_saved = 0
         self.recent_images = []  # For deduplication
@@ -410,8 +425,19 @@ class ImprovedTrainingDataCapture:
 
 
 if __name__ == '__main__':
+    import sys
+    
+    # Parse command line arguments
+    person_name = 'severin'
+    base_dir = None
+    
+    if len(sys.argv) > 1:
+        person_name = sys.argv[1]
+    if len(sys.argv) > 2:
+        base_dir = sys.argv[2]
+    
     try:
-        capture = ImprovedTrainingDataCapture()
+        capture = ImprovedTrainingDataCapture(person_name=person_name, base_dir=base_dir)
         capture.run()
     except Exception as e:
         print(f'\n❌ Error: {e}')
