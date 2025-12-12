@@ -317,7 +317,24 @@ class ImprovedTrainingDataCapture:
         print('\nPress Ctrl+C to stop at any time.')
         print('='*60)
         
-        input('\nPress ENTER to begin...')
+        # Auto-start after 5 seconds, or wait for ENTER
+        import sys
+        import select
+        
+        print('\nStarting in 5 seconds... (Press ENTER to start immediately)')
+        if sys.stdin.isatty():
+            # Interactive terminal - wait for input or timeout
+            ready, _, _ = select.select([sys.stdin], [], [], 5.0)
+            if ready:
+                sys.stdin.readline()  # Consume the input
+            else:
+                print('Auto-starting now...\n')
+        else:
+            # Non-interactive - auto-start after delay
+            import time
+            print('Auto-starting in 5 seconds...')
+            time.sleep(5)
+            print('Starting now...\n')
         
         try:
             # Stage 1: Frontal, bright light (10 images)
