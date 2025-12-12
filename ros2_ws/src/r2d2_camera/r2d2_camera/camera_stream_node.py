@@ -177,7 +177,11 @@ def main(args=None):
         node.get_logger().error(f'Error in camera stream node: {e}')
     finally:
         try:
-            node.destroy_node()
+            if node:
+                node.destroy_node()
+        except:
+            pass
+        try:
             rclpy.shutdown()
         except:
             pass
