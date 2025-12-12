@@ -25,6 +25,11 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
              ├─ database_logger_node: Event logging
              └─ audio_beep_node: Simple beep demo
              ↓
+             Web Dashboard (NEW):
+             ├─ rosbridge_server: WebSocket bridge (port 9090)
+             ├─ FastAPI web server: REST API + static files (port 8080)
+             └─ HTML/JavaScript dashboard: Real-time monitoring & control
+             ↓
              Downstream consumers (Phase 2: speech, Phase 3: navigation)
 ```
 
@@ -155,6 +160,23 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 │  │  │  • Tracks state transitions                          │  │
 │  │  │  • Future: SQLite database integration              │  │
 │  │  └─ audio_beep_node: Simple beep demo                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  web_dashboard (Web Interface) [NEW]                   │  │
+│  │  ├─ rosbridge_server: WebSocket bridge (port 9090)     │  │
+│  │  │  • Exposes ROS 2 topics via WebSocket               │  │
+│  │  │  • Real-time topic streaming                        │  │
+│  │  ├─ FastAPI web server: REST API (port 8080)          │  │
+│  │  │  • Service control (start/stop/restart)              │  │
+│  │  │  • Volume control                                   │  │
+│  │  │  • Training management                              │  │
+│  │  │  • Static file serving                              │  │
+│  │  └─ HTML/JavaScript dashboard:                         │  │
+│  │     • Real-time monitoring                             │  │
+│  │     • Three-state visualization (RED/BLUE/GREEN)      │  │
+│  │     • Service control interface                        │  │
+│  │     • Training interface (all 7 options)               │  │
+│  │     • Accessible via Tailscale VPN                     │  │
 │  └──────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
 │                    ROS 2 HUMBLE LAYER                          │
@@ -741,9 +763,84 @@ The R2D2 system includes a power button control system for graceful shutdown and
 
 ---
 
-## 8. Integration Points for Future Features
+## 8. Web Dashboard System
 
-### 8.1 Integration Points for Phase 2-4
+### 8.1 Overview
+
+The R2D2 web dashboard provides a graphical interface for monitoring and controlling the R2D2 system remotely via Tailscale VPN. It offers real-time monitoring, service control, volume adjustment, and complete face recognition training integration.
+
+**Access:** `http://100.95.133.26:8080` (via Tailscale VPN)
+
+**Key Features:**
+- Real-time person recognition status (RED/BLUE/GREEN)
+- Service control (start/stop/restart)
+- Audio volume control
+- Face recognition training interface
+- Live event stream
+- System metrics display
+
+### 8.2 Architecture
+
+```
+Browser (Windows Laptop)
+    ↓ (Tailscale VPN)
+FastAPI Web Server (Port 8080)
+    ├─ REST API (service control, volume, training)
+    ├─ Static file serving (HTML/CSS/JS)
+    └─ WebSocket (training logs)
+    ↓
+rosbridge_server (Port 9090)
+    └─ WebSocket bridge to ROS 2 topics
+    ↓
+ROS 2 Topics
+    ├─ /r2d2/perception/person_id
+    ├─ /r2d2/audio/person_status
+    └─ /r2d2/perception/face_count
+```
+
+### 8.3 Components
+
+**Backend:**
+- `web_dashboard/app/main.py` - FastAPI application
+- `web_dashboard/app/api/` - REST API endpoints
+- `web_dashboard/app/services/` - Service managers (systemd, ROS 2, training)
+
+**Frontend:**
+- `web_dashboard/app/templates/index.html` - Main dashboard page
+- `web_dashboard/app/static/css/dashboard.css` - Styling
+- `web_dashboard/app/static/js/dashboard.js` - Dashboard logic
+
+**Infrastructure:**
+- `rosbridge_server` - ROS 2 WebSocket bridge
+- `systemd` - Service management
+
+### 8.4 API Endpoints
+
+**Services:**
+- `GET /api/services/status` - All services status
+- `POST /api/services/{service}/start` - Start service
+- `POST /api/services/{service}/stop` - Stop service
+- `POST /api/services/{service}/restart` - Restart service
+
+**Audio:**
+- `GET /api/audio/volume` - Get volume
+- `POST /api/audio/volume` - Set volume (0.0-1.0)
+
+**Training:**
+- `POST /api/training/capture` - Start image capture
+- `POST /api/training/add_pictures` - Add more pictures
+- `POST /api/training/retrain` - Retrain model
+- `GET /api/training/list` - List all people/models
+- `DELETE /api/training/{person_name}` - Delete person
+- `GET /api/training/status/{task_id}` - Get training status
+
+**For complete documentation, see:** [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md)
+
+---
+
+## 9. Integration Points for Future Features
+
+### 9.1 Integration Points for Phase 2-4
 
 **Where to Hook In New Components:**
 
@@ -799,7 +896,7 @@ class MyNewPhase2Node(Node):
 
 **For detailed integration guide, see:** `_ANALYSIS_AND_DOCUMENTATION/INTEGRATION_GUIDE.md`
 
-### 8.2 Adding Phase 2 Components (Speech/Conversation)
+### 9.2 Adding Phase 2 Components (Speech/Conversation)
 
 **Phase 2 Architecture (Hybrid Approach):**
 
@@ -841,14 +938,14 @@ COMMAND EXTRACTION (only discrete actions go to ROS)
 
 **For detailed Phase 2 architecture, see:** [`200_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](200_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
 
-### 8.3 Adding Phase 3 Components (Navigation)
+### 9.3 Adding Phase 3 Components (Navigation)
 
 New nodes should:
 - Subscribe to `/r2d2/perception/face_count` (obstacle avoidance)
 - Subscribe to `/r2d2/perception/person_id` (follow person)
 - Publish to `/r2d2/cmd_vel` (movement commands, geometry_msgs/Twist)
 
-### 8.4 General Pattern for New Nodes
+### 9.4 General Pattern for New Nodes
 
 ```python
 from rclpy.node import Node

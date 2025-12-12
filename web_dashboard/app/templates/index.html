@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R2D2 System Monitor</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>🤖 R2D2 System Monitor</h1>
+            <div class="connection-status" id="connection-status">
+                <span class="status-indicator" id="ros-status">●</span>
+                <span id="ros-status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Recognition Status Panel -->
+            <div class="panel status-panel">
+                <h2>Recognition Status</h2>
+                <div class="status-display" id="status-display">
+                    <div class="status-color" id="status-color"></div>
+                    <div class="status-info">
+                        <div class="status-text" id="status-text">BLUE - Idle</div>
+                        <div class="status-details">
+                            <div>Person: <span id="person-id">no_person</span></div>
+                            <div>Confidence: <span id="confidence">0%</span></div>
+                            <div>Duration: <span id="duration">0s</span></div>
+                            <div>Faces: <span id="face-count">0</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Control Panel -->
+            <div class="panel services-panel">
+                <h2>Service Control</h2>
+                <div class="services-list" id="services-list">
+                    <!-- Services will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Volume Control Panel -->
+            <div class="panel volume-panel">
+                <h2>Audio Volume</h2>
+                <div class="volume-control">
+                    <div class="volume-display">
+                        <span id="volume-value">5%</span>
+                    </div>
+                    <input type="range" id="volume-slider" min="0" max="100" value="5" step="1">
+                    <div class="volume-presets">
+                        <button class="preset-btn" onclick="setVolumePreset(5)">5%</button>
+                        <button class="preset-btn" onclick="setVolumePreset(10)">10%</button>
+                        <button class="preset-btn" onclick="setVolumePreset(20)">20%</button>
+                        <button class="preset-btn" onclick="setVolumePreset(50)">50%</button>
+                        <button class="preset-btn" onclick="setVolumePreset(100)">100%</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Training Panel -->
+            <div class="panel training-panel">
+                <h2>Face Recognition Training</h2>
+                <div class="training-menu">
+                    <div class="training-option">
+                        <button class="training-btn" onclick="startTraining(1)">[1] Train New Person</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn" onclick="startTraining(2)">[2] Add More Pictures</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn" onclick="startTraining(3)">[3] Retrain Model</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn" onclick="startTraining(4)">[4] Test Accuracy</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn" onclick="startTraining(5)">[5] Real-time Test</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn" onclick="listPeople()">[6] List People/Models</button>
+                    </div>
+                    <div class="training-option">
+                        <button class="training-btn danger" onclick="showDeleteDialog()">[7] Delete Person</button>
+                    </div>
+                </div>
+                <div class="person-input">
+                    <input type="text" id="person-name-input" placeholder="Person name (e.g., alice)" />
+                </div>
+                <div class="training-status" id="training-status" style="display: none;">
+                    <h3>Training Status</h3>
+                    <div class="training-progress" id="training-progress"></div>
+                    <div class="training-logs" id="training-logs"></div>
+                </div>
+                <div class="people-list" id="people-list"></div>
+            </div>
+
+            <!-- Real-time Stream Panel -->
+            <div class="panel stream-panel">
+                <h2>Real-time Stream</h2>
+                <div class="stream-container" id="stream-container">
+                    <!-- Stream messages will appear here -->
+                </div>
+            </div>
+
+            <!-- Metrics Panel -->
+            <div class="panel metrics-panel">
+                <h2>System Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <label>Camera Rate</label>
+                        <span id="camera-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Face Detection</label>
+                        <span id="face-detection-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Person ID</label>
+                        <span id="person-id-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Status Rate</label>
+                        <span id="status-rate">-- Hz</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div class="modal" id="delete-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Delete Person</h3>
+            <p>Enter person name to delete (this will remove all images and model):</p>
+            <input type="text" id="delete-person-input" placeholder="Person name" />
+            <div class="modal-buttons">
+                <button onclick="confirmDelete()">Delete</button>
+                <button onclick="closeDeleteDialog()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
+
