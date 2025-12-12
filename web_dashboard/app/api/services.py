@@ -47,3 +47,4 @@ async def restart_service(service_name: str):
         raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
     return result
 
+

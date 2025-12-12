@@ -10,17 +10,28 @@ let ros = null;
 let personStatusTopic = null;
 let personIdTopic = null;
 let faceCountTopic = null;
+let heartbeatTopic = null;
 let currentStatus = null;
 let currentTaskId = null;
+let audioServiceRunning = false;
+let lastHeartbeatTime = null;
+let heartbeatCheckInterval = null;
+let cameraStreamServiceRunning = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeROS();
-    loadServices();
+    loadServices(); // This will also update status display based on service state
     loadVolume();
     loadPeopleList();
     startServiceStatusPolling();
     checkSystemStatus();
+    // Initialize status display with white (service not running) state
+    updateStatusDisplayBasedOnService(false);
+    // Start heartbeat monitoring
+    startHeartbeatMonitoring();
+    // Initialize camera stream display
+    updateCameraStreamDisplay();
 });
 
 // Check overall system status
@@ -151,10 +162,32 @@ function subscribeToTopics() {
     faceCountTopic.subscribe((message) => {
         document.getElementById('face-count').textContent = message.data;
     });
+
+    // Subscribe to heartbeat
+    heartbeatTopic = new ROSLIB.Topic({
+        ros: ros,
+        name: '/r2d2/heartbeat',
+        messageType: 'std_msgs/String'
+    });
+
+    heartbeatTopic.subscribe((message) => {
+        try {
+            const heartbeatData = JSON.parse(message.data);
+            updateHealthDisplay(heartbeatData);
+            lastHeartbeatTime = Date.now();
+        } catch (e) {
+            console.error('Failed to parse heartbeat:', e);
+        }
+    });
 }
 
 // Status Display
 function updateStatusDisplay(status) {
+    // Only update if audio service is running
+    if (!audioServiceRunning) {
+        return;
+    }
+    
     currentStatus = status;
     
     const statusColor = document.getElementById('status-color');
@@ -163,7 +196,7 @@ function updateStatusDisplay(status) {
     const confidence = document.getElementById('confidence');
     const duration = document.getElementById('duration');
     
-    // Update color
+    // Update color - only if service is running
     statusColor.className = 'status-color';
     if (status.status === 'red') {
         statusColor.classList.add('red');
@@ -182,6 +215,40 @@ function updateStatusDisplay(status) {
     duration.textContent = status.duration_in_state ? `${status.duration_in_state.toFixed(1)}s` : '0s';
 }
 
+// Update status display based on service state
+function updateStatusDisplayBasedOnService(anyServiceRunning) {
+    const statusColor = document.getElementById('status-color');
+    const statusText = document.getElementById('status-text');
+    const serviceMessage = document.getElementById('status-service-message');
+    
+    if (!audioServiceRunning) {
+        // Audio service not running - show white and message
+        statusColor.className = 'status-color'; // White background (default)
+        statusText.textContent = 'Service Not Running';
+        if (serviceMessage) {
+            if (!anyServiceRunning) {
+                serviceMessage.textContent = '⚠️ No services are running. Start the audio service to see status colors.';
+            } else {
+                serviceMessage.textContent = '⚠️ Audio service is not running. Start the service to see status colors.';
+            }
+            serviceMessage.style.display = 'block';
+        }
+    } else {
+        // Service is running - hide message, colors will be set by status updates
+        if (serviceMessage) {
+            serviceMessage.style.display = 'none';
+        }
+        // If we have a current status, update it
+        if (currentStatus) {
+            updateStatusDisplay(currentStatus);
+        } else {
+            // Service running but no status yet - show default blue
+            statusColor.className = 'status-color blue';
+            statusText.textContent = '🔵 BLUE - No Person (Idle)';
+        }
+    }
+}
+
 // Service Control
 async function loadServices() {
     try {
@@ -197,11 +264,30 @@ function displayServices(services) {
     const servicesList = document.getElementById('services-list');
     servicesList.innerHTML = '';
     
+    // Check if audio service is running
+    audioServiceRunning = false;
+    let anyServiceRunning = false;
+    let previousCameraStreamStatus = cameraStreamServiceRunning;
+    
     for (const [serviceName, serviceInfo] of Object.entries(services)) {
         const serviceCard = document.createElement('div');
         serviceCard.className = `service-card ${serviceInfo.status}`;
         
         const statusText = serviceInfo.status === 'active' ? '● Running' : '○ Stopped';
+        
+        // Check if this is the audio service (the key is "audio" in the API)
+        if (serviceName === 'audio') {
+            audioServiceRunning = (serviceInfo.status === 'active');
+        }
+        
+        // Check if this is the camera stream service
+        if (serviceName === 'camera-stream') {
+            cameraStreamServiceRunning = (serviceInfo.status === 'active');
+        }
+        
+        if (serviceInfo.status === 'active') {
+            anyServiceRunning = true;
+        }
         
         serviceCard.innerHTML = `
             <div>
@@ -217,6 +303,63 @@ function displayServices(services) {
         
         servicesList.appendChild(serviceCard);
     }
+    
+    // Update status display based on service state
+    updateStatusDisplayBasedOnService(anyServiceRunning);
+    
+    // Update camera stream display if status changed
+    if (previousCameraStreamStatus !== cameraStreamServiceRunning) {
+        updateCameraStreamDisplay();
+    }
+}
+
+// Camera Stream Functions
+function toggleCameraStream() {
+    const action = cameraStreamServiceRunning ? 'stop' : 'start';
+    controlService('camera-stream', action);
+}
+
+function updateCameraStreamDisplay() {
+    const streamContainer = document.getElementById('stream-container-wrapper');
+    const streamPlaceholder = document.getElementById('stream-placeholder');
+    const streamImg = document.getElementById('camera-stream');
+    const streamStatus = document.getElementById('stream-status');
+    const toggleBtn = document.getElementById('stream-toggle-btn');
+    
+    if (cameraStreamServiceRunning) {
+        // Service is running - show stream
+        if (streamPlaceholder) streamPlaceholder.style.display = 'none';
+        if (streamContainer) streamContainer.style.display = 'block';
+        if (streamStatus) {
+            streamStatus.textContent = '● Running';
+            streamStatus.className = 'stream-status running';
+        }
+        if (toggleBtn) toggleBtn.textContent = 'Stop Stream';
+        if (streamImg) {
+            const streamUrl = `http://${window.location.hostname}:8081/stream`;
+            streamImg.src = streamUrl;
+            streamImg.onerror = () => {
+                if (streamImg) streamImg.style.display = 'none';
+                if (streamPlaceholder) {
+                    streamPlaceholder.style.display = 'block';
+                    streamPlaceholder.innerHTML = '<p>Stream unavailable</p>';
+                }
+            };
+        }
+    } else {
+        // Service is stopped - hide stream
+        if (streamContainer) streamContainer.style.display = 'none';
+        if (streamPlaceholder) {
+            streamPlaceholder.style.display = 'block';
+            streamPlaceholder.innerHTML = '<p>Camera stream not active</p>';
+        }
+        if (streamStatus) {
+            streamStatus.textContent = '● Stopped';
+            streamStatus.className = 'stream-status stopped';
+        }
+        if (toggleBtn) toggleBtn.textContent = 'Start Stream';
+        if (streamImg) streamImg.src = '';
+    }
 }
 
 async function controlService(serviceName, action) {
@@ -228,7 +371,10 @@ async function controlService(serviceName, action) {
         
         if (result.success) {
             addStreamMessage('status', `Service ${serviceName} ${action}ed successfully`);
-            setTimeout(loadServices, 1000);  // Reload after 1 second
+            setTimeout(() => {
+                loadServices();  // Reload after 1 second to update status display
+                // If audio service was started, status will update automatically
+            }, 1000);
         } else {
             alert(`Failed to ${action} service: ${result.error || 'Unknown error'}`);
         }
@@ -447,6 +593,105 @@ async function confirmDelete() {
     } catch (error) {
         console.error('Failed to delete person:', error);
         alert('Failed to delete person');
+    }
+}
+
+// Heartbeat Monitoring
+function startHeartbeatMonitoring() {
+    // Check heartbeat status every second
+    heartbeatCheckInterval = setInterval(() => {
+        checkHeartbeatStatus();
+    }, 1000);
+}
+
+function checkHeartbeatStatus() {
+    const now = Date.now();
+    const statusIcon = document.getElementById('health-status-icon');
+    const statusText = document.getElementById('health-status-text');
+    const timestamp = document.getElementById('health-timestamp');
+    
+    if (lastHeartbeatTime && (now - lastHeartbeatTime) < 3000) {
+        // Heartbeat received within last 3 seconds - R2D2 is running
+        statusIcon.className = 'health-status-icon running';
+        statusIcon.textContent = '🟢';
+        statusText.textContent = 'R2D2 is Running';
+    } else {
+        // No heartbeat for >3 seconds - R2D2 not responding
+        statusIcon.className = 'health-status-icon stopped';
+        statusIcon.textContent = '🔴';
+        statusText.textContent = 'R2D2 Not Responding';
+        if (timestamp) {
+            timestamp.textContent = 'No heartbeat received';
+        }
+    }
+}
+
+function updateHealthDisplay(heartbeatData) {
+    // Update status
+    const statusIcon = document.getElementById('health-status-icon');
+    const statusText = document.getElementById('health-status-text');
+    const timestamp = document.getElementById('health-timestamp');
+    
+    if (heartbeatData.status === 'running') {
+        statusIcon.className = 'health-status-icon running';
+        statusIcon.textContent = '🟢';
+        statusText.textContent = 'R2D2 is Running';
+    } else {
+        statusIcon.className = 'health-status-icon stopped';
+        statusIcon.textContent = '🔴';
+        statusText.textContent = 'R2D2 Not Responding';
+    }
+    
+    if (timestamp && heartbeatData.timestamp) {
+        const date = new Date(heartbeatData.timestamp);
+        timestamp.textContent = `Last update: ${date.toLocaleTimeString()}`;
+    }
+    
+    // Update CPU usage
+    if (heartbeatData.cpu_percent !== undefined) {
+        const cpuValue = document.getElementById('cpu-value');
+        const cpuBarFill = document.getElementById('cpu-bar-fill');
+        const cpuPercent = heartbeatData.cpu_percent;
+        
+        if (cpuValue) {
+            cpuValue.textContent = `${cpuPercent}%`;
+        }
+        if (cpuBarFill) {
+            cpuBarFill.style.width = `${Math.min(cpuPercent, 100)}%`;
+        }
+    }
+    
+    // Update GPU usage
+    if (heartbeatData.gpu_percent !== undefined) {
+        const gpuValue = document.getElementById('gpu-value');
+        const gpuBarFill = document.getElementById('gpu-bar-fill');
+        const gpuPercent = heartbeatData.gpu_percent;
+        
+        if (gpuValue) {
+            gpuValue.textContent = `${gpuPercent}%`;
+        }
+        if (gpuBarFill) {
+            gpuBarFill.style.width = `${Math.min(gpuPercent, 100)}%`;
+        }
+    }
+    
+    // Update temperature
+    if (heartbeatData.temperature_c !== undefined) {
+        const tempValue = document.getElementById('temperature-value');
+        const temp = heartbeatData.temperature_c;
+        
+        if (tempValue) {
+            tempValue.textContent = temp.toFixed(1);
+            // Color code based on temperature
+            tempValue.className = 'temperature-value';
+            if (temp < 50) {
+                tempValue.classList.add('cool');
+            } else if (temp < 70) {
+                tempValue.classList.add('warm');
+            } else {
+                tempValue.classList.add('hot');
+            }
+        }
     }
 }
 

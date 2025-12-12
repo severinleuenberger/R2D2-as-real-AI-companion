@@ -40,3 +40,4 @@ async def get_audio_parameters():
         raise HTTPException(status_code=500, detail="Failed to get parameters (node may not be running)")
     return params
 
+

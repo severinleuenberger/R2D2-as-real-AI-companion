@@ -27,12 +27,15 @@
                 <div class="status-display" id="status-display">
                     <div class="status-color" id="status-color"></div>
                     <div class="status-info">
-                        <div class="status-text" id="status-text">BLUE - Idle</div>
+                        <div class="status-text" id="status-text">Service Not Running</div>
                         <div class="status-details">
                             <div>Person: <span id="person-id">no_person</span></div>
                             <div>Confidence: <span id="confidence">0%</span></div>
                             <div>Duration: <span id="duration">0s</span></div>
                             <div>Faces: <span id="face-count">0</span></div>
+                        </div>
+                        <div class="status-service-message" id="status-service-message" style="display: none;">
+                            ⚠️ Audio service is not running. Start the service to see status colors.
                         </div>
                     </div>
                 </div>
@@ -106,6 +109,60 @@
                 <h2>Real-time Stream</h2>
                 <div class="stream-container" id="stream-container">
                     <!-- Stream messages will appear here -->
+                </div>
+            </div>
+
+            <!-- Camera Stream Panel -->
+            <div class="panel camera-stream-panel">
+                <h2>Camera Stream</h2>
+                <div class="stream-controls">
+                    <button class="btn btn-stream" id="stream-toggle-btn" onclick="toggleCameraStream()">Start Stream</button>
+                    <span class="stream-status" id="stream-status">● Stopped</span>
+                </div>
+                <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
+                    <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
+                </div>
+                <div class="stream-placeholder" id="stream-placeholder">
+                    <p>Camera stream not active</p>
+                </div>
+            </div>
+
+            <!-- System Health Panel -->
+            <div class="panel health-panel">
+                <h2>System Health</h2>
+                <div class="health-status">
+                    <div class="health-indicator">
+                        <span class="health-status-icon" id="health-status-icon">●</span>
+                        <span class="health-status-text" id="health-status-text">Checking...</span>
+                    </div>
+                    <div class="health-timestamp" id="health-timestamp">--</div>
+                </div>
+                <div class="health-metrics">
+                    <div class="health-metric">
+                        <label>CPU Usage</label>
+                        <div class="metric-bar-container">
+                            <div class="metric-bar" id="cpu-bar">
+                                <div class="metric-bar-fill" id="cpu-bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <span class="metric-value" id="cpu-value">--</span>
+                    </div>
+                    <div class="health-metric">
+                        <label>GPU Usage</label>
+                        <div class="metric-bar-container">
+                            <div class="metric-bar" id="gpu-bar">
+                                <div class="metric-bar-fill" id="gpu-bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <span class="metric-value" id="gpu-value">--</span>
+                    </div>
+                    <div class="health-metric">
+                        <label>Temperature</label>
+                        <div class="temperature-display" id="temperature-display">
+                            <span class="temperature-value" id="temperature-value">--</span>
+                            <span class="temperature-unit">°C</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

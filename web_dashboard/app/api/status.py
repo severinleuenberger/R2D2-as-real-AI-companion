@@ -26,3 +26,4 @@ async def get_ros_topics():
     topics = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
     return {"topics": topics}
 
+

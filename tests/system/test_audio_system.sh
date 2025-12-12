@@ -96,3 +96,4 @@ echo "  1. Audio volume parameter (currently: $VOLUME)"
 echo "  2. ALSA device configuration (currently: $ALSA_DEVICE)"
 echo "  3. Speaker hardware connection"
 
+

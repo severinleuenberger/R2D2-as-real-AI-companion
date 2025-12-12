@@ -127,15 +127,21 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 │  │     • Topic publishing (6 channels)                     │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  r2d2_camera (Python ROS 2 Node)                        │  │
-│  │  └─ OAK-D camera driver                                 │  │
-│  │     • Initializes DepthAI pipeline                      │  │
-│  │     • Streams RGB frames at 30 FPS                      │  │
-│  │     • Publishes /oak/rgb/image_raw                      │  │
+│  │  r2d2_camera (Python ROS 2 Nodes)                       │  │
+│  │  ├─ camera_node: OAK-D camera driver                    │  │
+│  │  │  • Initializes DepthAI pipeline                      │  │
+│  │  │  • Streams RGB frames at 30 FPS                      │  │
+│  │  │  • Publishes /oak/rgb/image_raw                      │  │
+│  │  └─ camera_stream_node: MJPEG stream server             │  │
+│  │     • Subscribes to /oak/rgb/image_raw                  │  │
+│  │     • Serves MJPEG stream via HTTP (port 8081)          │  │
+│  │     • On-demand service (systemd)                       │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  r2d2_hello (ROS 2 Nodes) [Basic Infrastructure]       │  │
-│  │  ├─ heartbeat_node: Publish /r2d2/heartbeat (1 Hz)     │  │
+│  │  ├─ heartbeat_node: Publish /r2d2/heartbeat (1 Hz)      │  │
+│  │  │  • System health with metrics (CPU, GPU, temp)     │  │
+│  │  │  • JSON format with system statistics               │  │
 │  │  └─ beep_node: Alive signal demo                       │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────┐  │
@@ -171,11 +177,18 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 │  │  │  • Volume control                                   │  │
 │  │  │  • Training management                              │  │
 │  │  │  • Static file serving                              │  │
+│  │  ├─ Camera Stream Service: MJPEG server (port 8081)   │  │
+│  │  │  • On-demand camera video stream                    │  │
+│  │  │  • Toggleable from dashboard                        │  │
 │  │  └─ HTML/JavaScript dashboard:                         │  │
 │  │     • Real-time monitoring                             │  │
 │  │     • Three-state visualization (RED/BLUE/GREEN)      │  │
+│  │     • System health metrics (CPU, GPU, temperature)    │  │
+│  │     • Camera stream viewer                             │  │
 │  │     • Service control interface                        │  │
 │  │     • Training interface (all 7 options)               │  │
+│  │     • Star Wars themed UI (dark futuristic)            │  │
+│  │     • Optimized for 1920x1200 single-page display       │  │
 │  │     • Accessible via Tailscale VPN                     │  │
 │  └──────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
@@ -392,7 +405,7 @@ AUDIO & STATUS TOPICS:
 /r2d2/audio/last_frequency             std_msgs/Float32       Event  Last beep frequency
 
 SYSTEM TOPICS:
-/r2d2/heartbeat                        std_msgs/String       1 Hz   Health indicator
+/r2d2/heartbeat                        std_msgs/String       1 Hz   Health indicator (JSON with CPU/GPU/temp)
 
 * Only published if enable_face_recognition=true
 ```
@@ -407,7 +420,8 @@ SYSTEM TOPICS:
 |------|---------|------|--------|---------|-----|--------|
 | **camera_node** | r2d2_camera | Sensor driver | N/A | 30 Hz | 2-3% | ✅ |
 | **image_listener** | r2d2_perception | Computer vision | 30 Hz | 6 topics | 8-15% | ✅ |
-| **heartbeat_node** | r2d2_hello | Health monitor | N/A | 1 Hz | <0.1% | ✅ |
+| **heartbeat_node** | r2d2_hello | Health monitor + metrics | N/A | 1 Hz | <0.5% | ✅ |
+| **camera_stream_node** | r2d2_camera | MJPEG stream server | 30 Hz | 15 FPS | 2-5% | ✅ |
 | **audio_notification_node** | r2d2_audio | State machine | 6.5 Hz | 10 Hz | 2-4% | ✅ |
 | **status_led_node** | r2d2_audio | GPIO control | 10 Hz | N/A | <0.1% | ✅ |
 | **database_logger_node** | r2d2_audio | Event logging | 10 Hz | N/A | <0.1% | ✅ |
@@ -773,11 +787,15 @@ The R2D2 web dashboard provides a graphical interface for monitoring and control
 
 **Key Features:**
 - Real-time person recognition status (RED/BLUE/GREEN)
+- System health monitoring (CPU, GPU, temperature via heartbeat)
+- Camera stream viewer (on-demand MJPEG)
 - Service control (start/stop/restart)
 - Audio volume control
 - Face recognition training interface
 - Live event stream
 - System metrics display
+- Star Wars themed UI (dark futuristic design)
+- Optimized for 1920x1200 single-page display
 
 ### 8.2 Architecture
 
@@ -789,13 +807,17 @@ FastAPI Web Server (Port 8080)
     ├─ Static file serving (HTML/CSS/JS)
     └─ WebSocket (training logs)
     ↓
+Camera Stream Service (Port 8081)
+    └─ MJPEG HTTP stream
+    ↓
 rosbridge_server (Port 9090)
     └─ WebSocket bridge to ROS 2 topics
     ↓
 ROS 2 Topics
     ├─ /r2d2/perception/person_id
     ├─ /r2d2/audio/person_status
-    └─ /r2d2/perception/face_count
+    ├─ /r2d2/perception/face_count
+    └─ /r2d2/heartbeat (system metrics)
 ```
 
 ### 8.3 Components
@@ -813,6 +835,8 @@ ROS 2 Topics
 **Infrastructure:**
 - `rosbridge_server` - ROS 2 WebSocket bridge
 - `systemd` - Service management
+- `camera_stream_node` - MJPEG video stream server
+- `heartbeat_node` - System health monitoring with metrics
 
 ### 8.4 API Endpoints
 
@@ -834,7 +858,15 @@ ROS 2 Topics
 - `DELETE /api/training/{person_name}` - Delete person
 - `GET /api/training/status/{task_id}` - Get training status
 
-**For complete documentation, see:** [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md)
+**New Features (December 2025):**
+- ✅ **System Health Monitoring:** Enhanced heartbeat service with CPU/GPU/temperature metrics
+- ✅ **Camera Stream Service:** On-demand MJPEG video stream (port 8081)
+- ✅ **Star Wars UI Theme:** Dark futuristic design optimized for 1920x1200 display
+- ✅ **Single-Page Layout:** All content fits on one screen without scrolling
+
+**For complete documentation, see:** 
+- [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md) - Complete dashboard documentation
+- [`110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md`](110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md) - Architecture and integration guide
 
 ---
 
@@ -857,7 +889,7 @@ The architecture provides clear integration points for future development:
    - `/r2d2/cmd_vel` - Movement commands (geometry_msgs/Twist)
 
 3. **Status Topics** (for system health):
-   - `/r2d2/heartbeat` - System health indicator
+   - `/r2d2/heartbeat` - System health indicator with metrics (CPU%, GPU%, temperature)
 
 **Template for Adding New Nodes:**
 

@@ -1,0 +1,33 @@
+[Unit]
+Description=R2D2 Camera Stream Service (MJPEG)
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/001_ARCHITECTURE_OVERVIEW.md
+
+[Service]
+Type=simple
+User=severin
+Group=severin
+WorkingDirectory=/home/severin/dev/r2d2
+
+# Use the startup script (direct node launch)
+ExecStart=/home/severin/dev/r2d2/start_camera_stream.sh
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-camera-stream
+
+# Service hardening
+NoNewPrivileges=true
+ProtectHome=no
+ReadWritePaths=/home/severin/dev/r2d2
+
+[Install]
+WantedBy=multi-user.target
+

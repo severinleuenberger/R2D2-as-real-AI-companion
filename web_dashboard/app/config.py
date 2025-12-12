@@ -20,7 +20,9 @@ ROSBRIDGE_PORT = int(os.getenv("ROSBRIDGE_PORT", "9090"))
 SERVICES = {
     "audio": "r2d2-audio-notification.service",
     "camera": "r2d2-camera-perception.service",
-    "powerbutton": "r2d2-powerbutton.service"
+    "powerbutton": "r2d2-powerbutton.service",
+    "heartbeat": "r2d2-heartbeat.service",
+    "camera-stream": "r2d2-camera-stream.service"
 }
 
 # Training scripts directory

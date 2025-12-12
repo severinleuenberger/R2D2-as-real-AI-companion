@@ -41,3 +41,4 @@ python3 -m app.main
 # Cleanup on exit
 trap "kill $ROSBRIDGE_PID 2>/dev/null" EXIT
 
+

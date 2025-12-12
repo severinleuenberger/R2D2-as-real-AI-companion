@@ -1051,12 +1051,205 @@ sqlite3 ~/dev/r2d2/data/r2d2_web.db
 
 ---
 
+---
+
+## 11. Quick Start Guide
+
+### 11.1 Installation
+
+```bash
+# 1. Navigate to project directory
+cd ~/dev/r2d2/web_dashboard
+
+# 2. Create virtual environment
+python3 -m venv web_dashboard_env
+source web_dashboard_env/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Start rosbridge (for real-time updates)
+./start_rosbridge.sh
+
+# 5. Start web server
+./start_server.sh
+
+# 6. Access dashboard
+# From browser: http://100.95.133.26:8080 (via Tailscale)
+```
+
+### 11.2 Service Setup
+
+```bash
+# Install systemd services
+sudo cp r2d2-heartbeat.service /etc/systemd/system/
+sudo cp r2d2-camera-stream.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
+# Enable services (optional - auto-start on boot)
+sudo systemctl enable r2d2-heartbeat.service
+sudo systemctl enable r2d2-camera-stream.service
+
+# Start services
+sudo systemctl start r2d2-heartbeat.service
+sudo systemctl start r2d2-camera-stream.service
+```
+
+### 11.3 Passwordless Sudo Setup
+
+For service control from the dashboard, configure passwordless sudo:
+
+```bash
+cd ~/dev/r2d2/web_dashboard
+./setup_passwordless_sudo.sh
+```
+
+### 11.4 Access Points
+
+- **Web Dashboard:** http://100.95.133.26:8080 (via Tailscale)
+- **Camera Stream:** http://100.95.133.26:8081/stream (MJPEG)
+- **rosbridge:** ws://100.95.133.26:9090 (WebSocket)
+
+---
+
+## 12. Implemented Features (Current Status)
+
+### 12.1 Web Dashboard Features ✅
+
+**Real-time Monitoring:**
+- ✅ Person recognition status (RED/BLUE/GREEN) with visual indicator
+- ✅ System health metrics (CPU, GPU, temperature) via heartbeat
+- ✅ Service status monitoring (audio, camera, powerbutton, heartbeat, camera-stream)
+- ✅ Live event stream with timestamps
+- ✅ System metrics (camera rate, face detection rate, etc.)
+
+**Service Control:**
+- ✅ Start/stop/restart systemd services from dashboard
+- ✅ Service status indicators (running/stopped)
+- ✅ Automatic status polling (every 5 seconds)
+
+**Audio Control:**
+- ✅ Volume slider (0-100%)
+- ✅ Quick preset buttons (5%, 10%, 20%, 50%, 100%)
+- ✅ Real-time volume display
+
+**Face Recognition Training:**
+- ✅ Complete training interface (all 7 menu options)
+  - [1] Train New Person
+  - [2] Add More Pictures
+  - [3] Retrain Model
+  - [4] Test Accuracy
+  - [5] Real-time Test
+  - [6] List People/Models
+  - [7] Delete Person
+- ✅ Training status monitoring with live logs
+- ✅ Trained people list with model sizes
+
+**Camera Stream:**
+- ✅ On-demand MJPEG camera stream service
+- ✅ Toggle stream on/off from dashboard
+- ✅ Stream accessible at http://hostname:8081/stream
+- ✅ Auto-start/stop stream based on service status
+
+**UI Design:**
+- ✅ Dark futuristic Star Wars theme (Death Star/Imperial aesthetic)
+- ✅ Optimized for 1920x1200 single-page display (no scrolling)
+- ✅ Glowing borders and effects
+- ✅ Color-coded status indicators
+- ✅ Responsive grid layout
+
+### 12.2 System Health Monitoring ✅
+
+**Heartbeat Service:**
+- ✅ Enhanced heartbeat node with system metrics
+- ✅ Publishes JSON format: `{"timestamp": "...", "status": "running", "cpu_percent": 15.5, "gpu_percent": 8.2, "temperature_c": 42.3}`
+- ✅ Collects metrics using `tegrastats` (CPU, GPU, temperature)
+- ✅ Systemd service: `r2d2-heartbeat.service`
+- ✅ Dashboard integration with real-time updates
+- ✅ R2D2 status indicator (running/not responding)
+
+**Metrics Display:**
+- ✅ CPU usage with progress bar
+- ✅ GPU usage with progress bar
+- ✅ Temperature with color coding (green <50°C, yellow 50-70°C, red >70°C)
+- ✅ Last heartbeat timestamp
+
+### 12.3 Technical Implementation
+
+**Backend:**
+- FastAPI web server (port 8080)
+- REST API endpoints for service control, audio, training
+- rosbridge integration (port 9090) for real-time ROS 2 topics
+- Systemd service management via subprocess
+- ROS 2 parameter control
+
+**Frontend:**
+- HTML5/CSS3/JavaScript
+- roslibjs for ROS 2 WebSocket connection
+- Fetch API for REST calls
+- Real-time updates via WebSocket subscriptions
+- Star Wars themed UI with dark futuristic design
+
+**Camera Stream:**
+- ROS 2 node: `camera_stream_node.py`
+- Subscribes to `/oak/rgb/image_raw`
+- Converts to MJPEG format
+- HTTP server on port 8081
+- Configurable FPS (default: 15), quality (default: 85), max resolution (default: 1280x720)
+
+---
+
+## 13. Architecture Updates
+
+### 13.1 New Components
+
+**Camera Stream Service:**
+- Node: `r2d2_camera/camera_stream_node.py`
+- Service: `r2d2-camera-stream.service`
+- Port: 8081 (MJPEG HTTP stream)
+- Topic: Subscribes to `/oak/rgb/image_raw`
+
+**Enhanced Heartbeat Service:**
+- Node: `r2d2_hello/heartbeat_node.py` (enhanced with metrics)
+- Service: `r2d2-heartbeat.service`
+- Topic: `/r2d2/heartbeat` (JSON format with system metrics)
+- Metrics: CPU%, GPU%, temperature
+
+**Web Dashboard Enhancements:**
+- Camera stream panel with toggle
+- System health panel with metrics
+- Star Wars themed UI
+- 1920x1200 optimized layout
+
+### 13.2 Updated Service List
+
+| Service | Systemd Name | Purpose | Port |
+|---------|-------------|---------|------|
+| Audio Notification | `r2d2-audio-notification.service` | Person recognition alerts | - |
+| Camera Perception | `r2d2-camera-perception.service` | Camera + face recognition | - |
+| Power Button | `r2d2-powerbutton.service` | Shutdown control | - |
+| Heartbeat | `r2d2-heartbeat.service` | System health monitoring | - |
+| Camera Stream | `r2d2-camera-stream.service` | MJPEG video stream | 8081 |
+
+### 13.3 Updated Topic List
+
+| Topic | Type | Rate | Purpose |
+|-------|------|------|---------|
+| `/r2d2/heartbeat` | `std_msgs/String` (JSON) | 1 Hz | System health with metrics |
+| `/r2d2/audio/person_status` | `std_msgs/String` (JSON) | 10 Hz | Recognition state |
+| `/r2d2/perception/person_id` | `std_msgs/String` | 6.5 Hz | Person identification |
+| `/r2d2/perception/face_count` | `std_msgs/Int32` | 13 Hz | Face count |
+| `/oak/rgb/image_raw` | `sensor_msgs/Image` | 30 Hz | Camera feed |
+
+---
+
 **Created:** December 12, 2025  
-**Status:** ⏳ Planning Phase  
-**Next Steps:** Begin Phase 1 implementation
+**Status:** ✅ Implemented & Production Ready  
+**Last Updated:** December 12, 2025
 
 **Related Documents:**
 - `001_ARCHITECTURE_OVERVIEW.md` - System architecture
-- `012_VPN_SETUP_TAILSCALE.md` - Tailscale VPN setup
-- `040_FACE_RECOGNITION_COMPLETE.md` - Perception pipeline & Face recognition system
+- `111_WEB_DASHBOARD_DOCUMENTATION.md` - Complete dashboard documentation
+- `012_VPN_SETUP_AND_REMOTE_ACCESS.md` - Tailscale VPN setup
+- `100_PERSON_RECOGNITION_AND_STATUS.md` - Person recognition system
 

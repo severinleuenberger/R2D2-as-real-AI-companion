@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'camera_node=r2d2_camera.camera_node:main',
+            'camera_stream_node=r2d2_camera.camera_stream_node:main',
         ],
     },
 )
