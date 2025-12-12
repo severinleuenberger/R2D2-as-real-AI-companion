@@ -86,9 +86,12 @@ class ServiceManager:
         if result.returncode == 0:
             return {"success": True, "message": f"{service_name} started successfully"}
         else:
+            error_msg = result.stderr.strip() if result.stderr.strip() else result.stdout.strip()
+            if "password" in error_msg.lower() or "sudo" in error_msg.lower():
+                error_msg = "Passwordless sudo not configured. Run: echo 'severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d2-*, /bin/systemctl restart r2d2-*' | sudo tee /etc/sudoers.d/r2d2-services"
             return {
                 "success": False,
-                "error": f"Failed to start {service_name}: {result.stderr}"
+                "error": f"Failed to start {service_name}: {error_msg}"
             }
     
     def stop_service(self, service_name: str) -> Dict[str, any]:
@@ -113,9 +116,12 @@ class ServiceManager:
         if result.returncode == 0:
             return {"success": True, "message": f"{service_name} stopped successfully"}
         else:
+            error_msg = result.stderr.strip() if result.stderr.strip() else result.stdout.strip()
+            if "password" in error_msg.lower() or "sudo" in error_msg.lower():
+                error_msg = "Passwordless sudo not configured. See documentation for setup instructions."
             return {
                 "success": False,
-                "error": f"Failed to stop {service_name}: {result.stderr}"
+                "error": f"Failed to stop {service_name}: {error_msg}"
             }
     
     def restart_service(self, service_name: str) -> Dict[str, any]:
@@ -140,8 +146,11 @@ class ServiceManager:
         if result.returncode == 0:
             return {"success": True, "message": f"{service_name} restarted successfully"}
         else:
+            error_msg = result.stderr.strip() if result.stderr.strip() else result.stdout.strip()
+            if "password" in error_msg.lower() or "sudo" in error_msg.lower():
+                error_msg = "Passwordless sudo not configured. See documentation for setup instructions."
             return {
                 "success": False,
-                "error": f"Failed to restart {service_name}: {result.stderr}"
+                "error": f"Failed to restart {service_name}: {error_msg}"
             }
 
