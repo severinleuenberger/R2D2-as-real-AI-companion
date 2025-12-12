@@ -851,9 +851,181 @@ ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
 
 ---
 
-## 9. Testing & Validation
+## 9. Monitoring & Testing
 
-### 9.1 Test 1: Recognition Alert
+### 9.1 Monitoring System Overview
+
+The R2D2 person recognition system includes comprehensive monitoring tools that allow you to observe system behavior in real-time. These tools help verify system operation, diagnose issues, and understand system performance.
+
+**Available Monitoring Tools:**
+
+1. **Live Stream Monitor** - Real-time monitoring of recognition events and status changes
+2. **Full Pipeline Dashboard** - Complete system overview with rates, status, and health metrics
+3. **Component Tests** - Individual tests for camera, perception, and audio systems
+4. **Integration Test** - End-to-end system validation
+
+### 9.2 Live Stream Monitoring
+
+**Real-Time Person Recognition Monitor:**
+```bash
+cd ~/dev/r2d2
+./tests/system/monitor_person_recognition.sh
+```
+
+**What It Shows:**
+- 👤 **Person Recognition Stream**: Live updates when person is detected/recognized
+- 📊 **Status Stream**: Real-time state changes (RED/BLUE/GREEN)
+- 🔔 **Audio Event Stream**: Recognition and loss alerts as they occur
+- 👥 **Face Detection Stream**: Number of faces detected in real-time
+
+**Output Example:**
+```
+🔍 R2D2 Person Recognition System - Live Monitor
+==================================================
+
+📡 Checking system status...
+  ✅ Camera node: RUNNING
+  ✅ Perception node: RUNNING
+  ✅ Audio notification node: RUNNING
+     Target person: target_person
+
+👤 Person Recognition Stream:
+   [14:23:15] ✅ Person: target_person (RECOGNIZED)
+   [14:23:18] 👤 Person: unknown
+
+📊 Status Stream:
+   [14:23:15] 🔴 RED | Target person recognized
+   [14:23:20] 🔵 BLUE | No person (idle)
+
+🔔 Audio Event Stream:
+   [14:23:15] 🔊 🎉 Recognized target_person!
+   [14:23:40] 🔔 ❌ target_person lost (confirmed after 25.3s absence)
+```
+
+### 9.3 Full Pipeline Dashboard
+
+**Complete System Monitor:**
+```bash
+cd ~/dev/r2d2
+./tests/system/monitor_full_pipeline.sh
+```
+
+**What It Shows:**
+- 🔧 **System Status**: All nodes (camera, perception, audio, LED)
+- 📈 **Topic Rates**: Publication rates for all topics (Hz)
+- 📊 **Current Values**: Face count, person ID, brightness
+- 🎯 **Current Status**: Detailed status JSON with confidence and duration
+- 🔔 **Recent Events**: Last 3 notification events
+
+**Dashboard Updates:** Every 2 seconds (auto-refresh)
+
+**Output Example:**
+```
+📊 R2D2 System Monitor - 14:25:30
+==========================================
+
+🔧 System Status:
+  Camera Node:        ✅ RUNNING
+  Perception Node:    ✅ RUNNING
+  Audio Node:         ✅ RUNNING
+  LED Node:           ✅ RUNNING
+
+📈 Topic Rates (Hz):
+  Camera (RGB):         30.0 Hz (expected: 30.0)
+  Face Detection:       13.2 Hz (expected: 13.0)
+  Person ID:             6.5 Hz (expected: 6.5)
+  Status:               10.1 Hz (expected: 10.0)
+
+📊 Current Values:
+  Faces Detected:      1
+  Person ID:           target_person
+  Brightness:          125.3
+
+🎯 Current Status:
+  🔴 RED - Target person recognized
+  Person:              target_person
+  Confidence:          0.95
+  Duration:            12.5s
+```
+
+### 9.4 Component Testing
+
+**Test Camera & Perception Pipeline:**
+```bash
+cd ~/dev/r2d2
+./tests/system/test_camera_pipeline.sh
+```
+
+**Tests:**
+- Camera node status
+- Camera topic publication rate (~30 Hz)
+- Perception node status
+- Perception topic rates (~13 Hz)
+- Face detection functionality
+
+**Test Audio Notification System:**
+```bash
+cd ~/dev/r2d2
+./tests/system/test_audio_system.sh
+```
+
+**Tests:**
+- Audio node status and parameters
+- Status topic publication rate (~10 Hz)
+- Notification event handling
+- Recognition simulation and response
+
+**Test Complete System Integration:**
+```bash
+cd ~/dev/r2d2
+./tests/system/test_complete_system.sh
+```
+
+**Tests:**
+- All system components
+- Topic availability
+- Data flow rates
+- End-to-end recognition pipeline
+- Status state transitions
+
+### 9.5 Manual Monitoring Commands
+
+**Quick Status Check:**
+```bash
+# Check all nodes
+ros2 node list
+
+# Check all topics
+ros2 topic list
+
+# Monitor person recognition
+ros2 topic echo /r2d2/perception/person_id
+
+# Monitor status messages
+ros2 topic echo /r2d2/audio/person_status --no-arr
+
+# Check topic rates
+ros2 topic hz /r2d2/perception/person_id
+ros2 topic hz /r2d2/audio/person_status
+
+# View node parameters
+ros2 param list /audio_notification_node
+ros2 param get /audio_notification_node target_person
+```
+
+**Continuous Monitoring:**
+```bash
+# Watch person ID with timestamps
+watch -n 0.5 'ros2 topic echo /r2d2/perception/person_id --once | grep data'
+
+# Monitor status JSON
+watch -n 0.5 'ros2 topic echo /r2d2/audio/person_status --once --no-arr'
+
+# Check system health
+watch -n 1 'ros2 node list && echo "---" && ros2 topic list | grep r2d2'
+```
+
+### 9.6 Test 1: Recognition Alert
 
 **Setup:**
 ```bash
@@ -869,7 +1041,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_
 - Status changes to: `{"status": "red", "person_identity": "target_person", ...}`
 - LED shows RED (if enabled)
 
-### 9.2 Test 2: Loss Detection
+### 9.7 Test 2: Loss Detection
 
 **Setup:**
 ```bash
@@ -887,7 +1059,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_
 - Status changes to: `{"status": "blue", "person_identity": "no_person", ...}`
 - LED shows BLUE (if enabled)
 
-### 9.3 Test 3: Jitter Tolerance
+### 9.8 Test 3: Jitter Tolerance
 
 **Setup:**
 ```bash
@@ -911,7 +1083,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_
 - Status stays RED throughout
 - LED stays RED (no flicker)
 
-### 9.4 Validation Checklist
+### 9.9 Validation Checklist
 
 Before declaring the system "working":
 
@@ -924,6 +1096,44 @@ Before declaring the system "working":
 - [ ] Logs: `journalctl -u r2d2-audio-notification.service -n 10` → No errors
 - [ ] Parameters: All parameters readable via `ros2 param list`
 - [ ] Post-Reboot: Service auto-starts and works after full system reboot
+
+---
+
+### 9.10 Monitoring Best Practices
+
+**When to Use Each Tool:**
+
+1. **During Development:**
+   - Use `monitor_person_recognition.sh` for real-time debugging
+   - Use `test_complete_system.sh` after making changes
+
+2. **During Operation:**
+   - Use `monitor_full_pipeline.sh` for system health overview
+   - Check topic rates to verify performance
+
+3. **Troubleshooting:**
+   - Use component tests (`test_camera_pipeline.sh`, `test_audio_system.sh`) to isolate issues
+   - Use live monitors to observe behavior patterns
+
+4. **Performance Monitoring:**
+   - Monitor topic rates to ensure system is operating at expected frequencies
+   - Check CPU usage: `top -bn1 | grep python`
+   - Monitor memory: `free -h`
+
+**Expected Monitoring Values:**
+
+| Metric | Expected Value | Warning Threshold |
+|--------|---------------|-------------------|
+| Camera FPS | 30 Hz | < 25 Hz |
+| Face Detection Rate | 13 Hz | < 10 Hz |
+| Person ID Rate | 6.5 Hz | < 5 Hz |
+| Status Rate | 10 Hz | < 5 Hz |
+| Recognition Latency | < 100 ms | > 500 ms |
+
+**Interpreting Status Colors:**
+- 🔴 **RED**: Target person recognized, system actively engaged
+- 🔵 **BLUE**: No person detected, system idle/waiting
+- 🟢 **GREEN**: Unknown person detected, system in caution mode
 
 ---
 
