@@ -69,13 +69,19 @@ def generate_launch_description():
     recognition_threshold_arg = DeclareLaunchArgument(
         'recognition_confidence_threshold',
         default_value='70.0',
-        description='Confidence threshold for recognizing Severin (lower is higher confidence)'
+        description='Confidence threshold for recognizing target person (lower is higher confidence)'
     )
     
     recognition_skip_arg = DeclareLaunchArgument(
         'recognition_frame_skip',
         default_value='2',
         description='Process face recognition every N frames to manage CPU load'
+    )
+    
+    target_person_arg = DeclareLaunchArgument(
+        'target_person_name',
+        default_value='target_person',
+        description='Name of the person to recognize (should match training data)'
     )
     
     # Create the image listener node with all parameters
@@ -93,6 +99,7 @@ def generate_launch_description():
             {'face_recognition_model_path': LaunchConfiguration('face_recognition_model_path')},
             {'recognition_confidence_threshold': LaunchConfiguration('recognition_confidence_threshold')},
             {'recognition_frame_skip': LaunchConfiguration('recognition_frame_skip')},
+            {'target_person_name': LaunchConfiguration('target_person_name')},
         ],
         output='screen'
     )
@@ -108,5 +115,6 @@ def generate_launch_description():
         recognition_model_arg,
         recognition_threshold_arg,
         recognition_skip_arg,
+        target_person_arg,
         image_listener_node,
     ])

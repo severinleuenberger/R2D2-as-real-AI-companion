@@ -9,13 +9,14 @@ Audio Files:
 - Loss Alert: Voicy_R2-D2 - 5.mp3
 
 Usage:
-  # Default settings (recognize "severin", volume 25%)
+  # Default settings (recognize target person, volume 5%)
   ros2 launch r2d2_audio audio_notification.launch.py
 
-  # Custom settings with different volume
+  # Custom settings with different volume and target person
   ros2 launch r2d2_audio audio_notification.launch.py \
-    target_person:=severin \
+    target_person:=alice \
     audio_volume:=0.5 \
+    alsa_device:=hw:1,0 \
     jitter_tolerance_seconds:=5.0 \
     loss_confirmation_seconds:=10.0 \
     enabled:=true
@@ -34,8 +35,8 @@ def generate_launch_description():
         # Target person
         DeclareLaunchArgument(
             'target_person',
-            default_value='severin',
-            description='Name of person to recognize'
+            default_value='target_person',
+            description='Name of person to recognize (should match training data)'
         ),
         
         # Audio volume
@@ -43,6 +44,13 @@ def generate_launch_description():
             'audio_volume',
             default_value='0.05',
             description='Audio volume 0.0-1.0 (0=silent, 0.05=very quiet, 0.5=medium, 1.0=max)'
+        ),
+        
+        # ALSA device
+        DeclareLaunchArgument(
+            'alsa_device',
+            default_value='hw:1,0',
+            description='ALSA device for audio output (e.g., hw:1,0)'
         ),
         
         # Jitter tolerance (brief gap tolerance)
@@ -82,6 +90,7 @@ def generate_launch_description():
             parameters=[{
                 'target_person': LaunchConfiguration('target_person'),
                 'audio_volume': LaunchConfiguration('audio_volume'),
+                'alsa_device': LaunchConfiguration('alsa_device'),
                 'jitter_tolerance_seconds': LaunchConfiguration('jitter_tolerance_seconds'),
                 'loss_confirmation_seconds': LaunchConfiguration('loss_confirmation_seconds'),
                 'cooldown_seconds': LaunchConfiguration('cooldown_seconds'),

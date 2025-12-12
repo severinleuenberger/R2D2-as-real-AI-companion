@@ -6,6 +6,7 @@ Plays MP3 audio files using ffplay or other available audio player
 
 import subprocess
 import sys
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -30,13 +31,14 @@ def find_audio_player() -> Optional[str]:
     return None
 
 
-def play_audio(file_path: str, volume: float = 0.5) -> bool:
+def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] = None) -> bool:
     """
     Play an audio file.
     
     Args:
         file_path: Path to the audio file to play
         volume: Volume level 0.0-1.0 (0.5 = 50%)
+        alsa_device: ALSA device specification (e.g., "hw:1,0"). If None, uses default or environment variable.
     
     Returns:
         True if playback started successfully, False otherwise
@@ -53,45 +55,67 @@ def play_audio(file_path: str, volume: float = 0.5) -> bool:
         print("Error: No audio player found. Install ffplay, mpv, or aplay.", file=sys.stderr)
         return False
     
+    # Get ALSA device from parameter or environment variable
+    device = alsa_device or os.environ.get('AUDIODEV') or os.environ.get('ALSA_CARD', 'hw:1,0')
+    
     try:
         # Prepare command based on player
         if player == 'ffplay':
             # ffplay: -nodisp (no display), -autoexit (exit after playback)
-            # Note: ffplay doesn't have direct volume control via CLI, use -af "volume=X"
-            volume_db = 20 * (volume - 1)  # Convert 0.0-1.0 to dB (-∞ to 0)
+            # Use -af "volume=X" for volume control (X is linear gain, 0.0-1.0)
+            # For ALSA device, use -ao alsa:device=DEVICE
             cmd = [
                 'ffplay',
                 '-nodisp',
                 '-autoexit',
+                '-loglevel', 'error',  # Reduce logging
                 '-af', f'volume={volume}',
-                str(audio_path)
             ]
+            # Add ALSA device if specified
+            if device:
+                cmd.extend(['-ao', f'alsa:device={device}'])
+            cmd.append(str(audio_path))
         elif player == 'mpv':
             # mpv: --no-video (no video), --really-quiet (minimal output), --volume=X (0-100)
+            # For ALSA, use --audio-device=alsa/DEVICE
             cmd = [
                 'mpv',
                 '--no-video',
                 '--really-quiet',
                 f'--volume={int(volume * 100)}',
-                str(audio_path)
             ]
+            if device:
+                cmd.append(f'--audio-device=alsa/{device}')
+            cmd.append(str(audio_path))
         elif player == 'aplay':
-            # aplay: simple PCM player, no volume control in CLI
-            cmd = ['aplay', str(audio_path)]
+            # aplay: simple PCM player, use -D for device
+            cmd = ['aplay', '-D', device, str(audio_path)] if device else ['aplay', str(audio_path)]
         elif player == 'paplay':
-            # PulseAudio player
+            # PulseAudio player (doesn't support ALSA device directly)
             cmd = ['paplay', str(audio_path)]
         else:
             # sox play command
             cmd = ['play', str(audio_path)]
         
+        # Prepare environment with ALSA device if needed
+        env = os.environ.copy()
+        if device and player in ['ffplay', 'mpv']:
+            # Set ALSA environment variables as fallback
+            env['AUDIODEV'] = device
+        
         # Run player without blocking (detach from parent process)
-        subprocess.Popen(
+        # Capture stderr to help with debugging
+        process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,  # Capture stderr for debugging
+            env=env,
             start_new_session=True
         )
+        
+        # Log any errors (non-blocking check)
+        # Note: We can't easily read stderr from a detached process, so errors will be lost
+        # But this is acceptable for background audio playback
         
         return True
         
@@ -102,12 +126,14 @@ def play_audio(file_path: str, volume: float = 0.5) -> bool:
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python3 audio_player.py <file_path> [volume]")
+        print("Usage: python3 audio_player.py <file_path> [volume] [alsa_device]")
         print("  volume: 0.0-1.0 (default 0.5)")
+        print("  alsa_device: ALSA device (e.g., hw:1,0, default from AUDIODEV env or hw:1,0)")
         sys.exit(1)
     
     file_path = sys.argv[1]
     volume = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+    alsa_device = sys.argv[3] if len(sys.argv) > 3 else None
     
-    success = play_audio(file_path, volume)
+    success = play_audio(file_path, volume, alsa_device)
     sys.exit(0 if success else 1)

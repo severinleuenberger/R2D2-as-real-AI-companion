@@ -260,7 +260,7 @@ ROS 2 NODE LAYER:
 │  • /r2d2/perception/face_count (13 Hz)      │
 │  • /r2d2/perception/person_id (6.5 Hz*)     │
 │  • /r2d2/perception/face_confidence (6.5 Hz*)│
-│  • /r2d2/perception/is_severin (6.5 Hz*)     │
+│  • /r2d2/perception/is_target_person (6.5 Hz*)     │
 └──────┬──────────────┘
        │
        ↓ [6.5 Hz person_id stream]
@@ -360,7 +360,7 @@ PERCEPTION TOPICS:
 /r2d2/perception/face_count            std_msgs/Int32        13 Hz  Number of faces
 /r2d2/perception/person_id             std_msgs/String       6.5 Hz* Person name
 /r2d2/perception/face_confidence       std_msgs/Float32      6.5 Hz* Confidence score
-/r2d2/perception/is_severin            std_msgs/Bool         6.5 Hz* Severin present?
+/r2d2/perception/is_target_person            std_msgs/Bool         6.5 Hz* Target person present?
 
 AUDIO & STATUS TOPICS:
 /r2d2/audio/person_status              std_msgs/String       10 Hz  JSON status (RED/BLUE/GREEN)
@@ -426,7 +426,7 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  🔴 RED STATE (Recognized)                                   │
-│     • Target person ("severin") is currently visible       │
+│     • Target person is currently visible                     │
 │     • Audio: "Hello!" MP3 plays on transition               │
 │     • LED: Solid RED (GPIO pin 17)                          │
 │     • Status: Active engagement                             │
@@ -463,7 +463,7 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 ```json
 {
   "status": "red|blue|green",
-  "person_identity": "severin|no_person|unknown",
+  "person_identity": "target_person|no_person|unknown",
   "timestamp_sec": 1765212914,
   "timestamp_nanosec": 949382424,
   "confidence": 0.95,
@@ -626,8 +626,8 @@ LAUNCH COMMAND:
   ros2 launch r2d2_audio audio_notification.launch.py [ARGS]
 
 AVAILABLE PARAMETERS:
-  target_person                        (string, default: "severin")
-    → Person name to recognize and alert on
+  target_person                        (string, default: "target_person")
+    → Person name to recognize and alert on (should match training data)
   
   audio_volume                         (float, default: 0.05)
     → Global volume control (0.0=silent, 0.05=5%, 1.0=max)
@@ -665,7 +665,7 @@ EXAMPLES:
     audio_volume:=0.3 \
     loss_confirmation_seconds:=10.0
   
-  # Different target person
+  # Different target person (must match training data)
   ros2 launch r2d2_audio audio_notification.launch.py \
     target_person:=alice
 ```
@@ -685,7 +685,7 @@ EXAMPLES:
 | | | `log_every_n_frames` | int | 30 | Logging frequency |
 | | | `log_face_detections` | bool | false | Verbose face detection logging |
 | | | `save_debug_gray_frame` | bool | false | Save one-time debug frame |
-| **r2d2_audio** | audio_notification_node | `target_person` | string | "severin" | Person to recognize |
+| **r2d2_audio** | audio_notification_node | `target_person` | string | "target_person" | Person to recognize |
 | | | `audio_volume` | float | 0.05 | Global volume (0.0-1.0) |
 | | | `jitter_tolerance_seconds` | float | 5.0 | Brief gap tolerance |
 | | | `loss_confirmation_seconds` | float | 15.0 | Loss confirmation window |
@@ -868,8 +868,8 @@ class MyNewNode(Node):
             String, '/r2d2/subsystem/metric', 10)
     
     def person_callback(self, msg):
-        if msg.data == "severin":
-            # React to Severin
+        if msg.data == self.target_person_name:
+            # React to target person
             pass
 ```
 

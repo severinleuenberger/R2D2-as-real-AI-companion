@@ -51,8 +51,9 @@ class ImageListener(Node):
         # Face recognition parameters (LBPH)
         self.declare_parameter('enable_face_recognition', False)  # Enable personal face recognition
         self.declare_parameter('face_recognition_model_path', '/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml')
-        self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for "Severin" (lower is better, set high to accept training variations)
+        self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for target person (lower is better, set high to accept training variations)
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
+        self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
         
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
@@ -67,6 +68,7 @@ class ImageListener(Node):
         self.recognition_model_path = self.get_parameter('face_recognition_model_path').value
         self.recognition_threshold = self.get_parameter('recognition_confidence_threshold').value
         self.recognition_frame_skip = self.get_parameter('recognition_frame_skip').value
+        self.target_person_name = self.get_parameter('target_person_name').value
         
         # Create subscription to camera topic
         self.subscription = self.create_subscription(
@@ -105,7 +107,7 @@ class ImageListener(Node):
         
         self.is_person_publisher = self.create_publisher(
             Bool,
-            '/r2d2/perception/is_severin',
+            '/r2d2/perception/is_target_person',
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
@@ -253,9 +255,9 @@ class ImageListener(Node):
                     try:
                         label, confidence = self.face_recognizer.predict(face_resized)
                         
-                        # Interpret result (label=0 is Severin, lower confidence is better)
-                        is_severin = (confidence < self.recognition_threshold)
-                        person_name = "severin" if is_severin else "unknown"
+                        # Interpret result (label=0 is target person, lower confidence is better)
+                        is_target_person = (confidence < self.recognition_threshold)
+                        person_name = self.target_person_name if is_target_person else "unknown"
                         
                         # Debug log confidence
                         self.get_logger().info(f"Face detected: label={label}, confidence={confidence:.2f}, threshold={self.recognition_threshold}, recognized={person_name}")
@@ -272,7 +274,7 @@ class ImageListener(Node):
                         
                         # Publish boolean for convenience
                         is_person_msg = Bool()
-                        is_person_msg.data = is_severin
+                        is_person_msg.data = is_target_person
                         self.is_person_publisher.publish(is_person_msg)
                         
                     except Exception as e:

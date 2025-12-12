@@ -306,7 +306,7 @@ Once the model is trained, enable face recognition in the ROS 2 perception pipel
 **What It Adds:**
 - Person identification: `/r2d2/perception/person_id` (String)
 - Confidence scores: `/r2d2/perception/face_confidence` (Float32)
-- Boolean convenience: `/r2d2/perception/is_severin` (Bool)
+- Boolean convenience: `/r2d2/perception/is_target_person` (Bool)
 
 ### 4.2 Launch with Face Recognition
 
@@ -342,7 +342,7 @@ ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
 |-----------|---------|------|---------|
 | `enable_face_recognition` | `false` | bool | Enable/disable LBPH recognition |
 | `face_recognition_model_path` | `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml` | string | Path to trained LBPH model |
-| `recognition_confidence_threshold` | `70.0` | float | Threshold for "Severin" classification (lower=stricter) |
+| `recognition_confidence_threshold` | `70.0` | float | Threshold for target person classification (lower=stricter) |
 | `recognition_frame_skip` | `2` | int | Process recognition every Nth frame (manages CPU load) |
 
 ### 4.4 Monitor Recognition
@@ -351,18 +351,18 @@ ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
 ```bash
 ros2 topic echo /r2d2/perception/person_id
 # Expected output:
-# data: severin
+# data: target_person
 # ---
 # data: unknown
 # ---
-# data: severin
+# data: target_person
 ```
 
 **Watch Confidence Scores:**
 ```bash
 ros2 topic echo /r2d2/perception/face_confidence
 # Expected output (lower is better):
-# data: 35.2  # High confidence Severin
+# data: 35.2  # High confidence target person
 # ---
 # data: 92.1  # Low confidence, likely unknown
 ```
@@ -514,8 +514,8 @@ The status system is the core state machine that tracks person recognition and d
 ### 6.2 Three-State Recognition Model
 
 **🔴 RED - Target Person Recognized (Active Engagement)**
-- **Conditions:** Target person "severin" is currently visible
-- **Status:** `{"status": "red", "person_identity": "severin", ...}`
+- **Conditions:** Target person is currently visible
+- **Status:** `{"status": "red", "person_identity": "target_person", ...}`
 - **LED:** Solid RED (GPIO pin 17)
 - **Audio:** "Hello!" played on transition (no repeated beeps)
 - **Next State:** → BLUE after 5s jitter + 15s confirmation
@@ -542,7 +542,7 @@ The status system is the core state machine that tracks person recognition and d
                                    │
                     ┌──────────────┬┴──────────────┐
                     │              │               │
-              "severin"       "unknown"      other person
+              target person   "unknown"      other person
               detected        or other        detected
                     │         person           │
                     │         detected         │
@@ -554,7 +554,7 @@ The status system is the core state machine that tracks person recognition and d
                     │            │          
          ┌──────────┴────────┐   │
          │                   │   │
-    RED continues       "severin"
+    RED continues       target person
     (visible or        appears
      jitter < 5s)         │
          │                │
@@ -563,7 +563,7 @@ The status system is the core state machine that tracks person recognition and d
          │                │
          │    ┌───────────┴────────────┐
          │    │                        │
-         │    │ "severin"         Loss confirmed:
+         │    │ target person     Loss confirmed:
          │    │ leaves            5s jitter +
          │    │ + stays           15s confirmation
          │    │ away 20s           │
@@ -598,7 +598,7 @@ The status system is the core state machine that tracks person recognition and d
 ```json
 {
   "status": "red|blue|green",
-  "person_identity": "severin|no_person|other_name",
+  "person_identity": "target_person|no_person|other_name",
   "timestamp_sec": 1765212914,
   "timestamp_nanosec": 949382424,
   "confidence": 0.95,
@@ -614,7 +614,7 @@ The status system is the core state machine that tracks person recognition and d
 ```json
 {
   "status": "red",
-  "person_identity": "severin",
+  "person_identity": "target_person",
   "confidence": 0.95,
   "duration_seconds": 12.5,
   "is_loss_state": false,
@@ -754,7 +754,7 @@ ros2 topic echo /r2d2/audio/person_status --no-arr -n 3
 # Should show: {"status": "blue", ...}
 
 # 4. Test audio playback
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin}"
+ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
 # Should play "Hello!" beep
 
 # 5. Check LED feedback (if available)
@@ -775,7 +775,7 @@ journalctl -u r2d2-audio-notification.service -n 20 | grep -i error
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `target_person` | String | `severin` | any name | Person to recognize |
+| `target_person` | String | `target_person` | any name | Person to recognize (should match training data) |
 | `audio_volume` | Float | `0.05` | 0.0-1.0 | Global volume control (0-100%) |
 | `jitter_tolerance_seconds` | Float | `5.0` | 1.0-10.0 | Brief gap tolerance |
 | `loss_confirmation_seconds` | Float | `15.0` | 5.0-30.0 | Confirmation window |
@@ -861,12 +861,12 @@ ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
 ros2 topic echo /r2d2/audio/person_status --no-arr
 
 # Terminal 2: Simulate recognition
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin}"
+ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
 ```
 
 **Expected:**
 - 🔊 "Hello!" plays
-- Status changes to: `{"status": "red", "person_identity": "severin", ...}`
+- Status changes to: `{"status": "red", "person_identity": "target_person", ...}`
 - LED shows RED (if enabled)
 
 ### 9.2 Test 2: Loss Detection
@@ -877,7 +877,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin
 ros2 topic echo /r2d2/audio/person_status --no-arr
 
 # Terminal 2: Send recognition, then wait 20+ seconds
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin}"
+ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
 # Wait 20 seconds...
 ```
 
@@ -895,7 +895,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin
 ros2 topic echo /r2d2/audio/person_status --no-arr
 
 # Terminal 2: Send recognition
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin}"
+ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
 # Wait 2 seconds for beep...
 
 # Terminal 3: Send "unknown" (simulating interruption)
@@ -903,7 +903,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: unknown
 # Wait 3 seconds...
 
 # Terminal 2: Send "severin" again
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: severin}"
+ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
 ```
 
 **Expected:**
@@ -1182,7 +1182,7 @@ r2d2_audio package
 - `/r2d2/perception/face_count` (std_msgs/Int32, 13 Hz) - Number of faces
 - `/r2d2/perception/person_id` (std_msgs/String, 6.5 Hz*) - Person name
 - `/r2d2/perception/face_confidence` (std_msgs/Float32, 6.5 Hz*) - Confidence score
-- `/r2d2/perception/is_severin` (std_msgs/Bool, 6.5 Hz*) - Boolean convenience
+- `/r2d2/perception/is_target_person` (std_msgs/Bool, 6.5 Hz*) - Boolean convenience
 
 **Audio & Status Topics:**
 - `/r2d2/audio/person_status` (std_msgs/String, JSON, 10 Hz) - Status (RED/BLUE/GREEN)

@@ -67,6 +67,7 @@ class AudioNotificationNode(Node):
         # Declare parameters
         self.declare_parameter('target_person', 'severin')
         self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume) - 5% volume (subtle)
+        self.declare_parameter('alsa_device', 'hw:1,0')    # ALSA device for audio output (e.g., hw:1,0)
         self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
         self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
@@ -78,6 +79,7 @@ class AudioNotificationNode(Node):
         # Get parameters
         self.target_person = self.get_parameter('target_person').value
         self.audio_volume = self.get_parameter('audio_volume').value
+        self.alsa_device = self.get_parameter('alsa_device').value
         self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
         self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
         self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
@@ -178,6 +180,7 @@ class AudioNotificationNode(Node):
             f"  Recognition audio: {self.recognition_audio.name}\n"
             f"  Loss audio: {self.loss_audio.name}\n"
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
+            f"  ALSA device: {self.alsa_device}\n"
             f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
             f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
             f"  Alert cooldown: {self.cooldown_seconds}s (min between alerts)\n"
@@ -408,6 +411,7 @@ class AudioNotificationNode(Node):
                 str(self.audio_player_path),
                 str(audio_file),
                 str(self.audio_volume),
+                str(self.alsa_device),
             ]
             
             subprocess.Popen(
