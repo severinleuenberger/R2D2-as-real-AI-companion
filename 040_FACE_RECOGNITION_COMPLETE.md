@@ -1422,6 +1422,7 @@ RGB LED (Green = recognized, Red = unknown)
 
 **Related Documentation:**
 - [`041_CAMERA_SETUP_DOCUMENTATION.md`](041_CAMERA_SETUP_DOCUMENTATION.md) - OAK-D camera setup guide
+- [`042_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md`](042_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md) - Speaker & audio hardware setup
 - Archived face detection documentation in `_ARCHIVED_FACE_RECOGNITION_DOCS_v1/`
 - [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) - Audio integration
 
