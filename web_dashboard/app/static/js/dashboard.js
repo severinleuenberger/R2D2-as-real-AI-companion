@@ -20,27 +20,68 @@ document.addEventListener('DOMContentLoaded', () => {
     loadVolume();
     loadPeopleList();
     startServiceStatusPolling();
+    checkSystemStatus();
 });
+
+// Check overall system status
+async function checkSystemStatus() {
+    try {
+        // Check if web server is responding
+        const healthResponse = await fetch('/health');
+        const health = await healthResponse.json();
+        
+        // Check services
+        const servicesResponse = await fetch('/api/services/status');
+        const services = await servicesResponse.json();
+        
+        // Count running services
+        let runningCount = 0;
+        let totalCount = 0;
+        for (const [name, info] of Object.entries(services)) {
+            totalCount++;
+            if (info.status === 'active') {
+                runningCount++;
+            }
+        }
+        
+        // Update status with service info if disconnected
+        const statusDetails = document.getElementById('ros-status-details');
+        if (statusDetails && (!ros || (ros && ros.isConnected === false))) {
+            // Only update if disconnected, to avoid overwriting connection message
+            if (runningCount > 0) {
+                statusDetails.textContent = `${runningCount}/${totalCount} services running (Web API: ✓) | Install rosbridge for real-time updates`;
+            } else {
+                statusDetails.textContent = 'Web API: ✓ | Install & start rosbridge for real-time updates';
+            }
+        }
+    } catch (error) {
+        console.error('Failed to check system status:', error);
+    }
+}
 
 // ROS Connection
 function initializeROS() {
     ros = new ROSLIB.Ros({
         url: ROSBRIDGE_URL
     });
+    ros.isConnected = false;
 
     ros.on('connection', () => {
         console.log('Connected to rosbridge');
+        ros.isConnected = true;
         updateConnectionStatus(true);
         subscribeToTopics();
     });
 
     ros.on('error', (error) => {
         console.error('ROS error:', error);
+        ros.isConnected = false;
         updateConnectionStatus(false);
     });
 
     ros.on('close', () => {
         console.log('ROS connection closed');
+        ros.isConnected = false;
         updateConnectionStatus(false);
         // Try to reconnect after 3 seconds
         setTimeout(initializeROS, 3000);
@@ -50,13 +91,18 @@ function initializeROS() {
 function updateConnectionStatus(connected) {
     const statusIndicator = document.getElementById('ros-status');
     const statusText = document.getElementById('ros-status-text');
+    const statusDetails = document.getElementById('ros-status-details');
     
     if (connected) {
         statusIndicator.className = 'status-indicator connected';
-        statusText.textContent = 'Connected';
+        statusText.textContent = '✓ Real-time Connected';
+        statusDetails.textContent = 'Receiving live updates';
+        statusDetails.className = 'status-details-text connected';
     } else {
         statusIndicator.className = 'status-indicator disconnected';
-        statusText.textContent = 'Disconnected';
+        statusText.textContent = '✗ Real-time Disconnected';
+        statusDetails.textContent = 'Start rosbridge: ros2 launch web_dashboard/launch/rosbridge.launch.py';
+        statusDetails.className = 'status-details-text disconnected';
     }
 }
 

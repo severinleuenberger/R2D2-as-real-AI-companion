@@ -37,8 +37,32 @@ body {
 
 .connection-status {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+}
+
+.connection-status > div {
+    display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.status-details-text {
+    font-size: 11px;
+    font-weight: normal;
+    margin-top: 2px;
+    font-family: monospace;
+}
+
+.status-details-text.connected {
+    color: #4caf50;
+}
+
+.status-details-text.disconnected {
+    color: #f44336;
+    max-width: 300px;
+    text-align: right;
 }
 
 .status-indicator {
