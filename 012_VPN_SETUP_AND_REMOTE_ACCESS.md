@@ -1,694 +1,557 @@
-# VPN Setup and Remote Access Guide
+# VPN Setup and Remote Access Guide - Tailscale Solution
 
-**Date:** December 10, 2025  
+**Date:** December 11, 2025  
 **Platform:** NVIDIA Jetson AGX Orin 64GB (Ubuntu 22.04)  
 **Purpose:** Secure remote access to Jetson Orin over public Internet  
-**VPN Technology:** WireGuard (UDP port 51820)
+**VPN Technology:** Tailscale (WireGuard-based, zero-configuration)
 
 ---
 
 ## Executive Summary
 
-This guide establishes an encrypted VPN tunnel from your Windows laptop to the Jetson Orin, allowing you to:
+This guide documents the successful setup of Tailscale VPN for remote access to the Jetson Orin. Tailscale provides an encrypted VPN tunnel from your Windows laptop to the Jetson Orin, allowing you to:
 - ✅ Access Jetson via SSH (VS Code Remote SSH, terminal) as if on local network
 - ✅ Keep your existing SSH workflow unchanged
 - ✅ Secure connection (no direct SSH exposure to Internet)
 - ✅ Low latency, stable connection
+- ✅ Works from anywhere in the world
 
-**Estimated Setup Time:** 15-30 minutes (quick setup)  
-**Prerequisites:** Router access, public IP or dynamic DNS
+**Why Tailscale?**
+- ✅ Works on Jetson without kernel modules
+- ✅ Zero-configuration setup (5 minutes)
+- ✅ Free for personal use
+- ✅ WireGuard-based (secure)
+- ✅ No router configuration needed
+- ✅ Works from anywhere in the world
+
+**Current Status:** ✅ **FULLY OPERATIONAL**
+- Tailscale installed and connected on Jetson
+- Tailscale installed and connected on Windows laptop
+- SSH connection working through Tailscale
+- VS Code Remote SSH working through Tailscale
 
 ---
 
-## ⚠️ Security Notice
+## Why Not WireGuard?
 
-**IMPORTANT:** This setup generates sensitive cryptographic keys that must be kept secure:
-- ✅ **Never commit** `.key` files or `client_wg0.conf` to git
-- ✅ **Store all keys** in KeePass (encrypted password manager)
-- ✅ **Delete client config** from laptop after importing to WireGuard
+**Note:** We initially attempted to set up native WireGuard VPN, but encountered kernel module compatibility issues on the Jetson Orin:
 
-**See:** 
-- `vpn_config/SECURE_STORAGE_GUIDE.md` - How to store credentials in KeePass
-- `vpn_config/WINDOWS_SETUP_INSTRUCTIONS.md` - Windows laptop setup guide
+- **Problem:** The Jetson Orin uses a custom NVIDIA kernel (5.15.148-tegra) that doesn't include the WireGuard kernel module
+- **Attempted Solutions:**
+  - Tried installing `wireguard-dkms` (kernel headers package not available for Jetson kernel)
+  - Tried using `wireguard-go` (userspace implementation) - encountered TUN device creation issues
+  - Kernel module could not be built or loaded
+- **Result:** WireGuard setup failed, all WireGuard components were removed
+- **Solution:** Switched to Tailscale, which works perfectly on Jetson without requiring kernel modules
+
+**For reference:** The original WireGuard setup attempt is documented in `vpn_config/WIREGUARD_CLEANUP_GUIDE.md` (removal guide) and `vpn_config/setup_wireguard.sh` (setup script that was attempted).
 
 ---
 
-## Quick Start (Get Connected in 15 Minutes)
+## Quick Start
 
-### Step 1: Install WireGuard on Jetson (2 min)
+### Current Configuration
 
-```bash
-cd /home/severin/dev/r2d2/vpn_config
-sudo bash setup_wireguard.sh
+| Device | Hostname | Tailscale IP | Status |
+|--------|----------|--------------|--------|
+| **Jetson Orin** | r2d2 | 100.95.133.26 | ✅ Connected |
+| **Windows Laptop** | itxcl883 | 100.100.52.23 | ✅ Connected |
+
+### Connect from Windows
+
+**SSH:**
+```powershell
+ssh jetson-tailscale
 ```
 
-This script will:
-- Install WireGuard and tools
-- Generate server and client keys
-- Create server configuration (`/etc/wireguard/wg0.conf`)
-- Create client configuration (`client_wg0.conf`)
-- Enable IP forwarding
-
-**Expected Output:**
-```
-=== Setup Complete! ===
-Server Public Key: [key]
-Client Public Key: [key]
-IMPORTANT: Update client_wg0.conf with your public IP address!
-```
-
-### Step 2: Get Your Public IP Address (1 min)
-
-```bash
-cd /home/severin/dev/r2d2/vpn_config
-bash get_public_ip.sh
-```
-
-**Note:** If you have a dynamic IP, consider setting up dynamic DNS (see Troubleshooting section).
-
-### Step 3: Update Client Configuration (2 min)
-
-Edit the client configuration file:
-
-```bash
-nano /home/severin/dev/r2d2/vpn_config/client_wg0.conf
-```
-
-Replace `YOUR_PUBLIC_IP` with your actual public IP address (from Step 2).
-
-**Example:**
-```ini
-[Peer]
-Endpoint = 123.45.67.89:51820  # Your public IP here
-```
-
-### Step 4: Configure Router Port Forwarding (5-10 min)
-
-**Critical:** Your router must forward UDP port 51820 to the Jetson's local IP.
-
-1. **Find Jetson's local IP:**
-   ```bash
-   ip addr show | grep "inet " | grep -v 127.0.0.1
-   ```
-   Example: `192.168.1.129`
-
-2. **Access router admin panel:**
-   - Usually: `http://192.168.1.1` or `http://192.168.0.1`
-   - Check router label or documentation
-
-3. **Add port forwarding rule:**
-   - **Service Name:** WireGuard (or R2D2 VPN)
-   - **Protocol:** UDP
-   - **External Port:** 51820
-   - **Internal IP:** `192.168.1.129` (Jetson's IP)
-   - **Internal Port:** 51820
-   - **Enable:** Yes
-
-4. **Save and apply changes**
-
-**Router Examples:**
-- **Netgear:** Advanced → Port Forwarding → Add Custom Service
-- **TP-Link:** Advanced → NAT Forwarding → Port Forwarding
-- **ASUS:** WAN → Virtual Server / Port Forwarding
-- **Linksys:** Connectivity → Port Forwarding
-
-### Step 5: Start WireGuard Service on Jetson (1 min)
-
-```bash
-sudo systemctl enable wg-quick@wg0
-sudo systemctl start wg-quick@wg0
-sudo systemctl status wg-quick@wg0
-```
-
-**Verify it's running:**
-```bash
-sudo wg show
-```
-
-You should see the `wg0` interface with server configuration.
-
-### Step 6: Transfer Client Config to Windows Laptop (2 min)
-
-**⚠️ SECURITY:** The client config contains your private key. Transfer securely!
-
-**Option A: Copy file contents manually (Recommended)**
-```bash
-cat /home/severin/dev/r2d2/vpn_config/client_wg0.conf
-```
-Copy the entire output and save as `client_wg0.conf` on your Windows laptop.
-
-**Option B: Use USB drive**
-- Copy file to USB drive on Jetson
-- Transfer to Windows laptop
-
-**Option C: Store in KeePass first**
-- Copy contents to KeePass Notes (see `SECURE_STORAGE_GUIDE.md`)
-- Copy from KeePass to Windows when needed
-
-**Option D: Use SCP (if you have temporary SSH access)**
-```bash
-# From Windows (PowerShell or WSL)
-scp severin@192.168.1.129:/home/severin/dev/r2d2/vpn_config/client_wg0.conf .
-```
-
-**After transfer:** Delete the file from laptop after importing to WireGuard (WireGuard stores it internally).
-
-### Step 7: Install WireGuard Client on Windows (3 min)
-
-**📋 See detailed instructions:** `vpn_config/WINDOWS_SETUP_INSTRUCTIONS.md`
-
-**Quick steps:**
-1. **Install WireGuard:**
-   - Microsoft Store: Search "WireGuard" → Install
-   - Or: https://www.wireguard.com/install/
-
-2. **Import configuration:**
-   - Open WireGuard app
-   - Click "Add Tunnel" → "Import tunnel(s) from file"
-   - Select `client_wg0.conf`
-   - Click "Activate"
-
-3. **Verify connection:**
-   - Status should show "Active" with data transfer
-   - Green icon indicates connected
-
-4. **⚠️ SECURITY:** Delete `client_wg0.conf` from laptop after successful import (WireGuard stores it internally)
-
-### Step 8: Test SSH Connection (1 min)
-
-**From Windows (PowerShell or Command Prompt):**
-```bash
-# Test ping to Jetson via VPN
-ping 10.8.0.1
-
-# Test SSH connection
-ssh severin@10.8.0.1
-# Or use your existing SSH config (it should work automatically)
+**Or using IP directly:**
+```powershell
+ssh severin@100.95.133.26
 ```
 
 **VS Code Remote SSH:**
-- Your existing SSH config should work automatically
-- VS Code will connect through the VPN tunnel
-- No changes needed to your SSH configuration
+- Press `F1` → "Remote-SSH: Connect to Host"
+- Select: `jetson-tailscale`
+
+---
+
+## Installation Guide
+
+### Step 1: Install Tailscale on Jetson (2 minutes)
+
+```bash
+# Install Tailscale
+curl -fsSL https://tailscale.com/install.sh | sh
+
+# Authenticate (will show URL to visit)
+sudo tailscale up
+
+# Enable on boot
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
+```
+
+**What happens:**
+- Tailscale installs automatically
+- Running `sudo tailscale up` shows a URL
+- Open that URL in a web browser (on any device)
+- Sign in with Google, Microsoft, or GitHub
+- Authorize the device
+- Jetson will be added to your Tailscale network
+
+### Step 2: Get Your Jetson's Tailscale IP (1 minute)
+
+After authentication, run:
+
+```bash
+tailscale status
+```
+
+**You'll see something like:**
+```
+100.95.133.26    r2d2    severin@    linux   -
+```
+
+**Note the IP address** (e.g., `100.95.133.26`) - you'll use this to connect.
+
+**Or get just the IP:**
+```bash
+tailscale ip -4
+```
+
+### Step 3: Install Tailscale on Windows (3 minutes)
+
+1. **Download Tailscale:**
+   - Go to: https://tailscale.com/download/windows
+   - Download and install Tailscale for Windows
+   - Or install from Microsoft Store: Search "Tailscale"
+
+2. **Sign in:**
+   - Open Tailscale app
+   - Sign in with the same account you used on Jetson (Google/Microsoft/GitHub)
+   - The app will connect automatically
+
+3. **Verify connection:**
+   - Both devices should appear in the Tailscale admin console
+   - https://login.tailscale.com/admin/machines
+   - Status should show "Connected" for both devices
+
+### Step 4: Configure SSH on Windows (2 minutes)
+
+**Add to your SSH config:** `C:\Users\SeverinLeuenberger\.ssh\config`
+
+```
+Host jetson-tailscale
+    HostName 100.95.133.26
+    User severin
+    IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
+```
+
+**Replace `100.95.133.26` with your actual Tailscale IP from Step 2.**
+
+**How to edit:**
+1. Open PowerShell or Command Prompt
+2. Navigate: `cd .ssh`
+3. Edit: `notepad config`
+4. Add the configuration above
+5. Save and close
+
+### Step 5: Test Connection (1 minute)
+
+**From Windows (PowerShell):**
+
+```powershell
+# Test ping
+ping 100.95.133.26
+
+# Test SSH
+ssh jetson-tailscale
+```
+
+**VS Code Remote SSH:**
+- Open VS Code
+- Press `F1` (or `Ctrl+Shift+P`)
+- Type: "Remote-SSH: Connect to Host"
+- Select: `jetson-tailscale`
+- Should connect successfully
 
 ---
 
 ## Verification & Testing
 
-### Check VPN Status on Jetson
+### Check Tailscale Status on Jetson
 
 ```bash
-cd /home/severin/dev/r2d2/vpn_config
-bash check_vpn_status.sh
+tailscale status
 ```
 
 **Expected Output:**
 ```
-✅ WireGuard service is running
-✅ 1 peer(s) connected
+100.95.133.26  r2d2      severin.leuenberger@  linux    -                          
+100.100.52.23  itxcl883  severin.leuenberger@  windows  active; direct ...
 ```
+
+Both devices should show as connected.
 
 ### Test Connection from Windows
 
 1. **Ping test:**
    ```powershell
-   ping 10.8.0.1
+   ping 100.95.133.26
    ```
+   Should get replies.
 
 2. **SSH test:**
    ```powershell
-   ssh severin@10.8.0.1
+   ssh jetson-tailscale
    ```
+   Should connect successfully.
 
 3. **VS Code Remote SSH:**
    - Open VS Code
-   - Connect to existing SSH target
-   - Should connect through VPN automatically
+   - Connect to `jetson-tailscale`
+   - Should connect through Tailscale automatically
 
 ### Monitor Connection
 
 **On Jetson:**
 ```bash
-# Watch real-time connection stats
-watch -n 1 'sudo wg show'
+# Check status
+tailscale status
 
-# Check service logs
-sudo journalctl -u wg-quick@wg0 -f
+# Get IP
+tailscale ip -4
+
+# Check service
+sudo systemctl status tailscaled
+
+# View logs
+sudo journalctl -u tailscaled -f
 ```
 
 **On Windows:**
-- WireGuard app shows connection status and data transfer
-- Green icon = connected, red = disconnected
+- Tailscale app shows connection status in system tray
+- Right-click icon → "Network devices" to see all devices
+- Admin console: https://login.tailscale.com/admin/machines
 
 ---
 
-## Network Configuration Details
-
-### VPN Network Topology
+## Network Architecture
 
 ```
 Internet
     ↓
-Router (Public IP: YOUR_PUBLIC_IP)
-    ↓ (UDP 51820 forwarded)
-Jetson Orin (Local IP: 192.168.1.129)
-    ↓ (WireGuard Server: 10.8.0.1)
-VPN Tunnel (10.8.0.0/24)
-    ↓
-Windows Laptop (VPN IP: 10.8.0.2)
+Tailscale Network (Encrypted WireGuard Protocol)
+    ├─ Windows Laptop (100.100.52.23)
+    └─ Jetson Orin (100.95.133.26)
+         ↓
+    SSH (Port 22) accessible via Tailscale IP
 ```
+
+**Key Points:**
+- All traffic encrypted via WireGuard protocol (managed by Tailscale)
+- No router port forwarding needed
+- Works behind any firewall/NAT
+- Automatic key management
+- IP addresses managed by Tailscale
+- Works from anywhere in the world
 
 ### IP Addresses
 
 | Device | IP Address | Purpose |
 |--------|------------|---------|
-| **Jetson (VPN Server)** | `10.8.0.1` | WireGuard server IP |
-| **Windows (VPN Client)** | `10.8.0.2` | WireGuard client IP |
-| **Jetson (Local Network)** | `192.168.1.129` | Local network IP (may vary) |
-| **Router (Public)** | `YOUR_PUBLIC_IP` | Internet-facing IP |
+| **Jetson (Tailscale)** | `100.95.133.26` | Tailscale-assigned IP (may change) |
+| **Windows (Tailscale)** | `100.100.52.23` | Tailscale-assigned IP (may change) |
+| **Jetson (Local Network)** | `192.168.1.129` | Local network IP (for reference) |
 
-### Port Configuration
+**Note:** Tailscale IPs are in the `100.x.x.x` range and are managed automatically. If they change, update your SSH config.
 
-- **WireGuard Port:** UDP 51820 (standard)
-- **SSH Port:** TCP 22 (unchanged, now accessed via VPN)
+---
+
+## SSH Configuration
+
+### Windows SSH Config
+
+**Location:** `C:\Users\SeverinLeuenberger\.ssh\config`
+
+**Current Configuration:**
+```
+Host r2d2
+    HostName 192.168.55.1
+    User severin
+    IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
+
+Host jetson-tailscale
+    HostName 100.95.133.26
+    User severin
+    IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
+```
+
+**Usage:**
+- `ssh r2d2` - Connects via local network (when on same network)
+- `ssh jetson-tailscale` - Connects via Tailscale (works from anywhere)
+
+**Optional: Use device name instead of IP:**
+If Tailscale MagicDNS is enabled, you can use:
+```
+Host jetson-tailscale
+    HostName r2d2
+    User severin
+    IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
+```
+
+---
+
+## VS Code Remote SSH Setup
+
+### Configuration
+
+1. **SSH Config:** Already configured (see above)
+
+2. **Connect in VS Code:**
+   - Press `F1` (or `Ctrl+Shift+P`)
+   - Type: "Remote-SSH: Connect to Host"
+   - Select: `jetson-tailscale`
+   - VS Code connects to Jetson through Tailscale
+
+3. **Works seamlessly:**
+   - Edit files on Jetson
+   - Run terminal commands
+   - Use all VS Code features remotely
+   - Works from anywhere in the world
 
 ---
 
 ## Troubleshooting
 
-### Problem: WireGuard service won't start
+### Problem: Can't connect from Windows
 
 **Symptoms:**
-```bash
-sudo systemctl status wg-quick@wg0
-# Shows: failed or inactive
-```
-
-**Solutions:**
-
-1. **Check configuration syntax:**
-   ```bash
-   sudo wg-quick up wg0
-   ```
-   Look for error messages.
-
-2. **Verify interface name:**
-   ```bash
-   # Check if interface exists
-   ip link show wg0
-   ```
-
-3. **Check for port conflicts:**
-   ```bash
-   sudo netstat -ulnp | grep 51820
-   ```
-   If another service is using port 51820, change it in `/etc/wireguard/wg0.conf`.
-
-4. **Check logs:**
-   ```bash
-   sudo journalctl -u wg-quick@wg0 -n 50
-   ```
-
-### Problem: Client can't connect to server
-
-**Symptoms:**
-- WireGuard client shows "No handshake" or red status
-- Can't ping `10.8.0.1`
-
-**Solutions:**
-
-1. **Verify router port forwarding:**
-   - Check router admin panel
-   - Ensure UDP 51820 is forwarded to Jetson's local IP
-   - Test with: https://www.yougetsignal.com/tools/open-ports/ (port 51820)
-
-2. **Check firewall on Jetson:**
-   ```bash
-   # Allow WireGuard port
-   sudo ufw allow 51820/udp
-   sudo ufw status
-   ```
-
-3. **Verify public IP in client config:**
-   - Make sure `Endpoint` in `client_wg0.conf` has correct public IP
-   - If using dynamic IP, update it when it changes
-
-4. **Check server is running:**
-   ```bash
-   sudo systemctl status wg-quick@wg0
-   sudo wg show
-   ```
-
-5. **Test from external network:**
-   ```bash
-   # From Windows (outside your network, e.g., mobile hotspot)
-   # Try connecting - if it works, router forwarding is correct
-   ```
-
-### Problem: Can connect to VPN but can't SSH
-
-**Symptoms:**
-- VPN shows connected (green)
-- Can ping `10.8.0.1`
 - SSH connection times out
+- Ping fails
+- Tailscale shows disconnected
 
 **Solutions:**
 
-1. **Verify SSH is running on Jetson:**
-   ```bash
-   sudo systemctl status ssh
-   ```
+1. **Check Tailscale status on Windows:**
+   - Right-click Tailscale icon in system tray
+   - Verify it shows "Connected"
+   - If disconnected, click to reconnect
+   - Or restart Tailscale app
 
-2. **Check SSH is listening on VPN interface:**
+2. **Check Tailscale status on Jetson:**
    ```bash
-   sudo netstat -tlnp | grep :22
+   tailscale status
    ```
-   Should show SSH listening on `0.0.0.0:22` (all interfaces).
+   Both devices should show as "Connected"
 
-3. **Test SSH locally first:**
-   ```bash
-   # On Jetson
-   ssh localhost
+3. **Check admin console:**
+   - https://login.tailscale.com/admin/machines
+   - Verify both devices are online (green status)
+
+4. **Test ping from Windows:**
+   ```powershell
+   ping 100.95.133.26
    ```
+   Should get replies. If not, check Windows Firewall.
 
-4. **Check firewall rules:**
-   ```bash
-   sudo ufw status
-   sudo ufw allow 22/tcp
-   ```
+5. **Check Windows Firewall:**
+   - May need to allow Tailscale through firewall
+   - Or temporarily disable firewall to test
+   - Settings → Privacy & Security → Windows Security → Firewall
 
-5. **Verify routing:**
-   ```bash
-   # On Windows, check route to Jetson
-   route print | findstr 10.8.0
-   ```
+6. **Restart Tailscale on Windows:**
+   - Right-click Tailscale icon → Exit
+   - Open Tailscale from Start menu
+   - Wait for connection
 
-### Problem: Dynamic IP address changes
+### Problem: Tailscale IP changed
 
 **Symptoms:**
-- VPN works initially, then stops working
-- Public IP changes periodically
+- SSH connection fails
+- IP address different from what's in SSH config
 
 **Solutions:**
 
-1. **Set up Dynamic DNS (Recommended):**
-   - Use services like: No-IP, DuckDNS, or Dynu
-   - Update router or use DDNS client on Jetson
-   - Update `client_wg0.conf` to use hostname instead of IP
-
-2. **Manual update:**
+1. **Get current IP on Jetson:**
    ```bash
-   # Get new IP
-   bash /home/severin/dev/r2d2/vpn_config/get_public_ip.sh
-   
-   # Update client config
-   nano /home/severin/dev/r2d2/vpn_config/client_wg0.conf
-   # Change Endpoint to new IP
-   
-   # Re-import on Windows WireGuard client
+   tailscale ip -4
    ```
 
-3. **Automated script (optional):**
-   Create a cron job to check and update IP (see Advanced section).
+2. **Update SSH config on Windows:**
+   - Edit `C:\Users\SeverinLeuenberger\.ssh\config`
+   - Update `HostName` with new IP
+   - Save and retry connection
 
-### Problem: Connection is slow or unstable
+3. **Or use device name (if MagicDNS enabled):**
+   - In Tailscale admin console → Settings → MagicDNS
+   - Enable MagicDNS
+   - Then use device name in SSH config:
+     ```
+     Host jetson-tailscale
+         HostName r2d2
+         User severin
+     ```
 
-**Symptoms:**
-- High latency
-- Frequent disconnections
-- Slow file transfers
+### Problem: Tailscale service not running
 
-**Solutions:**
-
-1. **Check connection quality:**
-   ```bash
-   # On Jetson
-   sudo wg show wg0
-   # Look at "latest handshake" - should be recent (< 30 seconds)
-   ```
-
-2. **Adjust keepalive:**
-   - In `client_wg0.conf`, `PersistentKeepalive` is set to 25 seconds
-   - Increase if behind strict NAT: `PersistentKeepalive = 60`
-
-3. **Check router NAT settings:**
-   - Some routers have aggressive NAT timeouts
-   - Enable "NAT Keep-Alive" or similar setting
-
-4. **Test from different network:**
-   - Try from mobile hotspot to isolate router issues
-
-### Problem: Can't access local network resources through VPN
-
-**Symptoms:**
-- VPN connected, can SSH to Jetson
-- Can't access other devices on Jetson's local network
-
-**Solutions:**
-
-1. **This is expected behavior** - WireGuard only routes traffic to VPN network by default
-2. **To access local network, modify server config:**
-   ```bash
-   sudo nano /etc/wireguard/wg0.conf
-   ```
-   Add to `[Peer]` section:
-   ```ini
-   AllowedIPs = 10.8.0.2/32, 192.168.1.0/24
-   ```
-   Then restart: `sudo systemctl restart wg-quick@wg0`
-
-### Problem: Multiple clients / Add more devices
-
-**To add additional clients (e.g., phone, second laptop):**
-
-1. **Generate new client keys:**
-   ```bash
-   cd /etc/wireguard
-   wg genkey | tee client2_private.key | wg pubkey > client2_public.key
-   ```
-
-2. **Add peer to server config:**
-   ```bash
-   sudo nano /etc/wireguard/wg0.conf
-   ```
-   Add new `[Peer]` section:
-   ```ini
-   [Peer]
-   PublicKey = [client2_public_key]
-   AllowedIPs = 10.8.0.3/32
-   ```
-
-3. **Create client config:**
-   ```bash
-   # Use client2_private.key and assign IP 10.8.0.3
-   ```
-
-4. **Restart service:**
-   ```bash
-   sudo systemctl restart wg-quick@wg0
-   ```
-
----
-
-## Router Configuration Guide
-
-### Common Router Brands
-
-#### Netgear
-1. Login: `http://192.168.1.1` or `http://routerlogin.net`
-2. Advanced → Port Forwarding → Add Custom Service
-3. Service Name: `WireGuard`
-4. External Starting Port: `51820`
-5. External Ending Port: `51820`
-6. Internal Starting Port: `51820`
-7. Internal Ending Port: `51820`
-8. Internal IP Address: `192.168.1.129` (Jetson IP)
-9. Protocol: `UDP`
-10. Apply
-
-#### TP-Link
-1. Login: `http://192.168.0.1` or `http://tplinkwifi.net`
-2. Advanced → NAT Forwarding → Port Forwarding
-3. Add new rule:
-   - Service Name: `WireGuard`
-   - External Port: `51820`
-   - Internal Port: `51820`
-   - Protocol: `UDP`
-   - Internal IP: `192.168.1.129`
-4. Status: `Enabled`
-5. Save
-
-#### ASUS
-1. Login: `http://192.168.1.1` or `http://router.asus.com`
-2. WAN → Virtual Server / Port Forwarding
-3. Enable Port Forwarding: `Yes`
-4. Add:
-   - Service Name: `WireGuard`
-   - Port Range: `51820`
-   - Local IP: `192.168.1.129`
-   - Local Port: `51820`
-   - Protocol: `UDP`
-5. Apply
-
-#### Linksys
-1. Login: `http://192.168.1.1`
-2. Connectivity → Port Forwarding
-3. Add:
-   - Application Name: `WireGuard`
-   - External Port: `51820`
-   - Internal Port: `51820`
-   - Protocol: `UDP`
-   - Device IP: `192.168.1.129`
-4. Apply
-
-#### Generic Router
-Look for settings named:
-- Port Forwarding
-- Virtual Server
-- NAT Forwarding
-- Port Mapping
-- Applications & Gaming
-
-**Key Settings:**
-- Protocol: **UDP** (not TCP!)
-- External Port: `51820`
-- Internal Port: `51820`
-- Internal IP: Jetson's local IP (e.g., `192.168.1.129`)
-
----
-
-## Advanced Configuration
-
-### Dynamic DNS Setup
-
-If your public IP changes frequently, use Dynamic DNS:
-
-1. **Sign up for free DDNS service:**
-   - No-IP: https://www.noip.com/
-   - DuckDNS: https://www.duckdns.org/
-   - Dynu: https://www.dynu.com/
-
-2. **Configure on router (if supported):**
-   - Most routers have DDNS settings
-   - Enter your DDNS credentials
-   - Router will update IP automatically
-
-3. **Or use client on Jetson:**
-   ```bash
-   # Install ddclient
-   sudo apt install ddclient
-   
-   # Configure with your DDNS provider
-   sudo nano /etc/ddclient.conf
-   ```
-
-4. **Update client config:**
-   ```ini
-   [Peer]
-   Endpoint = your-hostname.ddns.net:51820
-   ```
-
-### Firewall Configuration
-
-**UFW (Uncomplicated Firewall):**
+**On Jetson:**
 ```bash
-# Allow WireGuard
-sudo ufw allow 51820/udp
-
-# Allow SSH (if not already)
-sudo ufw allow 22/tcp
-
 # Check status
-sudo ufw status
+sudo systemctl status tailscaled
+
+# Start if stopped
+sudo systemctl start tailscaled
+
+# Enable on boot
+sudo systemctl enable tailscaled
+
+# Restart if needed
+sudo systemctl restart tailscaled
 ```
 
-**iptables (if using custom rules):**
-The setup script already configures NAT forwarding. If you have custom iptables rules, ensure they don't block WireGuard.
+**On Windows:**
+- Open Tailscale from Start menu
+- Or check if service is running in Task Manager
 
-### Performance Tuning
+### Problem: SSH service not running on Jetson
 
-**Increase MTU (if experiencing slow speeds):**
 ```bash
-sudo nano /etc/wireguard/wg0.conf
-```
-Add to `[Interface]` section:
-```ini
-MTU = 1420
-```
+# Check status
+sudo systemctl status ssh
 
-**Adjust keepalive (for unstable connections):**
-In `client_wg0.conf`:
-```ini
-PersistentKeepalive = 60  # Increase from 25 to 60
+# Start if stopped
+sudo systemctl start ssh
+
+# Enable on boot
+sudo systemctl enable ssh
 ```
 
-### Security Best Practices
+### Problem: Connection is slow
 
-1. **Keep keys secure:**
-   - Never share private keys
-   - Use `chmod 600` on all `.key` files
-   - Don't commit keys to git
+**Solutions:**
 
-2. **Regular updates:**
+1. **Check Tailscale status:**
    ```bash
-   sudo apt update && sudo apt upgrade wireguard
+   tailscale status
+   ```
+   Look for connection quality indicators
+
+2. **Check if direct connection:**
+   - In admin console, check if connection shows "direct" or "relay"
+   - Direct connections are faster
+   - Relay connections may be slower but still work
+
+3. **Restart Tailscale:**
+   ```bash
+   sudo systemctl restart tailscaled
    ```
 
-3. **Monitor connections:**
-   ```bash
-   sudo wg show
-   # Check for unexpected peers
-   ```
+---
 
-4. **Use strong keys:**
-   - WireGuard generates strong keys by default
-   - Don't use weak or predictable keys
+## Security Notes
+
+### What's Secure
+
+✅ **All traffic encrypted** - WireGuard protocol (managed by Tailscale)  
+✅ **Only your devices** - Only devices in your Tailscale network can connect  
+✅ **No direct exposure** - SSH not exposed to public Internet  
+✅ **Automatic key management** - Tailscale handles all keys  
+✅ **No router config** - Works behind any firewall
+
+### What to Store Securely
+
+**⚠️ No secrets to store!** Tailscale manages everything automatically:
+- ✅ Keys are managed by Tailscale
+- ✅ No configuration files with secrets
+- ✅ Authentication via OAuth (Google/Microsoft/GitHub account)
+
+**Optional: Store Tailscale account info in KeePass:**
+- Account email: `severin.leuenberger@gmail.com`
+- Admin console: https://login.tailscale.com/admin/machines
+- (Not required, but can be stored for reference)
+
+---
+
+## Daily Usage
+
+### On Jetson
+
+**Check Tailscale status:**
+```bash
+tailscale status
+```
+
+**Get Tailscale IP:**
+```bash
+tailscale ip -4
+```
+
+**Check service:**
+```bash
+sudo systemctl status tailscaled
+```
+
+**Restart if needed:**
+```bash
+sudo systemctl restart tailscaled
+```
+
+### On Windows
+
+**Check Tailscale:**
+- Right-click Tailscale icon in system tray
+- Status shows "Connected"
+- Click "Network devices" to see all devices
+
+**Admin Console:**
+- https://login.tailscale.com/admin/machines
+- View all devices, IPs, and status
+
+**Connect via SSH:**
+```powershell
+ssh jetson-tailscale
+```
+
+**Connect via VS Code:**
+- `F1` → "Remote-SSH: Connect to Host" → `jetson-tailscale`
 
 ---
 
 ## Maintenance
 
-### Daily Operations
+### Regular Checks
 
-**Check VPN status:**
-```bash
-cd /home/severin/dev/r2d2/vpn_config
-bash check_vpn_status.sh
-```
+**Monthly:**
+- Check Tailscale status: `tailscale status`
+- Verify both devices connected in admin console
+- Update Tailscale if needed: `sudo apt update && sudo apt upgrade tailscale`
 
-**Restart service (if needed):**
-```bash
-sudo systemctl restart wg-quick@wg0
-```
-
-**View connection stats:**
-```bash
-sudo wg show wg0
-```
+**If Issues:**
+- Restart Tailscale: `sudo systemctl restart tailscaled`
+- Check logs: `sudo journalctl -u tailscaled -n 50`
 
 ### Updates
 
-**Update WireGuard:**
+**On Jetson:**
 ```bash
-sudo apt update && sudo apt upgrade wireguard
-sudo systemctl restart wg-quick@wg0
+sudo apt update
+sudo apt upgrade tailscale
+sudo systemctl restart tailscaled
 ```
 
-**Update client config (if server IP changes):**
-1. Get new public IP: `bash get_public_ip.sh`
-2. Update `client_wg0.conf` on Windows
-3. Re-import in WireGuard client
+**On Windows:**
+- Tailscale auto-updates
+- Or check for updates in Tailscale app
 
-### Backup
+### Adding More Devices
 
-**Backup server configuration:**
-```bash
-# Backup keys and config
-sudo cp /etc/wireguard/wg0.conf /home/severin/dev/r2d2/vpn_config/wg0.conf.backup
-sudo cp /etc/wireguard/*.key /home/severin/dev/r2d2/vpn_config/keys_backup/
-```
+To add additional devices (phone, tablet, etc.):
 
-**⚠️ Important:** Keep backups secure! These contain private keys.
+1. **Install Tailscale** on the new device
+2. **Sign in** with the same account
+3. **Device automatically joins** your Tailscale network
+4. **Access from anywhere** using the device's Tailscale IP
 
 ---
 
@@ -696,80 +559,85 @@ sudo cp /etc/wireguard/*.key /home/severin/dev/r2d2/vpn_config/keys_backup/
 
 ### Essential Commands
 
+**On Jetson:**
 ```bash
-# Start VPN
-sudo systemctl start wg-quick@wg0
+# Status
+tailscale status
 
-# Stop VPN
-sudo systemctl stop wg-quick@wg0
+# Get IP
+tailscale ip -4
 
-# Restart VPN
-sudo systemctl restart wg-quick@wg0
+# Service management
+sudo systemctl status tailscaled
+sudo systemctl restart tailscaled
+```
 
-# Check status
-sudo systemctl status wg-quick@wg0
-sudo wg show
+**On Windows:**
+```powershell
+# SSH connection
+ssh jetson-tailscale
 
-# View logs
-sudo journalctl -u wg-quick@wg0 -f
-
-# Check connection
-cd /home/severin/dev/r2d2/vpn_config
-bash check_vpn_status.sh
+# Or direct IP
+ssh severin@100.95.133.26
 ```
 
 ### File Locations
 
-| File | Location | Purpose |
-|------|----------|---------|
-| **Server Config** | `/etc/wireguard/wg0.conf` | WireGuard server configuration |
-| **Server Keys** | `/etc/wireguard/server_*.key` | Server private/public keys |
-| **Client Config** | `/home/severin/dev/r2d2/vpn_config/client_wg0.conf` | Client configuration (transfer to Windows) |
-| **Setup Script** | `/home/severin/dev/r2d2/vpn_config/setup_wireguard.sh` | Automated setup script |
-| **Status Script** | `/home/severin/dev/r2d2/vpn_config/check_vpn_status.sh` | Status checking script |
+| Item | Location | Notes |
+|------|----------|-------|
+| **Tailscale Config** | Managed by Tailscale | No manual config needed |
+| **SSH Config (Windows)** | `C:\Users\SeverinLeuenberger\.ssh\config` | Contains Tailscale host entry |
+| **Tailscale Service** | `/lib/systemd/system/tailscaled.service` | Systemd service file |
 
 ### Network Addresses
 
-- **VPN Server (Jetson):** `10.8.0.1`
-- **VPN Client (Windows):** `10.8.0.2`
-- **WireGuard Port:** `51820/UDP`
-- **SSH Port:** `22/TCP` (accessed via VPN)
+- **Jetson Tailscale IP:** `100.95.133.26` (may change - check with `tailscale ip -4`)
+- **Windows Tailscale IP:** `100.100.52.23` (may change)
+- **SSH Port:** `22/TCP` (accessed via Tailscale)
 
 ---
 
 ## Support & Resources
 
-### Documentation
-- **WireGuard Official:** https://www.wireguard.com/
-- **WireGuard Quick Start:** https://www.wireguard.com/quickstart/
-- **R2D2 Project:** See `001_ARCHITECTURE_OVERVIEW.md` for system context
-
-### Common Issues
-- See **Troubleshooting** section above
-- Check WireGuard logs: `sudo journalctl -u wg-quick@wg0 -n 50`
-- Verify router port forwarding with online port checker
+### Tailscale Resources
+- **Official Website:** https://tailscale.com/
+- **Documentation:** https://tailscale.com/kb/
+- **Admin Console:** https://login.tailscale.com/admin/machines
+- **Download:** https://tailscale.com/download/
 
 ### Getting Help
-1. Check troubleshooting section
-2. Review WireGuard logs
-3. Test connection from different network
-4. Verify router configuration
+1. Check Tailscale status on both devices
+2. Verify devices in admin console
+3. Check troubleshooting section above
+4. Tailscale documentation: https://tailscale.com/kb/
 
 ---
 
 ## Success Criteria
 
-✅ **VPN tunnel establishes successfully from laptop**  
-✅ **SSH connection works through VPN (VS Code Remote SSH functional)**  
-✅ **No direct SSH exposure to Internet**  
-✅ **Connection stable and low-latency**
+✅ **Tailscale installed on Jetson**  
+✅ **Tailscale installed on Windows**  
+✅ **Both devices connected to Tailscale network**  
+✅ **SSH connection works through Tailscale**  
+✅ **VS Code Remote SSH works through Tailscale**  
+✅ **No router configuration needed**  
+✅ **Works from anywhere in the world**
+
+**All criteria met!** 🎉
+
+---
+
+## Related Documentation
+
+- `vpn_config/WIREGUARD_CLEANUP_GUIDE.md` - WireGuard removal instructions (for reference)
+- `vpn_config/TAILSCALE_SETUP_GUIDE.md` - Quick setup reference
+- `vpn_config/README_VPN_SOLUTION.md` - Quick reference summary
+- `000_INTERNAL_AGENT_NOTES.md` - Development environment setup
+- `001_ARCHITECTURE_OVERVIEW.md` - System architecture
 
 ---
 
 **Created:** December 10, 2025  
-**Last Updated:** December 10, 2025  
-**Related Documents:**
-- `000_INTERNAL_AGENT_NOTES.md` - Development environment setup
-- `001_ARCHITECTURE_OVERVIEW.md` - System architecture
-- `010_PROJECT_GOALS_AND_SETUP.md` - Project setup guide
-
+**Last Updated:** December 11, 2025  
+**Status:** ✅ Production Ready  
+**Solution:** Tailscale VPN
