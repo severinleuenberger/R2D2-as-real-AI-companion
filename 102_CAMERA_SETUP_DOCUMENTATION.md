@@ -776,7 +776,7 @@ With the camera fully operational, the next phases involve building perception a
 
 ### Perception Pipeline & Face Recognition System
 
-See: **[`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)** for complete perception pipeline and face recognition system including:
+See: **[`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md)** for complete perception pipeline, face recognition, and audio notification system including:
 - **Perception Pipeline:** Image listener node with frame capture, brightness metrics, FPS monitoring, and debug frame capture
 - **Face Recognition:** Personal face identification via LBPH recognizer
 - **ROS 2 Integration:** Topics `/r2d2/perception/person_id`, `/r2d2/perception/face_confidence`, `/r2d2/perception/brightness`
@@ -786,10 +786,8 @@ See: **[`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md)** 
 
 **System Flow:**
 ```
-OAK-D Lite Camera (this document)
+OAK-D Lite Camera (this document - 102_)
     ↓
-ROS 2 Perception Pipeline & Face Recognition (040_FACE_RECOGNITION_COMPLETE.md)
-    ↓
-Audio Integration (060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
+Complete Person Recognition & Audio System (100_PERSON_RECOGNITION_AND_STATUS.md)
 ```
 

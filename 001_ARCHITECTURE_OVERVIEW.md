@@ -473,7 +473,7 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 }
 ```
 
-**For detailed state machine documentation, see:** [`070_PERSON_RECOGNITION_STATUS.md`](070_PERSON_RECOGNITION_STATUS.md) ⭐ **Master Reference**
+**For complete person recognition and status system setup, see:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) ⭐ **Complete Setup Guide**
 
 ### 4.2 Audio Notification Components
 
@@ -496,7 +496,7 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 - Tracks recognition events for conversation history
 - Future: SQLite database for analytics and memory
 
-**For detailed audio system documentation, see:** [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
+**For complete system setup including audio, see:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md)
 
 ---
 
@@ -670,7 +670,7 @@ EXAMPLES:
     target_person:=alice
 ```
 
-**For complete parameter documentation, see:** [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) (Section: Configuration)
+**For complete parameter documentation, see:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) (Section: Configuration & Tuning)
 
 ### 6.3 Complete Parameter Reference
 
@@ -902,10 +902,10 @@ HARDWARE CONTROL:
 
 DOCUMENTATION:
   ~/dev/r2d2/041_CAMERA_SETUP_DOCUMENTATION.md
-  ~/dev/r2d2/040_FACE_RECOGNITION_COMPLETE.md (includes perception pipeline)
-  ~/dev/r2d2/050_AUDIO_SETUP_AND_CONFIGURATION.md
-  ~/dev/r2d2/060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md
-  ~/dev/r2d2/070_PERSON_RECOGNITION_STATUS.md (⭐ Master reference for state machine)
+  ~/dev/r2d2/100_PERSON_RECOGNITION_AND_STATUS.md (⭐ Complete setup guide)
+  ~/dev/r2d2/102_CAMERA_SETUP_DOCUMENTATION.md (Camera hardware - prerequisite)
+  ~/dev/r2d2/101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md (Audio hardware - prerequisite)
+  ~/dev/r2d2/050_AUDIO_SETUP_AND_CONFIGURATION.md (Alternative audio documentation)
   ~/dev/r2d2/080_POWER_BUTTON_FINAL_DOCUMENTATION.md
   ~/dev/r2d2/100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md
 ```
@@ -955,9 +955,9 @@ sudo systemctl status r2d2-powerbutton.service
 4. **Monitor**: Use provided commands to track performance
 
 **Next Documents:**
-- `010_PROJECT_GOALS_AND_SETUP.md` - Project roadmap and setup
-- `070_PERSON_RECOGNITION_STATUS.md` - ⭐ Master reference for state machine
-- `060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md` - Audio system details
+- `100_PERSON_RECOGNITION_AND_STATUS.md` - ⭐ Complete setup guide for person recognition and status system
+- `102_CAMERA_SETUP_DOCUMENTATION.md` - Camera hardware setup (prerequisite for 100_)
+- `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` - Audio hardware setup (prerequisite for 100_)
 - `100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md` - Phase 2 planning
 - `QUICK_START.md` - Quick reference guide
 
@@ -966,11 +966,10 @@ sudo systemctl status r2d2-powerbutton.service
 ## Related Documentation
 
 **Component-Specific Documentation:**
-- **Camera Setup:** [`041_CAMERA_SETUP_DOCUMENTATION.md`](041_CAMERA_SETUP_DOCUMENTATION.md)
-- **Perception Pipeline & Face Recognition:** [`040_FACE_RECOGNITION_COMPLETE.md`](040_FACE_RECOGNITION_COMPLETE.md) (includes both)
-- **Audio Hardware:** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
-- **Audio ROS 2 Integration:** [`060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md`](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md)
-- **State Machine (Master):** [`070_PERSON_RECOGNITION_STATUS.md`](070_PERSON_RECOGNITION_STATUS.md) ⭐
+- **Complete Person Recognition & Status System:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) ⭐ **Complete Setup Guide**
+- **Camera Setup:** [`102_CAMERA_SETUP_DOCUMENTATION.md`](102_CAMERA_SETUP_DOCUMENTATION.md)
+- **Audio Hardware:** [`101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md`](101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md)
+- **Audio Hardware (Alternative):** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
 - **Power Button:** [`080_POWER_BUTTON_FINAL_DOCUMENTATION.md`](080_POWER_BUTTON_FINAL_DOCUMENTATION.md)
 - **Phase 2 Architecture:** [`100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](100_PHASE_2_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
 

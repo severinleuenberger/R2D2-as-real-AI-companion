@@ -10,7 +10,9 @@
 
 This document covers the **hardware setup** for R2D2's audio output system, including physical wiring, ALSA configuration, and basic audio testing. This is the foundation that enables all audio notifications and alerts.
 
-**For ROS 2 audio integration and notifications**, see: [`010_PERSON_RECOGNITION_STATUS.md`](010_PERSON_RECOGNITION_STATUS.md)
+**For ROS 2 audio integration and notifications**, see: [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md)
+
+**Note:** This document (101_) covers hardware setup only. The complete system setup guide is in document 100_.
 
 ---
 
@@ -486,5 +488,5 @@ Before declaring the audio setup complete, verify:
 **Last Updated:** December 8, 2025  
 **Author:** Claude (AI Assistant)  
 **Status:** Ready for testing and feedback  
-**Related:** [`010_PERSON_RECOGNITION_STATUS.md`](010_PERSON_RECOGNITION_STATUS.md) for ROS 2 integration
+**Related:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) for complete ROS 2 integration and system setup
 
