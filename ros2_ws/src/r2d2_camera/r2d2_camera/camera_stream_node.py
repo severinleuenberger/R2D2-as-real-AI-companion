@@ -172,10 +172,15 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info('Shutting down camera stream node...')
+    except Exception as e:
+        node.get_logger().error(f'Error in camera stream node: {e}')
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.destroy_node()
+            rclpy.shutdown()
+        except:
+            pass
 
 
 if __name__ == '__main__':

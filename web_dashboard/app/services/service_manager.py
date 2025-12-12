@@ -59,10 +59,12 @@ class ServiceManager:
     
     def get_all_services_status(self) -> Dict[str, Dict]:
         """Get status of all R2D2 services"""
-        return {
-            service_name: self.get_status(service_name)
-            for service_name in SERVICES.keys()
-        }
+        result = {}
+        for service_name in SERVICES.keys():
+            status = self.get_status(service_name)
+            # Include all services, even if they have errors (so UI can show them)
+            result[service_name] = status
+        return result
     
     def start_service(self, service_name: str) -> Dict[str, any]:
         """
