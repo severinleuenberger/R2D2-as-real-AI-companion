@@ -376,21 +376,27 @@ async function startCameraStream() {
         const response = await fetch(`${API_BASE_URL}/services/stream/start`, {
             method: 'POST'
         });
+        
+        // Check if response is OK (status 200-299)
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            alert(`Failed to start stream: ${errorMsg}`);
+            return;
+        }
+        
         const result = await response.json();
         
-        if (result.success) {
-            addStreamMessage('status', 'Camera stream mode started (recognition services stopped)');
-            setTimeout(() => {
-                loadServices();
-                updateModeDisplay();
-                updateCommandHints();
-            }, 1000);
-        } else {
-            alert(`Failed to start stream: ${result.error || 'Unknown error'}`);
-        }
+        // Success - update UI
+        addStreamMessage('status', 'Camera stream mode started (recognition services stopped)');
+        setTimeout(() => {
+            loadServices();
+            updateModeDisplay();
+            updateCommandHints();
+        }, 1000);
     } catch (error) {
         console.error('Failed to start stream:', error);
-        alert('Failed to start stream');
+        alert(`Failed to start stream: ${error.message || 'Network error'}`);
     }
 }
 
@@ -399,49 +405,90 @@ async function stopCameraStream() {
         const response = await fetch(`${API_BASE_URL}/services/stream/stop`, {
             method: 'POST'
         });
+        
+        // Check if response is OK (status 200-299)
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            alert(`Failed to stop stream: ${errorMsg}`);
+            return;
+        }
+        
         const result = await response.json();
         
-        if (result.success) {
-            addStreamMessage('status', 'Camera stream stopped');
-            setTimeout(() => {
-                loadServices();
-                updateModeDisplay();
-                updateCommandHints();
-            }, 1000);
-        } else {
-            alert(`Failed to stop stream: ${result.error || 'Unknown error'}`);
-        }
+        // Success - update UI
+        addStreamMessage('status', 'Camera stream stopped');
+        setTimeout(() => {
+            loadServices();
+            updateModeDisplay();
+            updateCommandHints();
+        }, 1000);
     } catch (error) {
         console.error('Failed to stop stream:', error);
-        alert('Failed to stop stream');
+        alert(`Failed to stop stream: ${error.message || 'Network error'}`);
     }
 }
 
 // Recognition Mode Functions
 async function startRecognitionMode() {
+    // #region agent log
+    try {
+        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:417',message:'startRecognitionMode called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
+    } catch(e) {}
+    // #endregion
+    
     try {
         const response = await fetch(`${API_BASE_URL}/services/recognition/start`, {
             method: 'POST'
         });
+        
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:425',message:'Response received',data:{status:response.status,ok:response.ok},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
+        
+        // Check if response is OK (status 200-299)
+        if (!response.ok) {
+            // HTTP error - parse error detail
+            const errorData = await response.json();
+            const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            // #region agent log
+            try {
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:433',message:'HTTP error response',data:{status:response.status,errorMsg:errorMsg},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
+            } catch(e) {}
+            // #endregion
+            alert(`Failed to start recognition: ${errorMsg}`);
+            return;
+        }
+        
         const result = await response.json();
         
-        if (result.success) {
-            addStreamMessage('status', 'Recognition mode started (stream service stopped)');
-            setTimeout(() => {
-                loadServices();
-                updateModeDisplay();
-                updateCommandHints();
-                // Re-enable recognition status updates
-                if (ros && ros.isConnected) {
-                    subscribeToTopics();
-                }
-            }, 1000);
-        } else {
-            alert(`Failed to start recognition: ${result.error || 'Unknown error'}`);
-        }
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:442',message:'Result parsed',data:{success:result.success,error:result.error,detail:result.detail,keys:Object.keys(result)},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
+        
+        // Success - update UI
+        addStreamMessage('status', 'Recognition mode started (stream service stopped)');
+        setTimeout(() => {
+            loadServices();
+            updateModeDisplay();
+            updateCommandHints();
+            // Re-enable recognition status updates
+            if (ros && ros.isConnected) {
+                subscribeToTopics();
+            }
+        }, 1000);
     } catch (error) {
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:459',message:'Exception caught',data:{error:error.message,type:error.constructor.name},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
         console.error('Failed to start recognition:', error);
-        alert('Failed to start recognition');
+        alert(`Failed to start recognition: ${error.message || 'Network error'}`);
     }
 }
 
@@ -450,21 +497,28 @@ async function stopRecognitionMode() {
         const response = await fetch(`${API_BASE_URL}/services/recognition/stop`, {
             method: 'POST'
         });
+        
+        // Check if response is OK (status 200-299)
+        if (!response.ok) {
+            // HTTP error - parse error detail
+            const errorData = await response.json();
+            const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            alert(`Failed to stop recognition: ${errorMsg}`);
+            return;
+        }
+        
         const result = await response.json();
         
-        if (result.success) {
-            addStreamMessage('status', 'Recognition mode stopped');
-            setTimeout(() => {
-                loadServices();
-                updateModeDisplay();
-                updateCommandHints();
-            }, 1000);
-        } else {
-            alert(`Failed to stop recognition: ${result.error || 'Unknown error'}`);
-        }
+        // Success - update UI
+        addStreamMessage('status', 'Recognition mode stopped');
+        setTimeout(() => {
+            loadServices();
+            updateModeDisplay();
+            updateCommandHints();
+        }, 1000);
     } catch (error) {
         console.error('Failed to stop recognition:', error);
-        alert('Failed to stop recognition');
+        alert(`Failed to stop recognition: ${error.message || 'Network error'}`);
     }
 }
 
@@ -881,6 +935,12 @@ function updateHealthDisplay(heartbeatData) {
 // Stream Messages
 function addStreamMessage(type, message) {
     const container = document.getElementById('stream-container');
+    if (!container) {
+        // Stream container doesn't exist in new layout - just log to console
+        console.log(`[${type}] ${message}`);
+        return;
+    }
+    
     const messageDiv = document.createElement('div');
     messageDiv.className = `stream-message ${type}`;
     
