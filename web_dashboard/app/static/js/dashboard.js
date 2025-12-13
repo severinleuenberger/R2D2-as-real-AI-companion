@@ -25,7 +25,7 @@ let storedIntervals = [];
 
 // Generate unique ID for this window instance
 function generateUniqueId() {
-    return `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `instance_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 // Window Instance Manager Class
@@ -47,16 +47,20 @@ class WindowInstanceManager {
         try {
             this.broadcastChannel = new BroadcastChannel('r2d2-dashboard');
             this.broadcastChannel.onmessage = (event) => {
+                if (!event || !event.data) return;
+                
                 if (event.data.type === 'active' && event.data.instanceId !== this.instanceId) {
                     // Another window became active
                     this.becomeInactive();
                 } else if (event.data.type === 'ping') {
                     // Respond to ping to show we're alive
-                    this.broadcastChannel.postMessage({ 
-                        type: 'pong', 
-                        instanceId: this.instanceId,
-                        isActive: this.isActive 
-                    });
+                    if (this.broadcastChannel) {
+                        this.broadcastChannel.postMessage({ 
+                            type: 'pong', 
+                            instanceId: this.instanceId,
+                            isActive: this.isActive 
+                        });
+                    }
                 }
             };
         } catch (error) {
@@ -77,19 +81,26 @@ class WindowInstanceManager {
     setupListeners() {
         // Listen for focus events
         window.addEventListener('focus', () => {
-            clearTimeout(this.focusTimeout);
+            if (this.focusTimeout) {
+                clearTimeout(this.focusTimeout);
+            }
             this.focusTimeout = setTimeout(() => this.becomeActive(), 100);
         });
         
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                clearTimeout(this.focusTimeout);
+                if (this.focusTimeout) {
+                    clearTimeout(this.focusTimeout);
+                }
                 this.focusTimeout = setTimeout(() => this.becomeActive(), 100);
             }
         });
         
         // Handle window close
         window.addEventListener('beforeunload', () => {
+            if (this.focusTimeout) {
+                clearTimeout(this.focusTimeout);
+            }
             if (this.broadcastChannel) {
                 this.broadcastChannel.close();
             }
@@ -145,8 +156,9 @@ class WindowInstanceManager {
         const instanceStatusEl = document.getElementById('instance-status');
         
         if (instanceIdEl) {
-            // Show short version of instance ID
-            const shortId = this.instanceId.split('_')[2] || this.instanceId.substring(0, 8);
+            // Show short version of instance ID (last part after second underscore)
+            const parts = this.instanceId.split('_');
+            const shortId = parts.length > 2 ? parts[2] : this.instanceId.substring(0, 8);
             instanceIdEl.textContent = shortId;
         }
         
@@ -211,10 +223,13 @@ function disableDashboard() {
     
     // Clear all intervals
     storedIntervals.forEach(interval => {
-        clearInterval(interval);
+        if (interval) {
+            clearInterval(interval);
+        }
     });
     storedIntervals = [];
     
+    // Clear individual interval references
     if (serviceStatusPollingInterval) {
         clearInterval(serviceStatusPollingInterval);
         serviceStatusPollingInterval = null;
@@ -1100,9 +1115,13 @@ async function confirmDelete() {
 // Heartbeat Monitoring
 function startHeartbeatMonitoring() {
     // Check heartbeat status every second
+    if (heartbeatCheckInterval) {
+        clearInterval(heartbeatCheckInterval);
+    }
     heartbeatCheckInterval = setInterval(() => {
         checkHeartbeatStatus();
     }, 1000);
+    storedIntervals.push(heartbeatCheckInterval);
 }
 
 function checkHeartbeatStatus() {
