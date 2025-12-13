@@ -46,7 +46,6 @@ class ImageListener(Node):
         self.declare_parameter('debug_gray_frame_path', '/home/severin/dev/r2d2/tests/camera/perception_debug_gray.jpg')
         self.declare_parameter('log_every_n_frames', 30)  # Log brightness every N frames
         self.declare_parameter('log_face_detections', False)  # Enable verbose face detection logging
-        self.declare_parameter('high_frequency_logging', False)  # Log every frame (for testing)
         
         # Face recognition parameters (LBPH)
         self.declare_parameter('enable_face_recognition', False)  # Enable personal face recognition
@@ -61,7 +60,6 @@ class ImageListener(Node):
         self.debug_gray_frame_path = self.get_parameter('debug_gray_frame_path').value
         self.log_every_n = self.get_parameter('log_every_n_frames').value
         self.log_faces = self.get_parameter('log_face_detections').value
-        self.high_freq_logging = self.get_parameter('high_frequency_logging').value
         
         # Face recognition parameters
         self.enable_recognition = self.get_parameter('enable_face_recognition').value
@@ -260,7 +258,7 @@ class ImageListener(Node):
                         person_name = self.target_person_name if is_target_person else "unknown"
                         
                         # Debug log confidence
-                        self.get_logger().info(f"Face detected: label={label}, confidence={confidence:.2f}, threshold={self.recognition_threshold}, recognized={person_name}")
+                        self.get_logger().debug(f"Face detected: label={label}, confidence={confidence:.2f}, threshold={self.recognition_threshold}, recognized={person_name}")
                         
                         # Publish person ID
                         person_id_msg = String()
@@ -280,22 +278,13 @@ class ImageListener(Node):
                     except Exception as e:
                         self.get_logger().error(f'Face recognition failed: {e}')
         
-        # Determine logging frequency
-        log_this_frame = False
-        if self.high_freq_logging:
-            # Log every frame when high frequency logging is enabled
-            log_this_frame = True
-        elif self.frame_count % self.log_every_n == 0:
-            # Otherwise log based on log_every_n parameter
-            log_this_frame = True
-        
-        # Log frame data if conditions are met
-        if log_this_frame:
+        # Log frame data periodically based on log_every_n parameter
+        if self.frame_count % self.log_every_n == 0:
             current_time = time.time()
             elapsed = current_time - self.last_log_time
             
-            if elapsed >= 1.0 or self.high_freq_logging:
-                # Calculate FPS for this time window (or per-frame for high frequency)
+            if elapsed >= 1.0:
+                # Calculate FPS for this time window
                 fps = self.fps_frame_count / elapsed if elapsed > 0 else 0
                 self.get_logger().info(
                     f'Frame #{self.frame_count} | FPS: {fps:.2f} | '
@@ -310,10 +299,9 @@ class ImageListener(Node):
                             f'  Face {i+1}: position=({x}, {y}), size={w}x{h}'
                         )
                 
-                # Reset counters for next window (only if not high frequency)
-                if not self.high_freq_logging:
-                    self.last_log_time = current_time
-                    self.fps_frame_count = 0
+                # Reset counters for next window
+                self.last_log_time = current_time
+                self.fps_frame_count = 0
         
         # Save RGB debug frame once (first frame)
         if not self.debug_rgb_saved:
