@@ -431,44 +431,18 @@ async function stopCameraStream() {
 
 // Recognition Mode Functions
 async function startRecognitionMode() {
-    // #region agent log
-    try {
-        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:417',message:'startRecognitionMode called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
-    } catch(e) {}
-    // #endregion
-    
     try {
         const response = await fetch(`${API_BASE_URL}/services/recognition/start`, {
             method: 'POST'
         });
         
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:425',message:'Response received',data:{status:response.status,ok:response.ok},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
-        
         // Check if response is OK (status 200-299)
         if (!response.ok) {
-            // HTTP error - parse error detail
             const errorData = await response.json();
             const errorMsg = errorData.detail || errorData.error || 'Unknown error';
-            // #region agent log
-            try {
-                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:433',message:'HTTP error response',data:{status:response.status,errorMsg:errorMsg},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
-            } catch(e) {}
-            // #endregion
             alert(`Failed to start recognition: ${errorMsg}`);
             return;
         }
-        
-        const result = await response.json();
-        
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:442',message:'Result parsed',data:{success:result.success,error:result.error,detail:result.detail,keys:Object.keys(result)},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
         
         // Success - update UI
         addStreamMessage('status', 'Recognition mode started (stream service stopped)');
@@ -482,11 +456,6 @@ async function startRecognitionMode() {
             }
         }, 1000);
     } catch (error) {
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:459',message:'Exception caught',data:{error:error.message,type:error.constructor.name},"timestamp":Date.now(),sessionId:'debug-session',runId:'recognition-start',hypothesisId:'D'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
         console.error('Failed to start recognition:', error);
         alert(`Failed to start recognition: ${error.message || 'Network error'}`);
     }

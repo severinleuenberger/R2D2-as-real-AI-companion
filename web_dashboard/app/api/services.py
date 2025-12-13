@@ -18,47 +18,11 @@ async def get_all_services_status():
 @router.post("/recognition/start")
 async def start_recognition_mode():
     """Start recognition mode (stops stream, starts camera-perception + audio)"""
-    import json
-    import traceback
-    from datetime import datetime
-    
-    # #region agent log
-    try:
-        with open('/home/severin/.cursor/debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"recognition-start","hypothesisId":"A","location":"services.py:59","message":"Recognition start endpoint called","data":{},"timestamp":int(datetime.now().timestamp()*1000)}) + "\n")
-    except: pass
-    # #endregion
-    
-    try:
-        result = service_manager.start_recognition_mode()
-        
-        # #region agent log
-        try:
-            with open('/home/severin/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"recognition-start","hypothesisId":"A","location":"services.py:67","message":"Service manager result","data":{"success":result.get("success"),"error":result.get("error"),"message":result.get("message")},"timestamp":int(datetime.now().timestamp()*1000)}) + "\n")
-        except: pass
-        # #endregion
-        
-        if not result.get("success"):
-            error_msg = result.get("error", "Unknown error")
-            # #region agent log
-            try:
-                with open('/home/severin/.cursor/debug.log', 'a') as f:
-                    f.write(json.dumps({"sessionId":"debug-session","runId":"recognition-start","hypothesisId":"A","location":"services.py:73","message":"Raising HTTPException","data":{"error":error_msg,"result_keys":list(result.keys())},"timestamp":int(datetime.now().timestamp()*1000)}) + "\n")
-            except: pass
-            # #endregion
-            raise HTTPException(status_code=500, detail=error_msg)
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        # #region agent log
-        try:
-            with open('/home/severin/.cursor/debug.log', 'a') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"recognition-start","hypothesisId":"B","location":"services.py:81","message":"Exception in recognition start","data":{"error":str(e),"type":type(e).__name__,"traceback":traceback.format_exc()},"timestamp":int(datetime.now().timestamp()*1000)}) + "\n")
-        except: pass
-        # #endregion
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    result = service_manager.start_recognition_mode()
+    if not result.get("success"):
+        error_msg = result.get("error", "Unknown error")
+        raise HTTPException(status_code=500, detail=error_msg)
+    return result
 
 
 @router.post("/recognition/stop")
