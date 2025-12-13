@@ -37,6 +37,8 @@ class WindowInstanceManager {
         this.focusTimeout = null;
         this.setupBroadcastChannel();
         this.setupListeners();
+        // Update display immediately
+        this.updateInstanceDisplay();
         // Announce ourselves as active on startup
         this.becomeActive();
     }
@@ -45,8 +47,19 @@ class WindowInstanceManager {
         try {
             this.broadcastChannel = new BroadcastChannel('r2d2-dashboard');
             this.broadcastChannel.onmessage = (event) => {
+                // #region agent log
+                try {
+                    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:44',message:'BroadcastChannel message received',data:{type:event.data.type,fromInstance:event.data.instanceId,myInstance:this.instanceId},timestamp:Date.now(),sessionId:'debug-session',runId:'instance-debug',hypothesisId:'A'})}).catch(()=>{});
+                } catch(e) {}
+                // #endregion
+                
                 if (event.data.type === 'active' && event.data.instanceId !== this.instanceId) {
                     // Another window became active
+                    // #region agent log
+                    try {
+                        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:50',message:'Another instance became active',data:{otherInstance:event.data.instanceId,myInstance:this.instanceId},timestamp:Date.now(),sessionId:'debug-session',runId:'instance-debug',hypothesisId:'A'})}).catch(()=>{});
+                    } catch(e) {}
+                    // #endregion
                     this.becomeInactive();
                 } else if (event.data.type === 'ping') {
                     // Respond to ping to show we're alive
@@ -95,12 +108,34 @@ class WindowInstanceManager {
     }
     
     becomeActive() {
-        if (this.isActive) return; // Already active
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:97',message:'becomeActive called',data:{instanceId:this.instanceId,wasActive:this.isActive},timestamp:Date.now(),sessionId:'debug-session',runId:'instance-debug',hypothesisId:'A'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
+        
+        if (this.isActive) {
+            // Already active, but still broadcast to notify others
+            if (this.broadcastChannel) {
+                this.broadcastChannel.postMessage({ 
+                    type: 'active', 
+                    instanceId: this.instanceId,
+                    timestamp: Date.now()
+                });
+            }
+            return;
+        }
         
         this.isActive = true;
+        this.updateInstanceDisplay();
         
         // Broadcast that we're active
         if (this.broadcastChannel) {
+            // #region agent log
+            try {
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:115',message:'Broadcasting active status',data:{instanceId:this.instanceId},timestamp:Date.now(),sessionId:'debug-session',runId:'instance-debug',hypothesisId:'A'})}).catch(()=>{});
+            } catch(e) {}
+            // #endregion
             this.broadcastChannel.postMessage({ 
                 type: 'active', 
                 instanceId: this.instanceId,
@@ -120,10 +155,33 @@ class WindowInstanceManager {
     }
     
     becomeInactive() {
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:133',message:'becomeInactive called',data:{instanceId:this.instanceId,wasActive:this.isActive},timestamp:Date.now(),sessionId:'debug-session',runId:'instance-debug',hypothesisId:'A'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
+        
         if (!this.isActive) return; // Already inactive
         
         this.isActive = false;
+        this.updateInstanceDisplay();
         disableDashboard();
+    }
+    
+    updateInstanceDisplay() {
+        const instanceIdEl = document.getElementById('instance-id');
+        const instanceStatusEl = document.getElementById('instance-status');
+        
+        if (instanceIdEl) {
+            // Show short version of instance ID
+            const shortId = this.instanceId.split('_')[2] || this.instanceId.substring(0, 8);
+            instanceIdEl.textContent = shortId;
+        }
+        
+        if (instanceStatusEl) {
+            instanceStatusEl.textContent = this.isActive ? 'ACTIVE' : 'INACTIVE';
+            instanceStatusEl.className = `instance-status ${this.isActive ? 'active' : 'inactive'}`;
+        }
     }
     
     takeControl() {

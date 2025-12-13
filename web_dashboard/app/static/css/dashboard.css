@@ -47,6 +47,52 @@ body {
     font-weight: 600;
 }
 
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.instance-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-family: monospace;
+    color: #00d4ff;
+    padding: 4px 8px;
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 4px;
+}
+
+.instance-label {
+    color: #888;
+}
+
+.instance-id {
+    color: #00d4ff;
+    font-weight: bold;
+}
+
+.instance-status {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.instance-status.active {
+    background: rgba(0, 255, 0, 0.2);
+    color: #00ff00;
+}
+
+.instance-status.inactive {
+    background: rgba(255, 0, 0, 0.2);
+    color: #ff6666;
+}
+
 .connection-status {
     display: flex;
     flex-direction: column;

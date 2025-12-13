@@ -11,12 +11,19 @@
     <div class="dashboard-container">
         <header class="dashboard-header">
             <h1>🤖 R2D2 System Monitor</h1>
-            <div class="connection-status" id="connection-status">
-                <div>
-                    <span class="status-indicator" id="ros-status">●</span>
-                    <span id="ros-status-text">Connecting...</span>
+            <div class="header-right">
+                <div class="instance-info" id="instance-info">
+                    <span class="instance-label">Instance:</span>
+                    <span class="instance-id" id="instance-id">--</span>
+                    <span class="instance-status" id="instance-status">--</span>
                 </div>
-                <span id="ros-status-details" class="status-details-text"></span>
+                <div class="connection-status" id="connection-status">
+                    <div>
+                        <span class="status-indicator" id="ros-status">●</span>
+                        <span id="ros-status-text">Connecting...</span>
+                    </div>
+                    <span id="ros-status-details" class="status-details-text"></span>
+                </div>
             </div>
         </header>
 
