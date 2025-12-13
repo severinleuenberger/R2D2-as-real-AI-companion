@@ -26,11 +26,8 @@ import subprocess
 import time
 from pathlib import Path
 from typing import Optional
-import sys
-import os
 from dataclasses import dataclass, asdict
 import json
-from builtin_interfaces.msg import Time as RosTime
 
 
 # Simple PersonStatus data class (alternative to ROS message)
@@ -401,7 +398,7 @@ class AudioNotificationNode(Node):
             return
         
         try:
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"🔊 Playing {alert_type} audio: {audio_file.name} (volume {self.audio_volume*100:.0f}%)"
             )
             

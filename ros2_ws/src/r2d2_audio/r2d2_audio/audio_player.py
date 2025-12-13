@@ -104,18 +104,14 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
             env['AUDIODEV'] = device
         
         # Run player without blocking (detach from parent process)
-        # Capture stderr to help with debugging
+        # Note: Errors from detached process are not captured (acceptable for background playback)
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,  # Capture stderr for debugging
+            stderr=subprocess.DEVNULL,
             env=env,
             start_new_session=True
         )
-        
-        # Log any errors (non-blocking check)
-        # Note: We can't easily read stderr from a detached process, so errors will be lost
-        # But this is acceptable for background audio playback
         
         return True
         

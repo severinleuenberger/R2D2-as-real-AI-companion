@@ -16,7 +16,6 @@ from rclpy.node import Node
 from std_msgs.msg import String
 import json
 import time
-from typing import Optional, Dict, Any
 
 try:
     import RPi.GPIO as GPIO
@@ -119,7 +118,7 @@ class StatusLEDNode(Node):
             
             duration = status_data.get('duration_in_state', 0)
             confidence = status_data.get('confidence', 0)
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"🔄 LED Update: {self.current_status.upper()} | Person: {self.current_person} | "
                 f"Confidence: {confidence*100:.0f}% | Duration: {duration:.1f}s"
             )
