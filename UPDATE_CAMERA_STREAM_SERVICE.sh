@@ -23,3 +23,5 @@ echo ""
 echo "Or check status:"
 echo "  sudo systemctl status r2d2-camera-stream.service"
 
+
+

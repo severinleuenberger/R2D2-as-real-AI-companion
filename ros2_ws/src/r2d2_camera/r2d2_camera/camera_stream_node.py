@@ -168,22 +168,28 @@ class CameraStreamNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CameraStreamNode()
+    node = None
     try:
+        node = CameraStreamNode()
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info('Shutting down camera stream node...')
+        if node:
+            node.get_logger().info('Shutting down camera stream node...')
     except Exception as e:
-        node.get_logger().error(f'Error in camera stream node: {e}')
+        if node:
+            node.get_logger().error(f'Error in camera stream node: {e}')
+        else:
+            print(f'Error creating camera stream node: {e}')
     finally:
         try:
             if node:
                 node.destroy_node()
-        except:
-            pass
+        except Exception as e:
+            print(f'Error destroying node: {e}')
         try:
             rclpy.shutdown()
-        except:
+        except Exception as e:
+            # Ignore shutdown errors (context may already be shut down)
             pass
 
 

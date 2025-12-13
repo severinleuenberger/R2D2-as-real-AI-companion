@@ -48,3 +48,63 @@ async def restart_service(service_name: str):
     return result
 
 
+@router.get("/{service_name}/command/{action}")
+async def get_service_command(service_name: str, action: str):
+    """Get command-line instruction for a service action"""
+    command = service_manager.get_service_command(service_name, action)
+    return {"command": command}
+
+
+@router.post("/recognition/start")
+async def start_recognition_mode():
+    """Start recognition mode (stops stream, starts camera-perception + audio)"""
+    result = service_manager.start_recognition_mode()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+    return result
+
+
+@router.post("/recognition/stop")
+async def stop_recognition_mode():
+    """Stop recognition mode (stops camera-perception + audio)"""
+    result = service_manager.stop_recognition_mode()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+    return result
+
+
+@router.get("/recognition/command/{action}")
+async def get_recognition_command(action: str):
+    """Get command-line instruction for recognition mode"""
+    if action not in ["start", "stop"]:
+        raise HTTPException(status_code=400, detail="Action must be 'start' or 'stop'")
+    command = service_manager.get_recognition_mode_command(action)
+    return {"command": command}
+
+
+@router.post("/stream/start")
+async def start_stream_mode():
+    """Start stream mode (stops recognition, starts stream)"""
+    result = service_manager.start_stream_mode()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+    return result
+
+
+@router.post("/stream/stop")
+async def stop_stream_mode():
+    """Stop stream mode (stops stream)"""
+    result = service_manager.stop_stream_mode()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+    return result
+
+
+@router.get("/stream/command/{action}")
+async def get_stream_command(action: str):
+    """Get command-line instruction for stream mode"""
+    if action not in ["start", "stop"]:
+        raise HTTPException(status_code=400, detail="Action must be 'start' or 'stop'")
+    command = service_manager.get_stream_mode_command(action)
+    return {"command": command}
+

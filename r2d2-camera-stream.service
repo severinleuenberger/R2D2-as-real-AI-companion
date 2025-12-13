@@ -1,17 +1,20 @@
 [Unit]
 Description=R2D2 Camera Stream Service (MJPEG)
-After=network.target r2d2-camera-perception.service
-Wants=r2d2-camera-perception.service
+After=network.target
 Documentation=file:///home/severin/dev/r2d2/001_ARCHITECTURE_OVERVIEW.md
 
 [Service]
 Type=simple
 User=severin
 Group=severin
-WorkingDirectory=/home/severin/dev/r2d2
+WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
+Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="OPENBLAS_CORETYPE=ARMV8"
+Environment="ROS_DOMAIN_ID=0"
 
-# Use the startup script (direct node launch)
-ExecStart=/home/severin/dev/r2d2/start_camera_stream.sh
+# Use launch file (starts camera + stream together)
+ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 launch r2d2_camera camera_stream.launch.py'
 
 # Auto-restart on failure (but wait longer to avoid rapid restarts)
 Restart=on-failure

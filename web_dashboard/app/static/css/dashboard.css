@@ -105,8 +105,9 @@ body {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(3, 1fr);
+    /* Layout: Upper-left (2 compact), Upper-right (1), Center (large), Lower-right (2) */
+    grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
     gap: 10px;
     flex: 1;
     min-height: 0;
@@ -135,10 +136,45 @@ body {
     font-weight: 600;
 }
 
+/* Compact panels (upper-left and upper-right) */
+.health-panel.compact {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.metrics-panel.compact {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.status-panel.compact {
+    grid-column: 4 / 6;
+    grid-row: 1;
+}
+
+/* Center: Camera Stream (large, prominent) */
+.camera-stream-panel.center {
+    grid-column: 1 / 6;
+    grid-row: 2;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Lower-right: Service Control + Training */
+.services-panel {
+    grid-column: 1 / 3;
+    grid-row: 3;
+}
+
+.training-panel {
+    grid-column: 3 / 6;
+    grid-row: 3;
+}
+
 /* Status Display */
 .status-panel {
-    grid-column: span 2;
-    grid-row: span 1;
+    /* Default for non-compact status panel (if used elsewhere) */
 }
 
 .status-display {
@@ -192,6 +228,40 @@ body {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     font-size: 12px;
+}
+
+.status-details.compact {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    font-size: 10px;
+}
+
+.status-details.compact div {
+    padding: 4px;
+}
+
+.status-display.compact {
+    gap: 10px;
+}
+
+.status-display.compact .status-color {
+    width: 60px;
+    height: 60px;
+}
+
+.status-display.compact .status-text {
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.panel.compact {
+    padding: 8px;
+}
+
+.panel.compact h2 {
+    font-size: 14px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
 }
 
 .status-details div {
@@ -253,6 +323,21 @@ body {
 .service-controls {
     display: flex;
     gap: 5px;
+    flex-wrap: wrap;
+}
+
+.service-controls > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 80px;
+}
+
+.service-controls .command-hint {
+    max-width: 180px;
+    text-align: center;
+    font-size: 8px;
 }
 
 .btn {
@@ -526,6 +611,17 @@ body {
     grid-row: span 1;
 }
 
+.camera-stream-panel.center {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.camera-stream-panel.center .stream-container-wrapper {
+    flex: 1;
+    min-height: 0;
+}
+
 .stream-controls {
     display: flex;
     justify-content: space-between;
@@ -643,6 +739,37 @@ body {
     gap: 10px;
 }
 
+.health-metrics.compact {
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.health-metrics.compact .health-metric {
+    padding: 6px;
+}
+
+.health-metrics.compact .health-metric label {
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.health-status.compact {
+    padding: 6px;
+    margin-bottom: 6px;
+}
+
+.health-status.compact .health-indicator {
+    margin-bottom: 6px;
+}
+
+.health-status.compact .health-status-text {
+    font-size: 12px;
+}
+
+.health-status.compact .health-timestamp {
+    font-size: 9px;
+}
+
 .health-metric {
     padding: 10px;
     background: rgba(0, 168, 255, 0.05);
@@ -731,6 +858,24 @@ body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
+}
+
+.metrics-grid.compact {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.metrics-grid.compact .metric {
+    padding: 6px;
+}
+
+.metrics-grid.compact .metric label {
+    font-size: 9px;
+    margin-bottom: 3px;
+}
+
+.metrics-grid.compact .metric span {
+    font-size: 12px;
 }
 
 .metric {
@@ -861,11 +1006,75 @@ body {
     background: #00d4ff;
 }
 
+/* Command Hints */
+.command-hint {
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    color: #666;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 6px;
+    border-radius: 3px;
+    margin-top: 4px;
+    word-break: break-all;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(0, 168, 255, 0.1);
+}
+
+.command-hint:hover {
+    color: #00a8ff;
+    background: rgba(0, 168, 255, 0.1);
+    border-color: rgba(0, 168, 255, 0.3);
+}
+
+.training-command-hint {
+    font-size: 8px;
+    margin-top: 2px;
+    margin-bottom: 4px;
+}
+
+/* Recognition Controls */
+.recognition-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+}
+
+.recognition-controls .btn {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 11px;
+}
+
+/* Mode Indicator */
+.mode-indicator {
+    font-size: 10px;
+    color: #00a8ff;
+    text-align: center;
+    padding: 4px;
+    background: rgba(0, 168, 255, 0.1);
+    border-radius: 3px;
+    margin-top: 4px;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.mode-indicator.active-recognition {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.mode-indicator.active-stream {
+    color: #00a8ff;
+    background: rgba(0, 168, 255, 0.1);
+}
+
 /* Responsive - optimized for 1920x1200 */
 @media (max-width: 1920px) {
     .dashboard-grid {
-        grid-template-columns: repeat(4, 1fr);
-        grid-template-rows: repeat(3, 1fr);
+        grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+        grid-template-rows: auto 1fr auto;
     }
 }
 

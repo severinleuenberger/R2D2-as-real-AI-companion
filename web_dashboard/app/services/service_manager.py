@@ -155,4 +155,156 @@ class ServiceManager:
                 "success": False,
                 "error": f"Failed to restart {service_name}: {error_msg}"
             }
+    
+    def start_recognition_mode(self) -> Dict[str, any]:
+        """
+        Start recognition mode: stop stream, start camera-perception + audio.
+        Ensures mutual exclusivity with streaming mode.
+        """
+        errors = []
+        messages = []
+        
+        # Stop stream service first
+        stream_result = self.stop_service("camera-stream")
+        if not stream_result.get("success"):
+            errors.append(f"Failed to stop stream: {stream_result.get('error')}")
+        else:
+            messages.append("Stream stopped")
+        
+        # Start camera-perception service
+        camera_result = self.start_service("camera")
+        if not camera_result.get("success"):
+            errors.append(f"Failed to start camera: {camera_result.get('error')}")
+        else:
+            messages.append("Camera-perception started")
+        
+        # Start audio notification service
+        audio_result = self.start_service("audio")
+        if not audio_result.get("success"):
+            errors.append(f"Failed to start audio: {audio_result.get('error')}")
+        else:
+            messages.append("Audio notification started")
+        
+        if errors:
+            return {"success": False, "error": "; ".join(errors), "partial": messages}
+        return {"success": True, "message": "; ".join(messages)}
+    
+    def stop_recognition_mode(self) -> Dict[str, any]:
+        """
+        Stop recognition mode: stop camera-perception + audio.
+        """
+        errors = []
+        messages = []
+        
+        # Stop audio notification service
+        audio_result = self.stop_service("audio")
+        if not audio_result.get("success"):
+            errors.append(f"Failed to stop audio: {audio_result.get('error')}")
+        else:
+            messages.append("Audio notification stopped")
+        
+        # Stop camera-perception service
+        camera_result = self.stop_service("camera")
+        if not camera_result.get("success"):
+            errors.append(f"Failed to stop camera: {camera_result.get('error')}")
+        else:
+            messages.append("Camera-perception stopped")
+        
+        if errors:
+            return {"success": False, "error": "; ".join(errors), "partial": messages}
+        return {"success": True, "message": "; ".join(messages)}
+    
+    def start_stream_mode(self) -> Dict[str, any]:
+        """
+        Start stream mode: stop recognition services, start stream.
+        Ensures mutual exclusivity with recognition mode.
+        """
+        errors = []
+        messages = []
+        
+        # Stop recognition services first
+        recognition_result = self.stop_recognition_mode()
+        if not recognition_result.get("success"):
+            errors.append(f"Failed to stop recognition: {recognition_result.get('error')}")
+        else:
+            messages.append("Recognition services stopped")
+        
+        # Start stream service
+        stream_result = self.start_service("camera-stream")
+        if not stream_result.get("success"):
+            errors.append(f"Failed to start stream: {stream_result.get('error')}")
+        else:
+            messages.append("Camera stream started")
+        
+        if errors:
+            return {"success": False, "error": "; ".join(errors), "partial": messages}
+        return {"success": True, "message": "; ".join(messages)}
+    
+    def stop_stream_mode(self) -> Dict[str, any]:
+        """
+        Stop stream mode: stop camera-stream service.
+        """
+        return self.stop_service("camera-stream")
+    
+    def get_service_command(self, service_name: str, action: str) -> str:
+        """
+        Generate command-line instruction for a service action.
+        
+        Args:
+            service_name: Service name (e.g., "audio", "camera")
+            action: Action to perform ("start", "stop", "restart")
+        
+        Returns:
+            Executable command string
+        """
+        full_service_name = SERVICES.get(service_name)
+        if not full_service_name:
+            return f"# Unknown service: {service_name}"
+        
+        if action not in ["start", "stop", "restart"]:
+            return f"# Unknown action: {action}"
+        
+        return f"sudo systemctl {action} {full_service_name}"
+    
+    def get_recognition_mode_command(self, action: str) -> str:
+        """
+        Generate command-line instruction for recognition mode.
+        
+        Args:
+            action: "start" or "stop"
+        
+        Returns:
+            Executable command string
+        """
+        if action == "start":
+            camera_cmd = self.get_service_command("camera", "start")
+            audio_cmd = self.get_service_command("audio", "start")
+            stream_cmd = self.get_service_command("camera-stream", "stop")
+            return f"{stream_cmd} && {camera_cmd} && {audio_cmd}"
+        elif action == "stop":
+            audio_cmd = self.get_service_command("audio", "stop")
+            camera_cmd = self.get_service_command("camera", "stop")
+            return f"{audio_cmd} && {camera_cmd}"
+        else:
+            return f"# Unknown action: {action}"
+    
+    def get_stream_mode_command(self, action: str) -> str:
+        """
+        Generate command-line instruction for stream mode.
+        
+        Args:
+            action: "start" or "stop"
+        
+        Returns:
+            Executable command string
+        """
+        if action == "start":
+            stream_cmd = self.get_service_command("camera-stream", "start")
+            audio_cmd = self.get_service_command("audio", "stop")
+            camera_cmd = self.get_service_command("camera", "stop")
+            return f"{audio_cmd} && {camera_cmd} && {stream_cmd}"
+        elif action == "stop":
+            return self.get_service_command("camera-stream", "stop")
+        else:
+            return f"# Unknown action: {action}"
 

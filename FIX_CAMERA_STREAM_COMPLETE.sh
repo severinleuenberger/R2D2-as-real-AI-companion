@@ -70,3 +70,5 @@ echo "Refresh your browser at: http://100.95.133.26:8080/"
 echo "The camera stream service should now appear and be startable."
 echo ""
 
+
+

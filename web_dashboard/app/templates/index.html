@@ -21,27 +21,115 @@
         </header>
 
         <div class="dashboard-grid">
-            <!-- Recognition Status Panel -->
-            <div class="panel status-panel">
+            <!-- Upper-Left: System Health + Metrics (Compact) -->
+            <div class="panel health-panel compact">
+                <h2>System Health</h2>
+                <div class="health-status">
+                    <div class="health-indicator">
+                        <span class="health-status-icon" id="health-status-icon">●</span>
+                        <span class="health-status-text" id="health-status-text">Checking...</span>
+                    </div>
+                    <div class="health-timestamp" id="health-timestamp">--</div>
+                </div>
+                <div class="health-metrics compact">
+                    <div class="health-metric">
+                        <label>CPU</label>
+                        <div class="metric-bar-container">
+                            <div class="metric-bar" id="cpu-bar">
+                                <div class="metric-bar-fill" id="cpu-bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <span class="metric-value" id="cpu-value">--</span>
+                    </div>
+                    <div class="health-metric">
+                        <label>GPU</label>
+                        <div class="metric-bar-container">
+                            <div class="metric-bar" id="gpu-bar">
+                                <div class="metric-bar-fill" id="gpu-bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <span class="metric-value" id="gpu-value">--</span>
+                    </div>
+                    <div class="health-metric">
+                        <label>Temp</label>
+                        <div class="temperature-display" id="temperature-display">
+                            <span class="temperature-value" id="temperature-value">--</span>
+                            <span class="temperature-unit">°C</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="command-hint" id="health-command-hint">ros2 topic echo /r2d2/heartbeat</div>
+            </div>
+
+            <div class="panel metrics-panel compact">
+                <h2>System Metrics</h2>
+                <div class="metrics-grid compact">
+                    <div class="metric">
+                        <label>Camera</label>
+                        <span id="camera-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Face Det</label>
+                        <span id="face-detection-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Person ID</label>
+                        <span id="person-id-rate">-- Hz</span>
+                    </div>
+                    <div class="metric">
+                        <label>Status</label>
+                        <span id="status-rate">-- Hz</span>
+                    </div>
+                </div>
+                <div class="command-hint" id="metrics-command-hint">ros2 topic hz /r2d2/perception/face_count</div>
+            </div>
+
+            <!-- Upper-Right: Recognition Status (Compact) -->
+            <div class="panel status-panel compact">
                 <h2>Recognition Status</h2>
-                <div class="status-display" id="status-display">
+                <div class="status-display compact" id="status-display">
                     <div class="status-color" id="status-color"></div>
                     <div class="status-info">
                         <div class="status-text" id="status-text">Service Not Running</div>
-                        <div class="status-details">
+                        <div class="status-details compact">
                             <div>Person: <span id="person-id">no_person</span></div>
                             <div>Confidence: <span id="confidence">0%</span></div>
                             <div>Duration: <span id="duration">0s</span></div>
                             <div>Faces: <span id="face-count">0</span></div>
                         </div>
                         <div class="status-service-message" id="status-service-message" style="display: none;">
-                            ⚠️ Audio service is not running. Start the service to see status colors.
+                            ⚠️ Audio service is not running.
                         </div>
                     </div>
                 </div>
+                <div class="recognition-controls">
+                    <button class="btn btn-start" id="recognition-start-btn" onclick="startRecognitionMode()">Start Recognition</button>
+                    <button class="btn btn-stop" id="recognition-stop-btn" onclick="stopRecognitionMode()">Stop Recognition</button>
+                </div>
+                <div class="command-hint" id="recognition-start-command">sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</div>
+                <div class="command-hint" id="recognition-stop-command">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service</div>
+                <div class="command-hint" id="recognition-status-command">ros2 topic echo /r2d2/audio/person_status</div>
+                <div class="mode-indicator" id="mode-indicator">Mode: Idle</div>
             </div>
 
-            <!-- Service Control Panel -->
+            <!-- Center: Camera Stream (Large, Prominent) -->
+            <div class="panel camera-stream-panel center">
+                <h2>Camera Stream</h2>
+                <div class="stream-controls">
+                    <button class="btn btn-stream" id="stream-toggle-btn" onclick="toggleCameraStream()">Start Stream</button>
+                    <button class="btn btn-stop" id="stream-stop-btn" onclick="stopCameraStream()" style="display: none;">Stop Stream</button>
+                    <span class="stream-status" id="stream-status">● Stopped</span>
+                </div>
+                <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
+                    <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
+                </div>
+                <div class="stream-placeholder" id="stream-placeholder">
+                    <p>Camera stream not active</p>
+                </div>
+                <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
+            </div>
+
+            <!-- Lower-Right: Service Control + Training -->
             <div class="panel services-panel">
                 <h2>Service Control</h2>
                 <div class="services-list" id="services-list">
@@ -49,48 +137,36 @@
                 </div>
             </div>
 
-            <!-- Volume Control Panel -->
-            <div class="panel volume-panel">
-                <h2>Audio Volume</h2>
-                <div class="volume-control">
-                    <div class="volume-display">
-                        <span id="volume-value">5%</span>
-                    </div>
-                    <input type="range" id="volume-slider" min="0" max="100" value="5" step="1">
-                    <div class="volume-presets">
-                        <button class="preset-btn" onclick="setVolumePreset(5)">5%</button>
-                        <button class="preset-btn" onclick="setVolumePreset(10)">10%</button>
-                        <button class="preset-btn" onclick="setVolumePreset(20)">20%</button>
-                        <button class="preset-btn" onclick="setVolumePreset(50)">50%</button>
-                        <button class="preset-btn" onclick="setVolumePreset(100)">100%</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Training Panel -->
             <div class="panel training-panel">
                 <h2>Face Recognition Training</h2>
                 <div class="training-menu">
                     <div class="training-option">
                         <button class="training-btn" onclick="startTraining(1)">[1] Train New Person</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn" onclick="startTraining(2)">[2] Add More Pictures</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn" onclick="startTraining(3)">[3] Retrain Model</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn" onclick="startTraining(4)">[4] Test Accuracy</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn" onclick="startTraining(5)">[5] Real-time Test</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn" onclick="listPeople()">[6] List People/Models</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                     <div class="training-option">
                         <button class="training-btn danger" onclick="showDeleteDialog()">[7] Delete Person</button>
+                        <div class="command-hint training-command-hint" style="display: none;"></div>
                     </div>
                 </div>
                 <div class="person-input">
@@ -102,91 +178,6 @@
                     <div class="training-logs" id="training-logs"></div>
                 </div>
                 <div class="people-list" id="people-list"></div>
-            </div>
-
-            <!-- Real-time Stream Panel -->
-            <div class="panel stream-panel">
-                <h2>Real-time Stream</h2>
-                <div class="stream-container" id="stream-container">
-                    <!-- Stream messages will appear here -->
-                </div>
-            </div>
-
-            <!-- Camera Stream Panel -->
-            <div class="panel camera-stream-panel">
-                <h2>Camera Stream</h2>
-                <div class="stream-controls">
-                    <button class="btn btn-stream" id="stream-toggle-btn" onclick="toggleCameraStream()">Start Stream</button>
-                    <span class="stream-status" id="stream-status">● Stopped</span>
-                </div>
-                <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
-                    <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
-                </div>
-                <div class="stream-placeholder" id="stream-placeholder">
-                    <p>Camera stream not active</p>
-                </div>
-            </div>
-
-            <!-- System Health Panel -->
-            <div class="panel health-panel">
-                <h2>System Health</h2>
-                <div class="health-status">
-                    <div class="health-indicator">
-                        <span class="health-status-icon" id="health-status-icon">●</span>
-                        <span class="health-status-text" id="health-status-text">Checking...</span>
-                    </div>
-                    <div class="health-timestamp" id="health-timestamp">--</div>
-                </div>
-                <div class="health-metrics">
-                    <div class="health-metric">
-                        <label>CPU Usage</label>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="cpu-bar">
-                                <div class="metric-bar-fill" id="cpu-bar-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <span class="metric-value" id="cpu-value">--</span>
-                    </div>
-                    <div class="health-metric">
-                        <label>GPU Usage</label>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="gpu-bar">
-                                <div class="metric-bar-fill" id="gpu-bar-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <span class="metric-value" id="gpu-value">--</span>
-                    </div>
-                    <div class="health-metric">
-                        <label>Temperature</label>
-                        <div class="temperature-display" id="temperature-display">
-                            <span class="temperature-value" id="temperature-value">--</span>
-                            <span class="temperature-unit">°C</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Metrics Panel -->
-            <div class="panel metrics-panel">
-                <h2>System Metrics</h2>
-                <div class="metrics-grid">
-                    <div class="metric">
-                        <label>Camera Rate</label>
-                        <span id="camera-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Face Detection</label>
-                        <span id="face-detection-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Person ID</label>
-                        <span id="person-id-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Status Rate</label>
-                        <span id="status-rate">-- Hz</span>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -207,4 +198,5 @@
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>
+
 

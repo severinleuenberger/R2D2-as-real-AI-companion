@@ -1,5 +1,5 @@
 #!/bin/bash
-# R2D2 Camera Stream Service - Direct Node Launch
+# R2D2 Camera Stream Service - Launch Camera + Stream Together
 # Serves MJPEG stream from camera feed via HTTP
 
 set -e
@@ -24,6 +24,6 @@ export ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-0}
 # Critical for ARM64 (Jetson AGX Orin)
 export OPENBLAS_CORETYPE=ARMV8
 
-# Launch the camera stream node
-exec python3 -m r2d2_camera.camera_stream_node
+# Launch camera + stream together
+exec ros2 launch r2d2_camera camera_stream.launch.py
 

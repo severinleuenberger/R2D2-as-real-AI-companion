@@ -43,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCameraStreamDisplay();
     // Start metrics tracking
     startMetricsTracking();
+    // Load command hints after a delay (to ensure services are loaded)
+    setTimeout(() => {
+        updateCommandHints();
+    }, 2000);
 });
 
 // Check overall system status
@@ -129,6 +133,12 @@ function updateConnectionStatus(connected) {
 }
 
 function subscribeToTopics() {
+    // Only subscribe to recognition topics if stream is not active
+    if (cameraStreamServiceRunning) {
+        console.log('Stream active - skipping recognition topic subscriptions');
+        return;
+    }
+    
     // Subscribe to person_status
     personStatusTopic = new ROSLIB.Topic({
         ros: ros,
@@ -314,6 +324,7 @@ function displayServices(services) {
             anyServiceRunning = true;
         }
         
+        serviceCard.setAttribute('data-service', serviceName);
         serviceCard.innerHTML = `
             <div>
                 <div class="service-name">${serviceName}</div>
@@ -321,12 +332,18 @@ function displayServices(services) {
             </div>
             <div class="service-controls">
                 <button class="btn btn-start" onclick="controlService('${serviceName}', 'start')">Start</button>
+                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="start"></div>
                 <button class="btn btn-stop" onclick="controlService('${serviceName}', 'stop')">Stop</button>
+                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="stop"></div>
                 <button class="btn btn-restart" onclick="controlService('${serviceName}', 'restart')">Restart</button>
+                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="restart"></div>
             </div>
         `;
         
         servicesList.appendChild(serviceCard);
+        
+        // Load command hints for this service
+        updateServiceCommandHints(serviceName);
     }
     
     // Update status display based on service state
@@ -335,13 +352,143 @@ function displayServices(services) {
     // Update camera stream display if status changed
     if (previousCameraStreamStatus !== cameraStreamServiceRunning) {
         updateCameraStreamDisplay();
+        // Re-subscribe to topics if stream stopped (to re-enable recognition updates)
+        if (!cameraStreamServiceRunning && ros && ros.isConnected) {
+            subscribeToTopics();
+        }
     }
+    
+    // Update mode display
+    updateModeDisplay();
 }
 
 // Camera Stream Functions
-function toggleCameraStream() {
-    const action = cameraStreamServiceRunning ? 'stop' : 'start';
-    controlService('camera-stream', action);
+async function toggleCameraStream() {
+    if (cameraStreamServiceRunning) {
+        await stopCameraStream();
+    } else {
+        await startCameraStream();
+    }
+}
+
+async function startCameraStream() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/services/stream/start`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            addStreamMessage('status', 'Camera stream mode started (recognition services stopped)');
+            setTimeout(() => {
+                loadServices();
+                updateModeDisplay();
+                updateCommandHints();
+            }, 1000);
+        } else {
+            alert(`Failed to start stream: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Failed to start stream:', error);
+        alert('Failed to start stream');
+    }
+}
+
+async function stopCameraStream() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/services/stream/stop`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            addStreamMessage('status', 'Camera stream stopped');
+            setTimeout(() => {
+                loadServices();
+                updateModeDisplay();
+                updateCommandHints();
+            }, 1000);
+        } else {
+            alert(`Failed to stop stream: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Failed to stop stream:', error);
+        alert('Failed to stop stream');
+    }
+}
+
+// Recognition Mode Functions
+async function startRecognitionMode() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/services/recognition/start`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            addStreamMessage('status', 'Recognition mode started (stream service stopped)');
+            setTimeout(() => {
+                loadServices();
+                updateModeDisplay();
+                updateCommandHints();
+                // Re-enable recognition status updates
+                if (ros && ros.isConnected) {
+                    subscribeToTopics();
+                }
+            }, 1000);
+        } else {
+            alert(`Failed to start recognition: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Failed to start recognition:', error);
+        alert('Failed to start recognition');
+    }
+}
+
+async function stopRecognitionMode() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/services/recognition/stop`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            addStreamMessage('status', 'Recognition mode stopped');
+            setTimeout(() => {
+                loadServices();
+                updateModeDisplay();
+                updateCommandHints();
+            }, 1000);
+        } else {
+            alert(`Failed to stop recognition: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Failed to stop recognition:', error);
+        alert('Failed to stop recognition');
+    }
+}
+
+function updateModeDisplay() {
+    const modeIndicator = document.getElementById('mode-indicator');
+    if (!modeIndicator) return;
+    
+    // Check current service states
+    const services = {
+        camera: document.querySelector('.service-card[data-service="camera"]')?.classList.contains('active'),
+        audio: document.querySelector('.service-card[data-service="audio"]')?.classList.contains('active'),
+        stream: cameraStreamServiceRunning
+    };
+    
+    if (services.camera && services.audio) {
+        modeIndicator.textContent = 'Mode: Recognition Active';
+        modeIndicator.className = 'mode-indicator active-recognition';
+    } else if (services.stream) {
+        modeIndicator.textContent = 'Mode: Streaming Active';
+        modeIndicator.className = 'mode-indicator active-stream';
+    } else {
+        modeIndicator.textContent = 'Mode: Idle';
+        modeIndicator.className = 'mode-indicator';
+    }
 }
 
 function updateCameraStreamDisplay() {
@@ -359,7 +506,12 @@ function updateCameraStreamDisplay() {
             streamStatus.textContent = '● Running';
             streamStatus.className = 'stream-status running';
         }
-        if (toggleBtn) toggleBtn.textContent = 'Stop Stream';
+        const stopBtn = document.getElementById('stream-stop-btn');
+        if (toggleBtn) {
+            toggleBtn.textContent = 'Start Stream';
+            toggleBtn.style.display = 'none';
+        }
+        if (stopBtn) stopBtn.style.display = 'inline-block';
         if (streamImg) {
             const streamUrl = `http://${window.location.hostname}:8081/stream`;
             streamImg.src = streamUrl;
@@ -382,9 +534,15 @@ function updateCameraStreamDisplay() {
             streamStatus.textContent = '● Stopped';
             streamStatus.className = 'stream-status stopped';
         }
-        if (toggleBtn) toggleBtn.textContent = 'Start Stream';
+        const stopBtn = document.getElementById('stream-stop-btn');
+        if (toggleBtn) {
+            toggleBtn.textContent = 'Start Stream';
+            toggleBtn.style.display = 'inline-block';
+        }
+        if (stopBtn) stopBtn.style.display = 'none';
         if (streamImg) streamImg.src = '';
     }
+    updateModeDisplay();
 }
 
 async function controlService(serviceName, action) {
@@ -779,3 +937,77 @@ function updateMetricsDisplay() {
     }
 }
 
+// Command Display Functions
+async function updateCommandHints() {
+    // Update recognition commands
+    await updateRecognitionCommands();
+    // Update stream commands
+    await updateStreamCommands();
+    // Update service commands
+    await updateServiceCommandHints();
+    // Update data display commands (static)
+    updateDataDisplayCommands();
+}
+
+async function updateRecognitionCommands() {
+    try {
+        const startResponse = await fetch(`${API_BASE_URL}/services/recognition/command/start`);
+        const startData = await startResponse.json();
+        const startHint = document.getElementById('recognition-start-command');
+        if (startHint) startHint.textContent = startData.command;
+        
+        const stopResponse = await fetch(`${API_BASE_URL}/services/recognition/command/stop`);
+        const stopData = await stopResponse.json();
+        const stopHint = document.getElementById('recognition-stop-command');
+        if (stopHint) stopHint.textContent = stopData.command;
+    } catch (error) {
+        console.error('Failed to load recognition commands:', error);
+    }
+}
+
+async function updateStreamCommands() {
+    try {
+        const startResponse = await fetch(`${API_BASE_URL}/services/stream/command/start`);
+        const startData = await startResponse.json();
+        const startHint = document.getElementById('stream-command-hint');
+        if (startHint) startHint.textContent = startData.command;
+    } catch (error) {
+        console.error('Failed to load stream commands:', error);
+    }
+}
+
+async function updateServiceCommandHints(serviceName = null) {
+    const services = serviceName ? [serviceName] : ['audio', 'camera', 'powerbutton', 'heartbeat', 'camera-stream'];
+    
+    for (const svc of services) {
+        const hints = document.querySelectorAll(`.service-command-hint[data-service="${svc}"]`);
+        for (const hint of hints) {
+            const action = hint.getAttribute('data-action');
+            try {
+                const response = await fetch(`${API_BASE_URL}/services/${svc}/command/${action}`);
+                const data = await response.json();
+                hint.textContent = data.command;
+                hint.style.display = 'block';
+            } catch (error) {
+                console.error(`Failed to load command for ${svc}/${action}:`, error);
+            }
+        }
+    }
+}
+
+function updateDataDisplayCommands() {
+    // These are static commands for data displays
+    const healthHint = document.getElementById('health-command-hint');
+    if (healthHint) healthHint.textContent = 'ros2 topic echo /r2d2/heartbeat';
+    
+    const metricsHint = document.getElementById('metrics-command-hint');
+    if (metricsHint) metricsHint.textContent = 'ros2 topic hz /r2d2/perception/face_count';
+    
+    const recognitionStatusHint = document.getElementById('recognition-status-command');
+    if (recognitionStatusHint) recognitionStatusHint.textContent = 'ros2 topic echo /r2d2/audio/person_status';
+    
+    const streamHint = document.getElementById('stream-command-hint');
+    if (streamHint && !streamHint.textContent) {
+        streamHint.textContent = 'curl http://localhost:8081/stream';
+    }
+}
