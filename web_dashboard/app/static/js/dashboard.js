@@ -18,6 +18,228 @@ let lastHeartbeatTime = null;
 let heartbeatCheckInterval = null;
 let cameraStreamServiceRunning = false;
 
+// Window Instance Management
+let windowInstanceManager = null;
+let serviceStatusPollingInterval = null;
+let storedIntervals = [];
+
+// Generate unique ID for this window instance
+function generateUniqueId() {
+    return `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Window Instance Manager Class
+class WindowInstanceManager {
+    constructor() {
+        this.instanceId = generateUniqueId();
+        this.isActive = true; // Start as active
+        this.broadcastChannel = null;
+        this.focusTimeout = null;
+        this.setupBroadcastChannel();
+        this.setupListeners();
+        // Announce ourselves as active on startup
+        this.becomeActive();
+    }
+    
+    setupBroadcastChannel() {
+        try {
+            this.broadcastChannel = new BroadcastChannel('r2d2-dashboard');
+            this.broadcastChannel.onmessage = (event) => {
+                if (event.data.type === 'active' && event.data.instanceId !== this.instanceId) {
+                    // Another window became active
+                    this.becomeInactive();
+                } else if (event.data.type === 'ping') {
+                    // Respond to ping to show we're alive
+                    this.broadcastChannel.postMessage({ 
+                        type: 'pong', 
+                        instanceId: this.instanceId,
+                        isActive: this.isActive 
+                    });
+                }
+            };
+        } catch (error) {
+            console.warn('BroadcastChannel not supported, using localStorage fallback:', error);
+            this.setupLocalStorageFallback();
+        }
+    }
+    
+    setupLocalStorageFallback() {
+        // Fallback for browsers without BroadcastChannel
+        window.addEventListener('storage', (event) => {
+            if (event.key === 'r2d2-active-instance' && event.newValue !== this.instanceId) {
+                this.becomeInactive();
+            }
+        });
+    }
+    
+    setupListeners() {
+        // Listen for focus events
+        window.addEventListener('focus', () => {
+            clearTimeout(this.focusTimeout);
+            this.focusTimeout = setTimeout(() => this.becomeActive(), 100);
+        });
+        
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                clearTimeout(this.focusTimeout);
+                this.focusTimeout = setTimeout(() => this.becomeActive(), 100);
+            }
+        });
+        
+        // Handle window close
+        window.addEventListener('beforeunload', () => {
+            if (this.broadcastChannel) {
+                this.broadcastChannel.close();
+            }
+        });
+    }
+    
+    becomeActive() {
+        if (this.isActive) return; // Already active
+        
+        this.isActive = true;
+        
+        // Broadcast that we're active
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({ 
+                type: 'active', 
+                instanceId: this.instanceId,
+                timestamp: Date.now()
+            });
+        } else {
+            // Fallback to localStorage
+            try {
+                localStorage.setItem('r2d2-active-instance', this.instanceId);
+                localStorage.setItem('r2d2-active-timestamp', Date.now().toString());
+            } catch (e) {
+                console.warn('localStorage not available:', e);
+            }
+        }
+        
+        enableDashboard();
+    }
+    
+    becomeInactive() {
+        if (!this.isActive) return; // Already inactive
+        
+        this.isActive = false;
+        disableDashboard();
+    }
+    
+    takeControl() {
+        this.becomeActive();
+    }
+}
+
+// Dashboard Enable/Disable Functions
+function disableDashboard() {
+    // Show overlay
+    const overlay = document.getElementById('instance-overlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+    
+    // Disable all buttons
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(btn => {
+        if (!btn.disabled) {
+            btn.setAttribute('data-was-enabled', 'true');
+            btn.disabled = true;
+        }
+    });
+    
+    // Disable all inputs
+    const inputs = document.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        if (!input.disabled) {
+            input.setAttribute('data-was-enabled', 'true');
+            input.disabled = true;
+        }
+    });
+    
+    // Disconnect ROS and clean up topics
+    if (ros && ros.isConnected) {
+        // Unsubscribe from all topics
+        if (personStatusTopic) {
+            personStatusTopic.unsubscribe();
+            personStatusTopic = null;
+        }
+        if (personIdTopic) {
+            personIdTopic.unsubscribe();
+            personIdTopic = null;
+        }
+        if (faceCountTopic) {
+            faceCountTopic.unsubscribe();
+            faceCountTopic = null;
+        }
+        if (heartbeatTopic) {
+            heartbeatTopic.unsubscribe();
+            heartbeatTopic = null;
+        }
+        ros.close();
+    }
+    
+    // Clear all intervals
+    storedIntervals.forEach(interval => {
+        clearInterval(interval);
+    });
+    storedIntervals = [];
+    
+    if (serviceStatusPollingInterval) {
+        clearInterval(serviceStatusPollingInterval);
+        serviceStatusPollingInterval = null;
+    }
+    if (heartbeatCheckInterval) {
+        clearInterval(heartbeatCheckInterval);
+        heartbeatCheckInterval = null;
+    }
+    if (metricsUpdateInterval) {
+        clearInterval(metricsUpdateInterval);
+        metricsUpdateInterval = null;
+    }
+}
+
+function enableDashboard() {
+    // Hide overlay
+    const overlay = document.getElementById('instance-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    
+    // Re-enable all buttons
+    const buttons = document.querySelectorAll('button[data-was-enabled="true"]');
+    buttons.forEach(btn => {
+        btn.disabled = false;
+        btn.removeAttribute('data-was-enabled');
+    });
+    
+    // Re-enable all inputs
+    const inputs = document.querySelectorAll('input[data-was-enabled="true"], select[data-was-enabled="true"], textarea[data-was-enabled="true"]');
+    inputs.forEach(input => {
+        input.disabled = false;
+        input.removeAttribute('data-was-enabled');
+    });
+    
+    // Re-initialize ROS connection
+    if (!ros || !ros.isConnected) {
+        initializeROS();
+    } else if (ros && ros.isConnected) {
+        // Re-subscribe to topics if already connected
+        subscribeToTopics();
+    }
+    
+    // Restart polling and intervals
+    startServiceStatusPolling();
+    startHeartbeatMonitoring();
+    startMetricsTracking();
+    
+    // Reload services and other data
+    loadServices();
+    loadVolume();
+    loadPeopleList();
+    checkSystemStatus();
+}
+
 // Metrics tracking
 let metricsCounters = {
     camera: { count: 0, lastReset: Date.now() },
@@ -29,24 +251,30 @@ let metricsUpdateInterval = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    initializeROS();
-    loadServices(); // This will also update status display based on service state
-    loadVolume();
-    loadPeopleList();
-    startServiceStatusPolling();
-    checkSystemStatus();
-    // Initialize status display with white (service not running) state
-    updateStatusDisplayBasedOnService(false);
-    // Start heartbeat monitoring
-    startHeartbeatMonitoring();
-    // Initialize camera stream display
-    updateCameraStreamDisplay();
-    // Start metrics tracking
-    startMetricsTracking();
-    // Load command hints after a delay (to ensure services are loaded)
-    setTimeout(() => {
-        updateCommandHints();
-    }, 2000);
+    // Initialize window instance manager first
+    windowInstanceManager = new WindowInstanceManager();
+    
+    // Only initialize dashboard if this window is active
+    if (windowInstanceManager.isActive) {
+        initializeROS();
+        loadServices(); // This will also update status display based on service state
+        loadVolume();
+        loadPeopleList();
+        startServiceStatusPolling();
+        checkSystemStatus();
+        // Initialize status display with white (service not running) state
+        updateStatusDisplayBasedOnService(false);
+        // Start heartbeat monitoring
+        startHeartbeatMonitoring();
+        // Initialize camera stream display
+        updateCameraStreamDisplay();
+        // Start metrics tracking
+        startMetricsTracking();
+        // Load command hints after a delay (to ensure services are loaded)
+        setTimeout(() => {
+            updateCommandHints();
+        }, 2000);
+    }
 });
 
 // Check overall system status
@@ -372,20 +600,43 @@ async function toggleCameraStream() {
 }
 
 async function startCameraStream() {
+    // #region agent log
+    try {
+        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:374',message:'startCameraStream called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+    } catch(e) {}
+    // #endregion
+    
     try {
         const response = await fetch(`${API_BASE_URL}/services/stream/start`, {
             method: 'POST'
         });
         
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:382',message:'Stream start response',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
+        
         // Check if response is OK (status 200-299)
         if (!response.ok) {
             const errorData = await response.json();
             const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            // #region agent log
+            try {
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:389',message:'Stream start error',data:{errorMsg:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+            } catch(e) {}
+            // #endregion
             alert(`Failed to start stream: ${errorMsg}`);
             return;
         }
         
         const result = await response.json();
+        
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:397',message:'Stream start success',data:{result:result},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
         
         // Success - update UI
         addStreamMessage('status', 'Camera stream mode started (recognition services stopped)');
@@ -393,8 +644,18 @@ async function startCameraStream() {
             loadServices();
             updateModeDisplay();
             updateCommandHints();
+            // #region agent log
+            try {
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:405',message:'UI update scheduled',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+            } catch(e) {}
+            // #endregion
         }, 1000);
     } catch (error) {
+        // #region agent log
+        try {
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:410',message:'Stream start exception',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
+        } catch(e) {}
+        // #endregion
         console.error('Failed to start stream:', error);
         alert(`Failed to start stream: ${error.message || 'Network error'}`);
     }
@@ -591,7 +852,11 @@ async function controlService(serviceName, action) {
 }
 
 function startServiceStatusPolling() {
-    setInterval(loadServices, 5000);  // Poll every 5 seconds
+    if (serviceStatusPollingInterval) {
+        clearInterval(serviceStatusPollingInterval);
+    }
+    serviceStatusPollingInterval = setInterval(loadServices, 5000);  // Poll every 5 seconds
+    storedIntervals.push(serviceStatusPollingInterval);
 }
 
 // Volume Control
@@ -927,9 +1192,13 @@ function addStreamMessage(type, message) {
 // Metrics Tracking
 function startMetricsTracking() {
     // Update metrics every second
+    if (metricsUpdateInterval) {
+        clearInterval(metricsUpdateInterval);
+    }
     metricsUpdateInterval = setInterval(() => {
         updateMetricsDisplay();
     }, 1000);
+    storedIntervals.push(metricsUpdateInterval);
 }
 
 function updateMetricsDisplay() {
