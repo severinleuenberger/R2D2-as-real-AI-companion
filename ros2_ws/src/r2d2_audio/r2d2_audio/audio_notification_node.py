@@ -279,13 +279,13 @@ class AudioNotificationNode(Node):
                     self.is_currently_recognized = True
                     self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
                     self.current_status = "red"
-                    self.current_person = self.target_person
+                    self.current_person = person_id
                     self.status_changed_time = current_time
                     self.unknown_person_detected = False
-                    self.last_known_state = self.target_person
+                    self.last_known_state = person_id
                     
                     # Publish status FIRST (so LED lights up immediately)
-                    self._publish_status("red", self.target_person, confidence=0.95)
+                    self._publish_status("red", person_id, confidence=0.95)
                     
                     # Then trigger beep
                     self._trigger_recognition_alert()
@@ -302,7 +302,7 @@ class AudioNotificationNode(Node):
                 # Already in RECOGNIZED state - just reset timer
                 self.last_recognition_time = current_time
                 # Publish status update (duration keeps updating)
-                self._publish_status("red", self.target_person, confidence=0.95)
+                self._publish_status("red", person_id, confidence=0.95)
         
         elif person_id == "unknown":
             # Unknown person detected (not the target)

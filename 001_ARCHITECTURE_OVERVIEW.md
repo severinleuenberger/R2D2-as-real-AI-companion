@@ -499,7 +499,7 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 ```json
 {
   "status": "red|blue|green",
-  "person_identity": "target_person|no_person|unknown",
+  "person_identity": "severin|no_person|unknown",
   "timestamp_sec": 1765212914,
   "timestamp_nanosec": 949382424,
   "confidence": 0.95,
@@ -508,6 +508,8 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
   "audio_event": "recognition|loss|none"
 }
 ```
+
+**Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin"), not the `target_person` parameter value. This allows the UI to display the actual person's name.
 
 **For complete person recognition and status system setup, see:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) ⭐ **Complete Setup Guide**
 

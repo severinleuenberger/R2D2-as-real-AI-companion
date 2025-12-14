@@ -515,10 +515,12 @@ The status system is the core state machine that tracks person recognition and d
 
 **🔴 RED - Target Person Recognized (Active Engagement)**
 - **Conditions:** Target person is currently visible
-- **Status:** `{"status": "red", "person_identity": "target_person", ...}`
+- **Status:** `{"status": "red", "person_identity": "severin", ...}` (actual recognized name)
 - **LED:** Solid RED (GPIO pin 17)
 - **Audio:** "Hello!" played on transition (no repeated beeps)
 - **Next State:** → BLUE after 5s jitter + 15s confirmation
+
+**Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin"), allowing the UI to display the person's actual name instead of a generic identifier.
 
 **🔵 BLUE - No Person Recognized (Idle/Waiting)**
 - **Conditions:** No target person visible, confirmed loss
@@ -598,7 +600,7 @@ The status system is the core state machine that tracks person recognition and d
 ```json
 {
   "status": "red|blue|green",
-  "person_identity": "target_person|no_person|other_name",
+  "person_identity": "severin|no_person|unknown",
   "timestamp_sec": 1765212914,
   "timestamp_nanosec": 949382424,
   "confidence": 0.95,
@@ -608,13 +610,15 @@ The status system is the core state machine that tracks person recognition and d
 }
 ```
 
+**Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin" when recognized, "unknown" for unknown persons, "no_person" when no one is detected). This allows the web dashboard and other consumers to display the actual person's name.
+
 **Example Messages:**
 
 **RED State:**
 ```json
 {
   "status": "red",
-  "person_identity": "target_person",
+  "person_identity": "severin",
   "confidence": 0.95,
   "duration_seconds": 12.5,
   "is_loss_state": false,
@@ -1038,7 +1042,7 @@ ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_
 
 **Expected:**
 - 🔊 "Hello!" plays
-- Status changes to: `{"status": "red", "person_identity": "target_person", ...}`
+- Status changes to: `{"status": "red", "person_identity": "severin", ...}` (actual recognized name)
 - LED shows RED (if enabled)
 
 ### 9.7 Test 2: Loss Detection
@@ -1526,8 +1530,13 @@ The web dashboard UI now provides enhanced error messages:
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** December 14, 2025  
+**Document Version:** 1.2  
+**Last Updated:** December 15, 2025  
 **Status:** ✅ Production Ready  
 **Next Review:** After major system changes or user feedback
+
+**Recent Changes (v1.2):**
+- Updated `person_identity` field to display actual recognized person name (e.g., "severin") instead of generic "target_person" parameter value
+- Web dashboard now shows actual person names in Recognition Status and Status Stream sections
+- Status messages now use the actual person ID from perception topic for better UI clarity
 
