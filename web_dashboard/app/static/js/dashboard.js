@@ -596,9 +596,6 @@ async function loadServices() {
 }
 
 function displayServices(services) {
-    // #region agent log
-    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:571',message:'displayServices entry',data:{services:Object.keys(services),previousCameraStreamStatus:cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     // Services list UI removed - only tracking service status for internal logic
     const servicesList = document.getElementById('services-list');
     if (servicesList) {
@@ -618,13 +615,7 @@ function displayServices(services) {
         
         // Check if this is the camera stream service
         if (serviceName === 'camera-stream') {
-            // #region agent log
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:592',message:'camera-stream service found',data:{serviceName,status:serviceInfo.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             cameraStreamServiceRunning = (serviceInfo.status === 'active');
-            // #region agent log
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:593',message:'cameraStreamServiceRunning updated',data:{cameraStreamServiceRunning,status:serviceInfo.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
         }
         
         if (serviceInfo.status === 'active') {
@@ -662,9 +653,6 @@ function displayServices(services) {
     
     // Update camera stream display if status changed
     if (previousCameraStreamStatus !== cameraStreamServiceRunning) {
-        // #region agent log
-        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:626',message:'camera stream status changed',data:{previous:previousCameraStreamStatus,current:cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         updateCameraStreamDisplay();
         // Re-subscribe to topics if stream stopped (to re-enable recognition updates)
         if (!cameraStreamServiceRunning && ros && ros.isConnected) {
@@ -831,27 +819,17 @@ function updateModeDisplay() {
 }
 
 function updateCameraStreamDisplay() {
-    // #region agent log
-    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:792',message:'updateCameraStreamDisplay entry',data:{cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
     const streamContainer = document.getElementById('stream-container-wrapper');
     const streamPlaceholder = document.getElementById('stream-placeholder');
     const streamImg = document.getElementById('camera-stream'); // Now an iframe
     const streamStatus = document.getElementById('stream-status');
     const toggleBtn = document.getElementById('stream-toggle-btn');
     
-    // #region agent log
-    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:799',message:'DOM elements found',data:{streamContainer:!!streamContainer,streamPlaceholder:!!streamPlaceholder,streamImg:!!streamImg,streamStatus:!!streamStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    
     if (cameraStreamServiceRunning) {
         // Service is running - show stream
         if (streamPlaceholder) streamPlaceholder.style.display = 'none';
         if (streamContainer) {
             streamContainer.style.display = 'block';
-            // #region agent log
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:802',message:'stream container shown',data:{display:streamContainer.style.display},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
         }
         if (streamStatus) {
             streamStatus.textContent = '● Running';
@@ -865,20 +843,9 @@ function updateCameraStreamDisplay() {
         if (stopBtn) stopBtn.style.display = 'inline-block';
         if (streamImg) {
             const streamUrl = `http://${window.location.hostname}:8081/stream`;
-            // #region agent log
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:838',message:'setting stream URL (img tag)',data:{streamUrl,hostname:window.location.hostname,elementType:streamImg.tagName},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             streamImg.src = streamUrl;
             streamImg.onerror = () => {
-                // #region agent log
-                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:843',message:'stream img onerror fired',data:{streamUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
-                // #endregion
                 console.error('Stream image failed to load:', streamUrl);
-            };
-            streamImg.onload = () => {
-                // #region agent log
-                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:849',message:'stream img onload fired',data:{streamUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
-                // #endregion
             };
         }
     } else {
@@ -1308,14 +1275,30 @@ function addStatusStreamEntry(status) {
     }
     
     // Create single entry element (replaces previous entry)
+    // Use textContent to prevent XSS attacks
     const entry = document.createElement('div');
     entry.className = 'status-stream-entry';
-    entry.innerHTML = `
-        <span class="stream-status">${status.status}</span>
-        <span class="stream-person">${status.person_identity}</span>
-        <span class="stream-time">${timeStr}</span>
-        <span class="stream-confidence">${confidenceStr}%</span>
-    `;
+    
+    const statusSpan = document.createElement('span');
+    statusSpan.className = 'stream-status';
+    statusSpan.textContent = status.status;
+    
+    const personSpan = document.createElement('span');
+    personSpan.className = 'stream-person';
+    personSpan.textContent = status.person_identity;
+    
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'stream-time';
+    timeSpan.textContent = timeStr;
+    
+    const confidenceSpan = document.createElement('span');
+    confidenceSpan.className = 'stream-confidence';
+    confidenceSpan.textContent = confidenceStr + '%';
+    
+    entry.appendChild(statusSpan);
+    entry.appendChild(personSpan);
+    entry.appendChild(timeSpan);
+    entry.appendChild(confidenceSpan);
     
     // Append single entry (replaces all previous entries)
     container.appendChild(entry);

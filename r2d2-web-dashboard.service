@@ -1,0 +1,40 @@
+[Unit]
+Description=R2D2 Web Dashboard Service
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/111_WEB_DASHBOARD_DOCUMENTATION.md
+
+[Service]
+Type=simple
+User=severin
+Group=severin
+WorkingDirectory=/home/severin/dev/r2d2/web_dashboard
+
+# Use the startup script
+ExecStart=/home/severin/dev/r2d2/web_dashboard/scripts/start_web_dashboard.sh
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Environment variables
+Environment="PATH=/home/severin/dev/r2d2/web_dashboard/web_dashboard_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="ROS_DOMAIN_ID=0"
+Environment="OPENBLAS_CORETYPE=ARMV8"
+Environment="WEB_DASHBOARD_HOST=0.0.0.0"
+Environment="WEB_DASHBOARD_PORT=8080"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-web-dashboard
+
+# Service hardening
+NoNewPrivileges=true
+ProtectHome=no
+ReadWritePaths=/home/severin/dev/r2d2
+
+[Install]
+WantedBy=multi-user.target
+

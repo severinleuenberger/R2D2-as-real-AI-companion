@@ -2,7 +2,8 @@
 # Startup script for R2D2 Web Dashboard
 # Starts both rosbridge and FastAPI web server
 
-set -e
+# Don't exit on error for background processes
+set +e
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,17 +29,31 @@ cd "$WEB_DASHBOARD_DIR"
 
 # Start rosbridge in background
 echo "Starting rosbridge_server..."
-ros2 launch web_dashboard/launch/rosbridge.launch.py &
+# Start rosbridge_websocket and rosapi nodes directly
+# Note: Output goes to systemd journal automatically
+ros2 run rosbridge_server rosbridge_websocket --ros-args -p port:=9090 -p address:=0.0.0.0 &
 ROSBRIDGE_PID=$!
 
+# Start rosapi for service/topic introspection (if available)
+ros2 run rosapi rosapi_node &
+ROSAPI_PID=$!
+
 # Wait a moment for rosbridge to start
-sleep 2
+sleep 3
+
+# Check if rosbridge started successfully
+if ! kill -0 $ROSBRIDGE_PID 2>/dev/null; then
+    echo "ERROR: rosbridge_websocket failed to start (PID: $ROSBRIDGE_PID)"
+    echo "Check ROS 2 environment and rosbridge_server installation"
+else
+    echo "rosbridge_websocket started successfully (PID: $ROSBRIDGE_PID)"
+fi
 
 # Start FastAPI web server
 echo "Starting web dashboard server..."
 python3 -m app.main
 
 # Cleanup on exit
-trap "kill $ROSBRIDGE_PID 2>/dev/null" EXIT
+trap "kill $ROSBRIDGE_PID $ROSAPI_PID 2>/dev/null" EXIT
 
 

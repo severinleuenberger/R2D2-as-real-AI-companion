@@ -1,0 +1,37 @@
+[Unit]
+Description=R2D2 Rosbridge WebSocket Server
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/111_WEB_DASHBOARD_DOCUMENTATION.md
+
+[Service]
+Type=simple
+User=severin
+Group=severin
+WorkingDirectory=/home/severin/dev/r2d2
+
+# Use the startup script
+ExecStart=/home/severin/dev/r2d2/start_rosbridge.sh
+
+# Auto-restart on failure
+Restart=always
+RestartSec=5s
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Environment variables
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="ROS_DOMAIN_ID=0"
+Environment="ROS_LOCALHOST_ONLY=0"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-rosbridge
+
+# Service hardening
+NoNewPrivileges=true
+ProtectHome=no
+ReadWritePaths=/home/severin/dev/r2d2
+
+[Install]
+WantedBy=multi-user.target
