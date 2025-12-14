@@ -17,6 +17,8 @@ let audioServiceRunning = false;
 let lastHeartbeatTime = null;
 let heartbeatCheckInterval = null;
 let cameraStreamServiceRunning = false;
+let lastStatusUpdateTime = 0;
+const STATUS_UPDATE_INTERVAL_MS = 500; // 2 Hz = 500ms between updates
 
 // Window Instance Management
 let windowInstanceManager = null;
@@ -296,6 +298,14 @@ let metricsUpdateInterval = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    // Verify status stream container exists
+    const streamContainer = document.getElementById('status-stream-container');
+    if (streamContainer) {
+        console.log('Status stream container found on page load');
+    } else {
+        console.warn('Status stream container NOT found on page load');
+    }
+    
     // Initialize window instance manager first
     windowInstanceManager = new WindowInstanceManager();
     
@@ -422,9 +432,26 @@ function subscribeToTopics() {
     personStatusTopic.subscribe((message) => {
         try {
             const status = JSON.parse(message.data);
-            updateStatusDisplay(status);
-            addStreamMessage('status', `Status: ${status.status.toUpperCase()} - ${status.person_identity}`);
+            
+            // Always count messages for metrics
             metricsCounters.status.count++;
+            
+            // Throttle display updates to 2 Hz (every 500ms)
+            const now = Date.now();
+            if (now - lastStatusUpdateTime >= STATUS_UPDATE_INTERVAL_MS) {
+                updateStatusDisplay(status);
+                addStatusStreamEntry(status);
+                lastStatusUpdateTime = now;
+                
+                // Debug: Log throttle working (first few times only)
+                if (!window._throttleDebugCount) {
+                    window._throttleDebugCount = 0;
+                }
+                if (window._throttleDebugCount < 3) {
+                    console.log('Status stream throttle passed, updating display');
+                    window._throttleDebugCount++;
+                }
+            }
         } catch (e) {
             console.error('Failed to parse status:', e);
         }
@@ -569,8 +596,14 @@ async function loadServices() {
 }
 
 function displayServices(services) {
+    // #region agent log
+    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:571',message:'displayServices entry',data:{services:Object.keys(services),previousCameraStreamStatus:cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // Services list UI removed - only tracking service status for internal logic
     const servicesList = document.getElementById('services-list');
-    servicesList.innerHTML = '';
+    if (servicesList) {
+        servicesList.innerHTML = '';
+    }
     
     // Check if audio service is running
     audioServiceRunning = false;
@@ -578,11 +611,6 @@ function displayServices(services) {
     let previousCameraStreamStatus = cameraStreamServiceRunning;
     
     for (const [serviceName, serviceInfo] of Object.entries(services)) {
-        const serviceCard = document.createElement('div');
-        serviceCard.className = `service-card ${serviceInfo.status}`;
-        
-        const statusText = serviceInfo.status === 'active' ? '● Running' : '○ Stopped';
-        
         // Check if this is the audio service (the key is "audio" in the API)
         if (serviceName === 'audio') {
             audioServiceRunning = (serviceInfo.status === 'active');
@@ -590,33 +618,43 @@ function displayServices(services) {
         
         // Check if this is the camera stream service
         if (serviceName === 'camera-stream') {
+            // #region agent log
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:592',message:'camera-stream service found',data:{serviceName,status:serviceInfo.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
             cameraStreamServiceRunning = (serviceInfo.status === 'active');
+            // #region agent log
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:593',message:'cameraStreamServiceRunning updated',data:{cameraStreamServiceRunning,status:serviceInfo.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
         }
         
         if (serviceInfo.status === 'active') {
             anyServiceRunning = true;
         }
         
-        serviceCard.setAttribute('data-service', serviceName);
-        serviceCard.innerHTML = `
-            <div>
-                <div class="service-name">${serviceName}</div>
-                <div style="font-size: 12px; color: #666;">${statusText}</div>
-            </div>
-            <div class="service-controls">
-                <button class="btn btn-start" onclick="controlService('${serviceName}', 'start')">Start</button>
-                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="start"></div>
-                <button class="btn btn-stop" onclick="controlService('${serviceName}', 'stop')">Stop</button>
-                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="stop"></div>
-                <button class="btn btn-restart" onclick="controlService('${serviceName}', 'restart')">Restart</button>
-                <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="restart"></div>
-            </div>
-        `;
-        
-        servicesList.appendChild(serviceCard);
-        
-        // Load command hints for this service
-        updateServiceCommandHints(serviceName);
+        // UI creation removed - services panel no longer displayed
+        // Only update command hints if elements exist
+        if (servicesList) {
+            const serviceCard = document.createElement('div');
+            serviceCard.className = `service-card ${serviceInfo.status}`;
+            const statusText = serviceInfo.status === 'active' ? '● Running' : '○ Stopped';
+            serviceCard.setAttribute('data-service', serviceName);
+            serviceCard.innerHTML = `
+                <div>
+                    <div class="service-name">${serviceName}</div>
+                    <div style="font-size: 12px; color: #666;">${statusText}</div>
+                </div>
+                <div class="service-controls">
+                    <button class="btn btn-start" onclick="controlService('${serviceName}', 'start')">Start</button>
+                    <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="start"></div>
+                    <button class="btn btn-stop" onclick="controlService('${serviceName}', 'stop')">Stop</button>
+                    <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="stop"></div>
+                    <button class="btn btn-restart" onclick="controlService('${serviceName}', 'restart')">Restart</button>
+                    <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="restart"></div>
+                </div>
+            `;
+            servicesList.appendChild(serviceCard);
+            updateServiceCommandHints(serviceName);
+        }
     }
     
     // Update status display based on service state
@@ -624,6 +662,9 @@ function displayServices(services) {
     
     // Update camera stream display if status changed
     if (previousCameraStreamStatus !== cameraStreamServiceRunning) {
+        // #region agent log
+        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:626',message:'camera stream status changed',data:{previous:previousCameraStreamStatus,current:cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         updateCameraStreamDisplay();
         // Re-subscribe to topics if stream stopped (to re-enable recognition updates)
         if (!cameraStreamServiceRunning && ros && ros.isConnected) {
@@ -645,43 +686,20 @@ async function toggleCameraStream() {
 }
 
 async function startCameraStream() {
-    // #region agent log
-    try {
-        fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:374',message:'startCameraStream called',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-    } catch(e) {}
-    // #endregion
-    
     try {
         const response = await fetch(`${API_BASE_URL}/services/stream/start`, {
             method: 'POST'
         });
         
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:382',message:'Stream start response',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
-        
         // Check if response is OK (status 200-299)
         if (!response.ok) {
             const errorData = await response.json();
             const errorMsg = errorData.detail || errorData.error || 'Unknown error';
-            // #region agent log
-            try {
-                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:389',message:'Stream start error',data:{errorMsg:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-            } catch(e) {}
-            // #endregion
             alert(`Failed to start stream: ${errorMsg}`);
             return;
         }
         
         const result = await response.json();
-        
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:397',message:'Stream start success',data:{result:result},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
         
         // Success - update UI
         addStreamMessage('status', 'Camera stream mode started (recognition services stopped)');
@@ -689,18 +707,8 @@ async function startCameraStream() {
             loadServices();
             updateModeDisplay();
             updateCommandHints();
-            // #region agent log
-            try {
-                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:405',message:'UI update scheduled',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-            } catch(e) {}
-            // #endregion
         }, 1000);
     } catch (error) {
-        // #region agent log
-        try {
-            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:410',message:'Stream start exception',data:{error:error.message},timestamp:Date.now(),sessionId:'debug-session',runId:'camera-stream-debug',hypothesisId:'A'})}).catch(()=>{});
-        } catch(e) {}
-        // #endregion
         console.error('Failed to start stream:', error);
         alert(`Failed to start stream: ${error.message || 'Network error'}`);
     }
@@ -728,6 +736,10 @@ async function stopCameraStream() {
             loadServices();
             updateModeDisplay();
             updateCommandHints();
+            // Re-subscribe to topics now that stream is stopped
+            if (ros && ros.isConnected) {
+                subscribeToTopics();
+            }
         }, 1000);
     } catch (error) {
         console.error('Failed to stop stream:', error);
@@ -801,17 +813,15 @@ function updateModeDisplay() {
     const modeIndicator = document.getElementById('mode-indicator');
     if (!modeIndicator) return;
     
-    // Check current service states
-    const services = {
-        camera: document.querySelector('.service-card[data-service="camera"]')?.classList.contains('active'),
-        audio: document.querySelector('.service-card[data-service="audio"]')?.classList.contains('active'),
-        stream: cameraStreamServiceRunning
-    };
+    // Use actual service state variables instead of DOM elements
+    // These are set in displayServices() function
+    const cameraCard = document.querySelector('.service-card[data-service="camera"]');
+    const cameraRunning = cameraCard && cameraCard.classList.contains('active');
     
-    if (services.camera && services.audio) {
+    if (audioServiceRunning && cameraRunning && !cameraStreamServiceRunning) {
         modeIndicator.textContent = 'Mode: Recognition Active';
         modeIndicator.className = 'mode-indicator active-recognition';
-    } else if (services.stream) {
+    } else if (cameraStreamServiceRunning) {
         modeIndicator.textContent = 'Mode: Streaming Active';
         modeIndicator.className = 'mode-indicator active-stream';
     } else {
@@ -821,16 +831,28 @@ function updateModeDisplay() {
 }
 
 function updateCameraStreamDisplay() {
+    // #region agent log
+    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:792',message:'updateCameraStreamDisplay entry',data:{cameraStreamServiceRunning},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     const streamContainer = document.getElementById('stream-container-wrapper');
     const streamPlaceholder = document.getElementById('stream-placeholder');
-    const streamImg = document.getElementById('camera-stream');
+    const streamImg = document.getElementById('camera-stream'); // Now an iframe
     const streamStatus = document.getElementById('stream-status');
     const toggleBtn = document.getElementById('stream-toggle-btn');
+    
+    // #region agent log
+    fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:799',message:'DOM elements found',data:{streamContainer:!!streamContainer,streamPlaceholder:!!streamPlaceholder,streamImg:!!streamImg,streamStatus:!!streamStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     
     if (cameraStreamServiceRunning) {
         // Service is running - show stream
         if (streamPlaceholder) streamPlaceholder.style.display = 'none';
-        if (streamContainer) streamContainer.style.display = 'block';
+        if (streamContainer) {
+            streamContainer.style.display = 'block';
+            // #region agent log
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:802',message:'stream container shown',data:{display:streamContainer.style.display},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
+        }
         if (streamStatus) {
             streamStatus.textContent = '● Running';
             streamStatus.className = 'stream-status running';
@@ -843,13 +865,20 @@ function updateCameraStreamDisplay() {
         if (stopBtn) stopBtn.style.display = 'inline-block';
         if (streamImg) {
             const streamUrl = `http://${window.location.hostname}:8081/stream`;
+            // #region agent log
+            fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:838',message:'setting stream URL (img tag)',data:{streamUrl,hostname:window.location.hostname,elementType:streamImg.tagName},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             streamImg.src = streamUrl;
             streamImg.onerror = () => {
-                if (streamImg) streamImg.style.display = 'none';
-                if (streamPlaceholder) {
-                    streamPlaceholder.style.display = 'block';
-                    streamPlaceholder.innerHTML = '<p>Stream unavailable</p>';
-                }
+                // #region agent log
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:843',message:'stream img onerror fired',data:{streamUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
+                console.error('Stream image failed to load:', streamUrl);
+            };
+            streamImg.onload = () => {
+                // #region agent log
+                fetch('http://localhost:7243/ingest/5bd05673-de36-494c-9b3f-ba0be73fd7b7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'dashboard.js:849',message:'stream img onload fired',data:{streamUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
             };
         }
     } else {
@@ -1238,6 +1267,60 @@ function addStreamMessage(type, message) {
     }
 }
 
+// Status Stream Entries
+function addStatusStreamEntry(status) {
+    // Validate required fields
+    if (!status || typeof status.status !== 'string' || typeof status.person_identity !== 'string') {
+        console.warn('Invalid status object:', status);
+        return;
+    }
+    
+    const container = document.getElementById('status-stream-container');
+    if (!container) {
+        return;
+    }
+    
+    // Format timestamp to hh:mm:ss
+    const timestamp = new Date(
+        (status.timestamp_sec || 0) * 1000 + 
+        Math.floor((status.timestamp_nanosec || 0) / 1000000)
+    );
+    const timeStr = timestamp.toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
+    
+    // Format confidence (0.0-1.0 to percentage)
+    const confidence = typeof status.confidence === 'number' ? status.confidence : 0;
+    const confidenceStr = (confidence * 100).toFixed(1);
+    
+    // Remove placeholder if it exists
+    const placeholder = document.getElementById('status-stream-placeholder');
+    if (placeholder && placeholder.parentElement === container) {
+        placeholder.remove();
+    }
+    
+    // Remove all existing entries (we only want one line that refreshes)
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    
+    // Create single entry element (replaces previous entry)
+    const entry = document.createElement('div');
+    entry.className = 'status-stream-entry';
+    entry.innerHTML = `
+        <span class="stream-status">${status.status}</span>
+        <span class="stream-person">${status.person_identity}</span>
+        <span class="stream-time">${timeStr}</span>
+        <span class="stream-confidence">${confidenceStr}%</span>
+    `;
+    
+    // Append single entry (replaces all previous entries)
+    container.appendChild(entry);
+}
+
 // Metrics Tracking
 function startMetricsTracking() {
     // Update metrics every second
@@ -1316,8 +1399,13 @@ async function updateStreamCommands() {
     try {
         const startResponse = await fetch(`${API_BASE_URL}/services/stream/command/start`);
         const startData = await startResponse.json();
-        const startHint = document.getElementById('stream-command-hint');
+        const startHint = document.getElementById('stream-start-command');
         if (startHint) startHint.textContent = startData.command;
+        
+        const stopResponse = await fetch(`${API_BASE_URL}/services/stream/command/stop`);
+        const stopData = await stopResponse.json();
+        const stopHint = document.getElementById('stream-stop-command');
+        if (stopHint) stopHint.textContent = stopData.command;
     } catch (error) {
         console.error('Failed to load stream commands:', error);
     }
@@ -1356,5 +1444,63 @@ function updateDataDisplayCommands() {
     const streamHint = document.getElementById('stream-command-hint');
     if (streamHint && !streamHint.textContent) {
         streamHint.textContent = 'curl http://localhost:8081/stream';
+    }
+}
+
+// Copy to Clipboard Function
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) {
+        console.error('Element not found:', elementId);
+        return;
+    }
+    
+    // Get the command text from the hidden code element
+    const text = element.textContent.trim();
+    
+    // Use modern Clipboard API if available
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCopyFeedback(elementId);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            fallbackCopyToClipboard(text, elementId);
+        });
+    } else {
+        // Fallback for older browsers
+        fallbackCopyToClipboard(text, elementId);
+    }
+}
+
+function fallbackCopyToClipboard(text, elementId) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showCopyFeedback(elementId);
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('Failed to copy. Please select and copy manually:\n' + text);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function showCopyFeedback(elementId) {
+    const codeElement = document.getElementById(elementId);
+    if (!codeElement) return;
+    
+    const commandDiv = codeElement.closest('.copyable-command');
+    if (commandDiv) {
+        commandDiv.classList.add('copied');
+        setTimeout(() => {
+            commandDiv.classList.remove('copied');
+        }, 2000);
     }
 }

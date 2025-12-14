@@ -28,71 +28,10 @@
         </header>
 
         <div class="dashboard-grid">
-            <!-- Upper-Left: System Health + Metrics (Compact) -->
-            <div class="panel health-panel compact">
-                <h2>System Health</h2>
-                <div class="health-status">
-                    <div class="health-indicator">
-                        <span class="health-status-icon" id="health-status-icon">●</span>
-                        <span class="health-status-text" id="health-status-text">Checking...</span>
-                    </div>
-                    <div class="health-timestamp" id="health-timestamp">--</div>
-                </div>
-                <div class="health-metrics compact">
-                    <div class="health-metric">
-                        <label>CPU</label>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="cpu-bar">
-                                <div class="metric-bar-fill" id="cpu-bar-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <span class="metric-value" id="cpu-value">--</span>
-                    </div>
-                    <div class="health-metric">
-                        <label>GPU</label>
-                        <div class="metric-bar-container">
-                            <div class="metric-bar" id="gpu-bar">
-                                <div class="metric-bar-fill" id="gpu-bar-fill" style="width: 0%"></div>
-                            </div>
-                        </div>
-                        <span class="metric-value" id="gpu-value">--</span>
-                    </div>
-                    <div class="health-metric">
-                        <label>Temp</label>
-                        <div class="temperature-display" id="temperature-display">
-                            <span class="temperature-value" id="temperature-value">--</span>
-                            <span class="temperature-unit">°C</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="command-hint" id="health-command-hint">ros2 topic echo /r2d2/heartbeat</div>
-            </div>
-
-            <div class="panel metrics-panel compact">
-                <h2>System Metrics</h2>
-                <div class="metrics-grid compact">
-                    <div class="metric">
-                        <label>Camera</label>
-                        <span id="camera-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Face Det</label>
-                        <span id="face-detection-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Person ID</label>
-                        <span id="person-id-rate">-- Hz</span>
-                    </div>
-                    <div class="metric">
-                        <label>Status</label>
-                        <span id="status-rate">-- Hz</span>
-                    </div>
-                </div>
-                <div class="command-hint" id="metrics-command-hint">ros2 topic hz /r2d2/perception/face_count</div>
-            </div>
-
-            <!-- Upper-Right: Recognition Status (Compact) -->
-            <div class="panel status-panel compact">
+            <!-- Left Column: Stacked Panels -->
+            <div class="left-column">
+                <!-- Top: Recognition Status (1/3 taller) -->
+                <div class="panel status-panel compact">
                 <h2>Recognition Status</h2>
                 <div class="status-display compact" id="status-display">
                     <div class="status-color" id="status-color"></div>
@@ -110,21 +49,108 @@
                     </div>
                 </div>
                 <div class="recognition-controls">
-                    <button class="btn btn-start" id="recognition-start-btn" onclick="startRecognitionMode()">Start Recognition</button>
-                    <button class="btn btn-stop" id="recognition-stop-btn" onclick="stopRecognitionMode()">Stop Recognition</button>
+                    <div class="copyable-command" onclick="copyToClipboard('recognition-start-command')" title="Click to copy command">
+                        <span class="command-label">Start Recognition</span>
+                        <code id="recognition-start-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service && sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</code>
+                        <span class="copy-indicator">📋</span>
+                    </div>
+                    <div class="copyable-command" onclick="copyToClipboard('recognition-stop-command')" title="Click to copy command">
+                        <span class="command-label">Stop Recognition</span>
+                        <code id="recognition-stop-command" style="display: none;">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service</code>
+                        <span class="copy-indicator">📋</span>
+                    </div>
                 </div>
-                <div class="command-hint" id="recognition-start-command">sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</div>
-                <div class="command-hint" id="recognition-stop-command">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service</div>
                 <div class="command-hint" id="recognition-status-command">ros2 topic echo /r2d2/audio/person_status</div>
                 <div class="mode-indicator" id="mode-indicator">Mode: Idle</div>
+                <div class="status-stream-section">
+                    <h3>Status Stream</h3>
+                    <div class="status-stream-container" id="status-stream-container">
+                        <div class="status-stream-placeholder" id="status-stream-placeholder">
+                            Waiting for status updates... (Ensure rosbridge is running)
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <!-- Middle: System Health -->
+                <div class="panel health-panel compact">
+                    <h2>System Health</h2>
+                    <div class="health-status">
+                        <div class="health-indicator">
+                            <span class="health-status-icon" id="health-status-icon">●</span>
+                            <span class="health-status-text" id="health-status-text">Checking...</span>
+                        </div>
+                        <div class="health-timestamp" id="health-timestamp">--</div>
+                    </div>
+                    <div class="health-metrics compact">
+                        <div class="health-metric">
+                            <label>CPU</label>
+                            <div class="metric-bar-container">
+                                <div class="metric-bar" id="cpu-bar">
+                                    <div class="metric-bar-fill" id="cpu-bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span class="metric-value" id="cpu-value">--</span>
+                        </div>
+                        <div class="health-metric">
+                            <label>GPU</label>
+                            <div class="metric-bar-container">
+                                <div class="metric-bar" id="gpu-bar">
+                                    <div class="metric-bar-fill" id="gpu-bar-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span class="metric-value" id="gpu-value">--</span>
+                        </div>
+                        <div class="health-metric">
+                            <label>Temp</label>
+                            <div class="temperature-display" id="temperature-display">
+                                <span class="temperature-value" id="temperature-value">--</span>
+                                <span class="temperature-unit">°C</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="command-hint" id="health-command-hint">ros2 topic echo /r2d2/heartbeat</div>
+                </div>
+
+                <!-- Bottom: System Metrics -->
+                <div class="panel metrics-panel compact">
+                    <h2>System Metrics</h2>
+                    <div class="metrics-grid compact">
+                        <div class="metric">
+                            <label>Camera</label>
+                            <span id="camera-rate">-- Hz</span>
+                        </div>
+                        <div class="metric">
+                            <label>Face Det</label>
+                            <span id="face-detection-rate">-- Hz</span>
+                        </div>
+                        <div class="metric">
+                            <label>Person ID</label>
+                            <span id="person-id-rate">-- Hz</span>
+                        </div>
+                        <div class="metric">
+                            <label>Status</label>
+                            <span id="status-rate">-- Hz</span>
+                        </div>
+                    </div>
+                    <div class="command-hint" id="metrics-command-hint">ros2 topic hz /r2d2/perception/face_count</div>
+                </div>
             </div>
 
-            <!-- Center: Camera Stream (Large, Prominent) -->
+            <!-- Right Column: Camera Stream -->
             <div class="panel camera-stream-panel center">
                 <h2>Camera Stream</h2>
                 <div class="stream-controls">
-                    <button class="btn btn-stream" id="stream-toggle-btn" onclick="toggleCameraStream()">Start Stream</button>
-                    <button class="btn btn-stop" id="stream-stop-btn" onclick="stopCameraStream()" style="display: none;">Stop Stream</button>
+                    <div class="copyable-command" onclick="copyToClipboard('stream-start-command')" title="Click to copy command">
+                        <span class="command-label">Start Stream</span>
+                        <code id="stream-start-command" style="display: none;">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service && sudo systemctl start r2d2-camera-stream.service</code>
+                        <span class="copy-indicator">📋</span>
+                    </div>
+                    <div class="copyable-command" onclick="copyToClipboard('stream-stop-command')" title="Click to copy command">
+                        <span class="command-label">Stop Stream</span>
+                        <code id="stream-stop-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service</code>
+                        <span class="copy-indicator">📋</span>
+                    </div>
                     <span class="stream-status" id="stream-status">● Stopped</span>
                 </div>
                 <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
@@ -136,14 +162,7 @@
                 <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
             </div>
 
-            <!-- Lower-Right: Service Control + Training -->
-            <div class="panel services-panel">
-                <h2>Service Control</h2>
-                <div class="services-list" id="services-list">
-                    <!-- Services will be populated by JavaScript -->
-                </div>
-            </div>
-
+            <!-- Lower-Right: Training -->
             <div class="panel training-panel">
                 <h2>Face Recognition Training</h2>
                 <div class="training-menu">
