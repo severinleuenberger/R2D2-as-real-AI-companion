@@ -9,13 +9,29 @@
 
 ## ⚠️ CRITICAL RULES (READ FIRST!)
 
-### Rule 1: ALWAYS USE `main` BRANCH
-- User only uses `main` branch
+### Rule 1: Branch Policy (DEFAULT + EXCEPTIONS)
+
+Default rule:
+- User normally works on `main` branch
 - `master` branch is **deleted** and must not be used
-- Any commits on `master` will be orphaned and lost
-- Before any `git push`: Run `git branch` and verify `* main`
+
+Exception: Feature-branch workflow (ONLY when explicitly instructed)
+- A `golden-*` branch may be used as a read-only stable baseline
+- All implementation work MUST happen on a `feat/*` branch created from the golden branch
+- The golden branch MUST NOT be modified directly
+- Agents may be instructed to NOT commit and NOT push
+
+Rule precedence:
+- Task-specific agent instructions OVERRIDE this default rule
+
 
 ### Rule 2: ALWAYS VERIFY BEFORE PUSHING
+
+NOTE:
+- This rule applies ONLY when pushing is explicitly allowed
+- In feature-branch or agent build workflows, pushing may be disabled
+
+
 ```bash
 git branch        # Must show: * main
 git log -n 1      # See the commit you're about to push
