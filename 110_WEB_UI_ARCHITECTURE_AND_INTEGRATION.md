@@ -1243,9 +1243,60 @@ cd ~/dev/r2d2/web_dashboard
 
 ---
 
+### 13.4 Service Management Enhancements (December 14, 2025)
+
+**Camera Device Exclusivity:**
+- Enhanced `service_manager.py` to ensure mutual exclusivity between `r2d2-camera-stream.service` and `r2d2-camera-perception.service`
+- Both services access the OAK-D camera, so they cannot run simultaneously
+- Implementation:
+  - Added 3-second delay after stopping camera service before starting another
+  - Service stop verification ensures device is released before starting conflicting service
+  - Prevents `X_LINK_DEVICE_ALREADY_IN_USE` errors
+
+**Service Startup Verification:**
+- Added topic availability checks after service start
+- Verifies that services actually publish expected topics:
+  - `camera-perception`: Checks for `/oak/rgb/image_raw` topic
+  - `audio-notification`: Checks for `/r2d2/audio/person_status` topic
+- Returns detailed error messages if service starts but topics don't publish
+
+**rosbridge Detection:**
+- Added `/api/status/rosbridge` endpoint for rosbridge availability detection
+- Does NOT auto-start rosbridge (detection only, as per design constraints)
+- Checks:
+  - rosbridge_websocket process running
+  - Port 9090 accessibility
+- Returns JSON: `{"available": bool, "port": 9090, "process_running": bool, "port_accessible": bool, "error": str}`
+- UI displays prominent error banner when rosbridge is not running with manual start instructions
+
+**Enhanced UI Error Messages:**
+- Priority-based error hierarchy:
+  1. rosbridge not running (most critical for real-time data)
+  2. rosbridge connected but topics not publishing
+  3. Services not running
+- Clear diagnostic hints with manual start commands
+- Persistent error banner for rosbridge status
+
+**Verification Script:**
+- Created `web_dashboard/verify_integration.sh` for comprehensive integration testing
+- Checks entire dependency chain:
+  - Systemd service files existence
+  - Service status (active/failed/inactive)
+  - rosbridge process and port
+  - ROS 2 topics availability
+  - Web dashboard API endpoints
+  - UI connectivity (when rosbridge running)
+- Provides colored output and summary with common fixes
+
+**Files Modified:**
+- `web_dashboard/app/services/service_manager.py` - Device exclusivity, topic verification
+- `web_dashboard/app/api/status.py` - rosbridge detection endpoint
+- `web_dashboard/app/static/js/dashboard.js` - Enhanced error messages, rosbridge status checking
+- `web_dashboard/verify_integration.sh` - New verification script
+
 **Created:** December 12, 2025  
 **Status:** ✅ Implemented & Production Ready  
-**Last Updated:** December 12, 2025
+**Last Updated:** December 14, 2025
 
 **Related Documents:**
 - `001_ARCHITECTURE_OVERVIEW.md` - System architecture

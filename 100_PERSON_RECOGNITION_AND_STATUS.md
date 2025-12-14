@@ -1452,8 +1452,82 @@ This document provides a complete guide for setting up and operating R2D2's pers
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** December 9, 2025  
+---
+
+## 12. Web Dashboard Integration (December 14, 2025)
+
+### 12.1 Service Management Enhancements
+
+The web dashboard has been enhanced with improved service management capabilities:
+
+**Camera Device Exclusivity:**
+- The OAK-D camera can only be accessed by one service at a time
+- `r2d2-camera-stream.service` and `r2d2-camera-perception.service` are mutually exclusive
+- The service manager automatically:
+  - Stops conflicting services before starting a new one
+  - Waits 3 seconds for device release
+  - Verifies service is actually stopped before starting another
+- Prevents `X_LINK_DEVICE_ALREADY_IN_USE` errors
+
+**Service Startup Verification:**
+- After starting a service, the system verifies:
+  - Service is actually running (`systemctl is-active`)
+  - Expected topics are publishing:
+    - `camera-perception`: `/oak/rgb/image_raw`
+    - `audio-notification`: `/r2d2/audio/person_status`
+- Returns detailed error messages if service starts but topics don't publish
+
+**rosbridge Detection:**
+- New API endpoint: `GET /api/status/rosbridge`
+- Detects rosbridge availability (does NOT auto-start rosbridge)
+- Checks:
+  - rosbridge_websocket process running
+  - Port 9090 accessibility
+- UI displays prominent error banner when rosbridge is not running
+- Shows manual start instructions: `cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh`
+
+### 12.2 Verification Script
+
+A comprehensive verification script is available:
+
+```bash
+~/dev/r2d2/web_dashboard/verify_integration.sh
+```
+
+**What it checks:**
+- Systemd service files existence
+- Service status (active/failed/inactive)
+- rosbridge process and port availability
+- ROS 2 topics publishing
+- Web dashboard API endpoints
+- UI connectivity (when rosbridge running)
+
+**Usage:**
+```bash
+cd ~/dev/r2d2/web_dashboard
+./verify_integration.sh
+```
+
+The script provides colored output and a summary with common fixes for any failures.
+
+### 12.3 UI Error Messages
+
+The web dashboard UI now provides enhanced error messages:
+
+**Error Priority:**
+1. **rosbridge not running** - Most critical, shows prominent banner with start instructions
+2. **rosbridge connected but topics not publishing** - Shows which topics are missing
+3. **Services not running** - Shows which services need to be started
+
+**Error Display:**
+- Persistent error banner for rosbridge status
+- Clear diagnostic hints with manual commands
+- Service status API works independently (doesn't require rosbridge)
+
+---
+
+**Document Version:** 1.1  
+**Last Updated:** December 14, 2025  
 **Status:** ✅ Production Ready  
 **Next Review:** After major system changes or user feedback
 

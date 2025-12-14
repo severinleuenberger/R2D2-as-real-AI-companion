@@ -353,16 +353,29 @@ async function checkSystemStatus() {
             }
         }
         
-        // Update status with service info if disconnected
-        const statusDetails = document.getElementById('ros-status-details');
-        if (statusDetails && (!ros || (ros && ros.isConnected === false))) {
-            // Only update if disconnected, to avoid overwriting connection message
-            if (runningCount > 0) {
-                statusDetails.textContent = `${runningCount}/${totalCount} services running (Web API: ✓) | Install rosbridge for real-time updates`;
-            } else {
-                statusDetails.textContent = 'Web API: ✓ | Install & start rosbridge for real-time updates';
+        // Check rosbridge status periodically
+        checkRosbridgeStatus().then(rosbridgeStatus => {
+            updateRosbridgeErrorDisplay(rosbridgeStatus);
+            
+            // Update status with service info if disconnected
+            const statusDetails = document.getElementById('ros-status-details');
+            if (statusDetails && (!ros || (ros && ros.isConnected === false))) {
+                // Only update if disconnected, to avoid overwriting connection message
+                if (runningCount > 0) {
+                    if (!rosbridgeStatus.available) {
+                        statusDetails.textContent = `${runningCount}/${totalCount} services running (Web API: ✓) | rosbridge not running - start manually: cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh`;
+                    } else {
+                        statusDetails.textContent = `${runningCount}/${totalCount} services running (Web API: ✓) | rosbridge running but not connected`;
+                    }
+                } else {
+                    if (!rosbridgeStatus.available) {
+                        statusDetails.textContent = 'Web API: ✓ | rosbridge not running - start manually: cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh';
+                    } else {
+                        statusDetails.textContent = 'Web API: ✓ | rosbridge running but not connected';
+                    }
+                }
             }
-        }
+        });
     } catch (error) {
         console.error('Failed to check system status:', error);
     }
@@ -386,15 +399,70 @@ function initializeROS() {
         console.error('ROS error:', error);
         ros.isConnected = false;
         updateConnectionStatus(false);
+        // Check rosbridge status when error occurs
+        checkRosbridgeStatus().then(updateRosbridgeErrorDisplay);
     });
 
     ros.on('close', () => {
         console.log('ROS connection closed');
         ros.isConnected = false;
         updateConnectionStatus(false);
+        // Check rosbridge status when connection closes
+        checkRosbridgeStatus().then(updateRosbridgeErrorDisplay);
         // Try to reconnect after 3 seconds
         setTimeout(initializeROS, 3000);
     });
+    
+    // Check rosbridge status on initialization
+    checkRosbridgeStatus().then(updateRosbridgeErrorDisplay);
+}
+
+// Check rosbridge availability via API
+async function checkRosbridgeStatus() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/status/rosbridge`);
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        }
+    } catch (error) {
+        console.error('Failed to check rosbridge status:', error);
+    }
+    return { available: false, error: 'Failed to check rosbridge status' };
+}
+
+// Update rosbridge error display
+function updateRosbridgeErrorDisplay(rosbridgeStatus) {
+    // Find or create error banner
+    let errorBanner = document.getElementById('rosbridge-error-banner');
+    if (!errorBanner) {
+        errorBanner = document.createElement('div');
+        errorBanner.id = 'rosbridge-error-banner';
+        errorBanner.className = 'rosbridge-error-banner';
+        errorBanner.style.cssText = 'background-color: #ff4444; color: white; padding: 12px; margin: 10px 0; border-radius: 4px; font-weight: bold;';
+        const header = document.querySelector('.dashboard-header');
+        if (header && header.parentNode) {
+            header.parentNode.insertBefore(errorBanner, header.nextSibling);
+        }
+    }
+    
+    if (!rosbridgeStatus.available) {
+        errorBanner.style.display = 'block';
+        const errorMsg = rosbridgeStatus.error || 'rosbridge is not running';
+        const instruction = 'cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh';
+        errorBanner.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>⚠️ rosbridge Not Running</strong><br>
+                    <span style="font-size: 0.9em;">${errorMsg}</span><br>
+                    <span style="font-size: 0.85em; font-family: monospace; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 3px; margin-top: 4px; display: inline-block;">${instruction}</span>
+                </div>
+                <button onclick="this.parentElement.parentElement.style.display='none'" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 4px 12px; border-radius: 3px; cursor: pointer;">Dismiss</button>
+            </div>
+        `;
+    } else {
+        errorBanner.style.display = 'none';
+    }
 }
 
 function updateConnectionStatus(connected) {
@@ -407,11 +475,33 @@ function updateConnectionStatus(connected) {
         statusText.textContent = '✓ Real-time Connected';
         statusDetails.textContent = 'Receiving live updates';
         statusDetails.className = 'status-details-text connected';
+        // Hide rosbridge error banner when connected
+        const errorBanner = document.getElementById('rosbridge-error-banner');
+        if (errorBanner) {
+            errorBanner.style.display = 'none';
+        }
     } else {
         statusIndicator.className = 'status-indicator disconnected';
         statusText.textContent = '✗ Real-time Disconnected';
-        statusDetails.textContent = 'Start rosbridge: ./start_rosbridge.sh (or: ros2 run rosbridge_server rosbridge_websocket)';
-        statusDetails.className = 'status-details-text disconnected';
+        
+        // Check rosbridge status and show detailed error
+        checkRosbridgeStatus().then(rosbridgeStatus => {
+            updateRosbridgeErrorDisplay(rosbridgeStatus);
+            
+            if (!rosbridgeStatus.available) {
+                // Priority 1: rosbridge not running
+                statusDetails.textContent = `rosbridge not running. Start manually: cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh`;
+                statusDetails.className = 'status-details-text disconnected';
+            } else {
+                // rosbridge is running but connection failed (other issue)
+                statusDetails.textContent = 'rosbridge running but connection failed. Check network/firewall.';
+                statusDetails.className = 'status-details-text disconnected';
+            }
+        }).catch(() => {
+            // Fallback if API check fails
+            statusDetails.textContent = 'Start rosbridge: cd ~/dev/r2d2/web_dashboard && ./start_rosbridge.sh';
+            statusDetails.className = 'status-details-text disconnected';
+        });
     }
 }
 

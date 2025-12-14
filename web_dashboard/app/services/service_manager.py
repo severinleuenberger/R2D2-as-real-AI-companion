@@ -1,5 +1,6 @@
 """Systemd service management for R2D2 services"""
 import subprocess
+import time
 from typing import Dict, Optional
 from app.config import SERVICES
 
@@ -66,12 +67,38 @@ class ServiceManager:
             result[service_name] = status
         return result
     
-    def start_service(self, service_name: str) -> Dict[str, any]:
+    def _check_topic_exists(self, topic_name: str) -> bool:
+        """
+        Check if a ROS 2 topic exists and is publishing.
+        
+        Args:
+            topic_name: ROS 2 topic name (e.g., "/r2d2/audio/person_status")
+        
+        Returns:
+            True if topic exists, False otherwise
+        """
+        try:
+            result = subprocess.run(
+                ['ros2', 'topic', 'list'],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                env={**subprocess.os.environ, 'ROS_DOMAIN_ID': '0'}
+            )
+            if result.returncode == 0:
+                topics = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+                return topic_name in topics
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return False
+    
+    def start_service(self, service_name: str, verify_topics: bool = False) -> Dict[str, any]:
         """
         Start a systemd service.
         
         Args:
             service_name: Service name (e.g., "audio", "camera")
+            verify_topics: If True, verify expected topics are publishing after start
         
         Returns:
             Dictionary with success status
@@ -86,6 +113,38 @@ class ServiceManager:
         )
         
         if result.returncode == 0:
+            # Wait a moment for service to initialize
+            time.sleep(2)
+            
+            # Verify service is actually running
+            check_result = subprocess.run(
+                ['systemctl', 'is-active', full_service_name],
+                capture_output=True, text=True
+            )
+            if check_result.stdout.strip() != 'active':
+                return {
+                    "success": False,
+                    "error": f"{service_name} start command succeeded but service is not active. Check logs: sudo journalctl -u {full_service_name} -n 20"
+                }
+            
+            # Verify topics if requested
+            if verify_topics:
+                missing_topics = []
+                if service_name == "camera":
+                    # Camera-perception should publish /oak/rgb/image_raw
+                    if not self._check_topic_exists("/oak/rgb/image_raw"):
+                        missing_topics.append("/oak/rgb/image_raw")
+                elif service_name == "audio":
+                    # Audio-notification should publish /r2d2/audio/person_status
+                    if not self._check_topic_exists("/r2d2/audio/person_status"):
+                        missing_topics.append("/r2d2/audio/person_status")
+                
+                if missing_topics:
+                    return {
+                        "success": False,
+                        "error": f"{service_name} started but expected topics not publishing: {', '.join(missing_topics)}. Check logs: sudo journalctl -u {full_service_name} -n 20"
+                    }
+            
             return {"success": True, "message": f"{service_name} started successfully"}
         else:
             error_msg = result.stderr.strip() if result.stderr.strip() else result.stdout.strip()
@@ -96,12 +155,13 @@ class ServiceManager:
                 "error": f"Failed to start {service_name}: {error_msg}"
             }
     
-    def stop_service(self, service_name: str) -> Dict[str, any]:
+    def stop_service(self, service_name: str, verify: bool = False) -> Dict[str, any]:
         """
         Stop a systemd service.
         
         Args:
             service_name: Service name (e.g., "audio", "camera")
+            verify: If True, verify service is actually stopped before returning
         
         Returns:
             Dictionary with success status
@@ -116,6 +176,19 @@ class ServiceManager:
         )
         
         if result.returncode == 0:
+            # Verify service is actually stopped if requested
+            if verify:
+                max_attempts = 5
+                for attempt in range(max_attempts):
+                    check_result = subprocess.run(
+                        ['systemctl', 'is-active', full_service_name],
+                        capture_output=True, text=True
+                    )
+                    if check_result.stdout.strip() != 'active':
+                        return {"success": True, "message": f"{service_name} stopped successfully"}
+                    time.sleep(0.5)
+                return {"success": False, "error": f"{service_name} stop command succeeded but service still active"}
+            
             return {"success": True, "message": f"{service_name} stopped successfully"}
         else:
             error_msg = result.stderr.strip() if result.stderr.strip() else result.stdout.strip()
@@ -159,27 +232,30 @@ class ServiceManager:
     def start_recognition_mode(self) -> Dict[str, any]:
         """
         Start recognition mode: stop stream, start camera-perception + audio.
-        Ensures mutual exclusivity with streaming mode.
+        Ensures mutual exclusivity with streaming mode by stopping conflicting service
+        and waiting for device release before starting camera-perception.
         """
         errors = []
         messages = []
         
-        # Stop stream service first
-        stream_result = self.stop_service("camera-stream")
+        # Stop stream service first and verify it's actually stopped
+        stream_result = self.stop_service("camera-stream", verify=True)
         if not stream_result.get("success"):
             errors.append(f"Failed to stop stream: {stream_result.get('error')}")
         else:
             messages.append("Stream stopped")
+            # Wait for device release (OAK-D camera needs time to free up)
+            time.sleep(3)
         
-        # Start camera-perception service
-        camera_result = self.start_service("camera")
+        # Start camera-perception service with topic verification
+        camera_result = self.start_service("camera", verify_topics=True)
         if not camera_result.get("success"):
             errors.append(f"Failed to start camera: {camera_result.get('error')}")
         else:
             messages.append("Camera-perception started")
         
-        # Start audio notification service
-        audio_result = self.start_service("audio")
+        # Start audio notification service with topic verification
+        audio_result = self.start_service("audio", verify_topics=True)
         if not audio_result.get("success"):
             errors.append(f"Failed to start audio: {audio_result.get('error')}")
         else:
@@ -217,20 +293,30 @@ class ServiceManager:
     def start_stream_mode(self) -> Dict[str, any]:
         """
         Start stream mode: stop recognition services, start stream.
-        Ensures mutual exclusivity with recognition mode.
+        Ensures mutual exclusivity with recognition mode by stopping camera-perception
+        and waiting for device release before starting camera-stream.
         """
         errors = []
         messages = []
         
-        # Stop recognition services first
-        recognition_result = self.stop_recognition_mode()
-        if not recognition_result.get("success"):
-            errors.append(f"Failed to stop recognition: {recognition_result.get('error')}")
+        # Stop camera-perception service first (most critical for device exclusivity)
+        camera_result = self.stop_service("camera", verify=True)
+        if not camera_result.get("success"):
+            errors.append(f"Failed to stop camera-perception: {camera_result.get('error')}")
         else:
-            messages.append("Recognition services stopped")
+            messages.append("Camera-perception stopped")
+            # Wait for device release (OAK-D camera needs time to free up)
+            time.sleep(3)
         
-        # Start stream service
-        stream_result = self.start_service("camera-stream")
+        # Stop audio notification service (not device-related, but part of recognition mode)
+        audio_result = self.stop_service("audio")
+        if not audio_result.get("success"):
+            errors.append(f"Failed to stop audio: {audio_result.get('error')}")
+        else:
+            messages.append("Audio notification stopped")
+        
+        # Start stream service (no topic verification needed for stream service)
+        stream_result = self.start_service("camera-stream", verify_topics=False)
         if not stream_result.get("success"):
             errors.append(f"Failed to start stream: {stream_result.get('error')}")
         else:

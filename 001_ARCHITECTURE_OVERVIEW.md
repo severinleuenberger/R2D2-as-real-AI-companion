@@ -825,7 +825,10 @@ ROS 2 Topics
 **Backend:**
 - `web_dashboard/app/main.py` - FastAPI application
 - `web_dashboard/app/api/` - REST API endpoints
+  - `services.py` - Service control API
+  - `status.py` - Status monitoring API (includes rosbridge detection)
 - `web_dashboard/app/services/` - Service managers (systemd, ROS 2, training)
+  - `service_manager.py` - Enhanced with device exclusivity and topic verification
 
 **Frontend:**
 - `web_dashboard/app/templates/index.html` - Main dashboard page
@@ -842,9 +845,18 @@ ROS 2 Topics
 
 **Services:**
 - `GET /api/services/status` - All services status
-- `POST /api/services/{service}/start` - Start service
-- `POST /api/services/{service}/stop` - Stop service
+- `POST /api/services/{service}/start` - Start service (with device exclusivity and topic verification)
+- `POST /api/services/{service}/stop` - Stop service (with verification)
 - `POST /api/services/{service}/restart` - Restart service
+- `POST /api/services/recognition/start` - Start recognition mode (stops stream, starts camera+audio)
+- `POST /api/services/recognition/stop` - Stop recognition mode
+- `POST /api/services/stream/start` - Start stream mode (stops recognition, starts stream)
+- `POST /api/services/stream/stop` - Stop stream mode
+
+**Status:**
+- `GET /api/status/nodes` - List ROS 2 nodes
+- `GET /api/status/topics` - List ROS 2 topics
+- `GET /api/status/rosbridge` - Check rosbridge availability (detection only, does not auto-start)
 
 **Audio:**
 - `GET /api/audio/volume` - Get volume
@@ -863,6 +875,12 @@ ROS 2 Topics
 - ✅ **Camera Stream Service:** On-demand MJPEG video stream (port 8081)
 - ✅ **Star Wars UI Theme:** Dark futuristic design optimized for 1920x1200 display
 - ✅ **Single-Page Layout:** All content fits on one screen without scrolling
+- ✅ **Service Management Enhancements (December 14, 2025):**
+  - Camera device exclusivity: Prevents `X_LINK_DEVICE_ALREADY_IN_USE` errors by ensuring mutual exclusivity between camera-stream and camera-perception services
+  - Topic verification: Verifies services publish expected topics after startup
+  - rosbridge detection: `/api/status/rosbridge` endpoint detects availability (does not auto-start)
+  - Enhanced UI error messages: Priority-based errors with clear diagnostic hints
+  - Verification script: `web_dashboard/verify_integration.sh` for comprehensive integration testing
 
 **For complete documentation, see:** 
 - [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md) - Complete dashboard documentation
@@ -1109,4 +1127,4 @@ sudo systemctl status r2d2-powerbutton.service
 ---
 
 *Architecture Overview created: December 7, 2025*  
-*Last updated: December 9, 2025 (Comprehensive update: Added audio system, state machine, all nodes, Phase 2 hybrid architecture, hardware control, complete topic reference)*
+*Last updated: December 14, 2025 (Added web dashboard service management enhancements: device exclusivity, rosbridge detection, topic verification, UI error improvements)*
