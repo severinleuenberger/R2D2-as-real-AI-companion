@@ -54,6 +54,9 @@ class ImageListener(Node):
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
         
+        # GPU acceleration parameters (Phase 1)
+        self.declare_parameter('use_gpu_primitives', False)  # Enable GPU acceleration for image primitives (default: false, CPU-safe)
+        
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
         self.save_debug_gray = self.get_parameter('save_debug_gray_frame').value
@@ -172,6 +175,24 @@ class ImageListener(Node):
         # Counter for recognition frame skip (process every Nth frame)
         self.recognition_frame_counter = 0
         
+        # GPU acceleration setup (Phase 1)
+        self.use_gpu = self.get_parameter('use_gpu_primitives').value
+        self.gpu_available = False
+        if self.use_gpu:
+            try:
+                gpu_count = cv2.cuda.getCudaEnabledDeviceCount()
+                if gpu_count > 0:
+                    self.gpu_available = True
+                    self.get_logger().info(f'GPU acceleration enabled: {gpu_count} CUDA device(s) available')
+                else:
+                    self.gpu_available = False
+                    self.get_logger().warn('GPU acceleration requested but no CUDA devices available. Falling back to CPU.')
+            except Exception as e:
+                self.gpu_available = False
+                self.get_logger().warn(f'GPU availability check failed: {e}. Falling back to CPU.')
+        else:
+            self.get_logger().info('GPU acceleration disabled (CPU-only mode)')
+        
         self.get_logger().info('ImageListener node initialized, subscribed to /oak/rgb/image_raw')
         if self.recognition_enabled:
             self.get_logger().info(f'Face recognition enabled (threshold={self.recognition_threshold}, frame_skip={self.recognition_frame_skip})')
@@ -201,14 +222,39 @@ class ImageListener(Node):
             self.get_logger().error(f'Failed to convert image: {e}')
             return
         
-        # Downscale image to 640x360 for faster processing
-        downscaled = cv2.resize(cv_image, (640, 360))
-        
-        # Convert downscaled image to grayscale
-        gray_image = cv2.cvtColor(downscaled, cv2.COLOR_BGR2GRAY)
-        
-        # Compute mean brightness from grayscale image (0-255 range)
-        mean_brightness = float(np.mean(gray_image))
+        # Phase 1: Optional GPU acceleration for image primitives
+        if self.use_gpu and self.gpu_available:
+            try:
+                # Upload image to GPU
+                gpu_image = cv2.cuda.GpuMat()
+                gpu_image.upload(cv_image)
+                
+                # GPU: Resize to 640x360
+                gpu_downscaled = cv2.cuda.resize(gpu_image, (640, 360))
+                
+                # GPU: Convert to grayscale
+                gpu_gray = cv2.cuda.cvtColor(gpu_downscaled, cv2.COLOR_BGR2GRAY)
+                
+                # GPU: Compute mean brightness
+                gpu_mean_result = cv2.cuda.mean(gpu_gray)
+                mean_brightness = float(gpu_mean_result[0])  # Mean is first element of tuple
+                
+                # Download grayscale image back to CPU for Haar Cascade and LBPH
+                gray_image = gpu_gray.download()
+                
+                # Download downscaled image for debug frame (if needed)
+                downscaled = gpu_downscaled.download()
+            except Exception as e:
+                # GPU path failed, fall back to CPU
+                self.get_logger().warn(f'GPU processing failed: {e}. Falling back to CPU.')
+                downscaled = cv2.resize(cv_image, (640, 360))
+                gray_image = cv2.cvtColor(downscaled, cv2.COLOR_BGR2GRAY)
+                mean_brightness = float(np.mean(gray_image))
+        else:
+            # CPU-only path (default, Phase 0 behavior)
+            downscaled = cv2.resize(cv_image, (640, 360))
+            gray_image = cv2.cvtColor(downscaled, cv2.COLOR_BGR2GRAY)
+            mean_brightness = float(np.mean(gray_image))
         
         # Publish brightness value on perception topic
         brightness_msg = Float32()
