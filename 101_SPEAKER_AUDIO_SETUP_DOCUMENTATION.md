@@ -484,8 +484,29 @@ Before declaring the audio setup complete, verify:
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** December 8, 2025  
+## 40-Pin Header Configuration Note (December 2025)
+
+**Current Status:** The system uses the **original/default Jetson AGX Orin 40-pin header configuration**.
+
+**What This Means:**
+- No custom device tree overlays are active
+- All pins use their default functions as specified by NVIDIA
+- Pin 32 (GPIO09) is available for GPIO (power button) - not configured as `dmic3_clk`
+- Pin 27 (GPIO27) is available for GPIO (LED control) - not configured as `i2c2`
+- Audio system uses J511 header (HPO_L) for I2S output, not 40-pin header
+
+**If You Need to Reconfigure Pins:**
+- Use Jetson-IO tool carefully: `sudo /opt/nvidia/jetson-io/jetson-io.py`
+- Verify pin assignments before saving
+- Test functionality after any changes
+- Document any custom overlays created
+
+**For Power Button Configuration Details:** See [`020_POWER_BUTTON_FINAL_DOCUMENTATION.md`](020_POWER_BUTTON_FINAL_DOCUMENTATION.md)
+
+---
+
+**Document Version:** 1.1  
+**Last Updated:** December 15, 2025  
 **Author:** Claude (AI Assistant)  
 **Status:** Ready for testing and feedback  
 **Related:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) for complete ROS 2 integration and system setup

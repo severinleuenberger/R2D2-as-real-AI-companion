@@ -99,8 +99,9 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 | **Audio Output Pin** | J511 Pin 9 (HPO_L) | Hardware | I2S interface for audio output |
 | **Audio Device** | `hw:1,0` | ALSA config | Audio hardware device identifier |
 | **LED GPIO Pins** | 17 (RED), 27 (GREEN), 22 (BLUE) | Hardware | GPIO pin assignments for RGB LED |
-| **Power Button GPIO** | Pin 32 (40-pin header) | Hardware | Shutdown control |
+| **Power Button GPIO** | Pin 32 (40-pin header, GPIO09) | Hardware | Shutdown control |
 | **Boot/Wake Pin** | J42 Pin 4 (POWER) | Hardware | Boot/wake control |
+| **40-Pin Header Config** | Original/Default Jetson | System | No custom overlays (reverted Dec 2025) |
 | **OPENBLAS_CORETYPE** | ARMV8 | Environment | Critical for ARM64 (prevents "Illegal instruction") |
 | **Face Recognition Model Path** | `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml` | File system | Default model location |
 | **Audio Assets Path** | `ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/` | File system | MP3 audio files location |
@@ -749,7 +750,7 @@ EXAMPLES:
 The R2D2 system includes a power button control system for graceful shutdown and wake:
 
 **Button 1 (Shutdown):**
-- **GPIO Pin:** 32 (40-pin expansion header)
+- **GPIO Pin:** 32 (40-pin expansion header, GPIO09)
 - **Function:** Press to initiate graceful shutdown
 - **Action:** `shutdown -h now`
 - **Status:** ✅ Tested and operational
@@ -761,7 +762,16 @@ The R2D2 system includes a power button control system for graceful shutdown and
 - **Function:** Short pins to wake from low-power or boot from shutdown
 - **Status:** Ready for testing
 
-**For detailed power button documentation, see:** [`080_POWER_BUTTON_FINAL_DOCUMENTATION.md`](080_POWER_BUTTON_FINAL_DOCUMENTATION.md)
+**40-Pin Header Configuration (December 2025):**
+- **Status:** ✅ Using original/default Jetson AGX Orin configuration
+- **No custom device tree overlays active** - all pins use default functions
+- **Pin 32 (GPIO09):** Available for GPIO (power button) ✅
+- **Pin 17 (GPIO17):** Available for GPIO (RED LED) ✅
+- **Pin 27 (GPIO27):** Available for GPIO (GREEN LED) ✅
+- **Pin 22 (GPIO22):** Available for GPIO (BLUE LED) ✅
+- **Previous Issue:** Jetson-IO had configured Pin 32 as `dmic3_clk` - **RESOLVED** by reverting to default config
+
+**For detailed power button documentation, see:** [`020_POWER_BUTTON_FINAL_DOCUMENTATION.md`](020_POWER_BUTTON_FINAL_DOCUMENTATION.md)
 
 ### 7.2 Audio Hardware
 
@@ -1119,7 +1129,7 @@ sudo systemctl status r2d2-powerbutton.service
 - **Camera Setup:** [`102_CAMERA_SETUP_DOCUMENTATION.md`](102_CAMERA_SETUP_DOCUMENTATION.md)
 - **Audio Hardware:** [`101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md`](101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md)
 - **Audio Hardware (Alternative):** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
-- **Power Button:** [`080_POWER_BUTTON_FINAL_DOCUMENTATION.md`](080_POWER_BUTTON_FINAL_DOCUMENTATION.md)
+- **Power Button:** [`020_POWER_BUTTON_FINAL_DOCUMENTATION.md`](020_POWER_BUTTON_FINAL_DOCUMENTATION.md)
 - **Phase 2 Architecture:** [`200_SPEECH_ARCHITECTURE_RECOMMENDATION.md`](200_SPEECH_ARCHITECTURE_RECOMMENDATION.md)
 
 **Analysis & Planning:**
@@ -1129,4 +1139,15 @@ sudo systemctl status r2d2-powerbutton.service
 ---
 
 *Architecture Overview created: December 7, 2025*  
-*Last updated: December 14, 2025 (Added web dashboard service management enhancements: device exclusivity, rosbridge detection, topic verification, UI error improvements)*
+*Last updated: December 15, 2025*
+
+**Recent Changes (December 15, 2025):**
+- **40-Pin Header Configuration:** System reverted to original/default Jetson AGX Orin configuration
+  - Removed custom Jetson-IO device tree overlay that was configuring Pin 32 as `dmic3_clk`
+  - Pin 32 (GPIO09) now available for power button ✅
+  - All GPIO pins (17, 27, 22, 32) use default functions
+  - No device tree overlays active - clean, predictable pin state
+  - See [`020_POWER_BUTTON_FINAL_DOCUMENTATION.md`](020_POWER_BUTTON_FINAL_DOCUMENTATION.md) for details
+
+**Previous Updates:**
+- December 14, 2025: Added web dashboard service management enhancements (device exclusivity, rosbridge detection, topic verification, UI error improvements)

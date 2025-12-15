@@ -122,6 +122,49 @@ while True:
 2. Verify service is running: `sudo systemctl status r2d2-powerbutton.service`
 3. Check logs: `tail -50 /var/log/r2d2_power_button.log`
 4. Restart service: `sudo systemctl restart r2d2-powerbutton.service`
+5. **Verify Pin 32 is configured as GPIO:** Check that no device tree overlay is overriding Pin 32
+   ```bash
+   # Check if Jetson-IO overlay is active
+   cat /boot/extlinux/extlinux.conf | grep -i overlay
+   # Should NOT show jetson-io-hdr40-user-custom.dtbo if using default config
+   ```
+
+### Pin Configuration Issue (December 2025 - RESOLVED)
+**Problem:** Power button was not working - Pin 32 was configured as `dmic3_clk` instead of GPIO09.
+
+**Root Cause:** 
+- Jetson-IO tool had created a custom device tree overlay (`jetson-io-hdr40-user-custom.dtbo`)
+- This overlay configured Pin 32 as `dmic3_clk` (digital microphone clock) instead of GPIO09
+- The overlay was loaded at boot via `/boot/extlinux/extlinux.conf` with `DEFAULT JetsonIO`
+
+**Solution Applied:**
+1. Changed boot configuration to use default pins:
+   ```bash
+   # Changed DEFAULT from "JetsonIO" to "primary" in /boot/extlinux/extlinux.conf
+   sudo sed -i 's/^DEFAULT JetsonIO/DEFAULT primary/' /boot/extlinux/extlinux.conf
+   ```
+2. Removed JetsonIO section from extlinux.conf:
+   ```bash
+   sudo sed -i '/^LABEL JetsonIO/,/^	OVERLAYS/d' /boot/extlinux/extlinux.conf
+   ```
+3. Deleted custom overlay file:
+   ```bash
+   sudo rm /boot/jetson-io-hdr40-user-custom.dtbo
+   ```
+
+**Result:** 
+- ✅ Pin 32 is now back to default GPIO09 configuration
+- ✅ Power button works correctly
+- ✅ System uses original Jetson AGX Orin 40-pin header configuration
+
+**Important Notes:**
+- The system is now using the **original/default Jetson pin configuration**
+- Pin 32 (GPIO09) is available for GPIO use (power button)
+- Pin 27 (GPIO27) is available for GPIO use (LED control)
+- Pin 22 (GPIO22) is available for GPIO use (LED control)
+- Pin 17 (GPIO17) is available for GPIO use (LED control)
+- **No device tree overlays are active** - all pins use their default functions
+- If you need to reconfigure pins in the future, use Jetson-IO tool carefully and verify pin assignments
 
 ### Service not starting
 1. Check service file: `cat /etc/systemd/system/r2d2-powerbutton.service`
@@ -176,5 +219,32 @@ For issues or modifications:
 
 ---
 
-**Last Updated**: 2025-12-09
-**Status**: Production Ready (Button 1 verified, Button 2 ready)
+## 40-Pin Header Configuration Status
+
+**Current Configuration:** ✅ **Original/Default Jetson AGX Orin Configuration**
+
+The system has been reverted to the original Jetson pin configuration. No custom device tree overlays are active.
+
+**Pin Assignments (Current):**
+- Pin 32: GPIO09 (Power Button - ✅ Working)
+- Pin 17: GPIO17 (RED LED - Available)
+- Pin 27: GPIO27 (GREEN LED - Available)
+- Pin 22: GPIO22 (BLUE LED - Available)
+
+**What This Means:**
+- All GPIO pins are available for their default functions
+- No conflicts with audio (DMIC) or I2C functions
+- System is in a clean, predictable state
+- Future pin configurations should be done carefully to avoid conflicts
+
+**If You Need to Reconfigure Pins:**
+1. Use Jetson-IO tool: `sudo /opt/nvidia/jetson-io/jetson-io.py`
+2. **Verify pin assignments** before saving
+3. Test GPIO functionality after any changes
+4. Document any custom overlays created
+
+---
+
+**Last Updated**: 2025-12-15
+**Status**: Production Ready (Button 1 verified and working, Button 2 ready)
+**Configuration**: Original Jetson default (no custom overlays)

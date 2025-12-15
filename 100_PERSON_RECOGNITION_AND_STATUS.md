@@ -651,9 +651,11 @@ The system now has **immediate state transitions** when no faces are detected:
 **RGB LED Node:** `status_led_node` (optional, requires GPIO)
 
 **GPIO Pins:**
-- RED: GPIO 17
-- GREEN: GPIO 27
-- BLUE: GPIO 22
+- RED: GPIO 17 (Pin 17 on 40-pin header)
+- GREEN: GPIO 27 (Pin 27 on 40-pin header)
+- BLUE: GPIO 22 (Pin 22 on 40-pin header)
+
+**Note (December 2025):** The system uses the original/default Jetson AGX Orin 40-pin header configuration. All GPIO pins (17, 27, 22, 32) are available for their default functions. No custom device tree overlays are active.
 
 **LED Behavior:**
 
