@@ -520,7 +520,7 @@ class AudioNotificationNode(Node):
             return
         
         try:
-            self.get_logger().debug(
+            self.get_logger().info(
                 f"🔊 Playing {alert_type} audio: {audio_file.name} (volume {self.audio_volume*100:.0f}%)"
             )
             
@@ -533,15 +533,27 @@ class AudioNotificationNode(Node):
                 str(self.alsa_device),
             ]
             
-            subprocess.Popen(
+            self.get_logger().debug(f"Audio command: {' '.join(cmd)}")
+            
+            process = subprocess.Popen(
                 cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 start_new_session=True
             )
             
+            # Check if process started successfully (non-blocking check)
+            if process.poll() is None:
+                self.get_logger().debug(f"Audio player process started (PID: {process.pid})")
+            else:
+                # Process already finished (error)
+                stdout, stderr = process.communicate(timeout=1)
+                self.get_logger().error(
+                    f"Audio player failed immediately: stdout={stdout.decode()}, stderr={stderr.decode()}"
+                )
+            
         except Exception as e:
-            self.get_logger().error(f"Error playing {alert_type} audio: {e}")
+            self.get_logger().error(f"Error playing {alert_type} audio: {e}", exc_info=True)
     
     def _publish_event(self, event_description: str):
         """

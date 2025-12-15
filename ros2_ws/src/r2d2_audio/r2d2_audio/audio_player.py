@@ -63,18 +63,15 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
         if player == 'ffplay':
             # ffplay: -nodisp (no display), -autoexit (exit after playback)
             # Use -af "volume=X" for volume control (X is linear gain, 0.0-1.0)
-            # For ALSA device, use -ao alsa:device=DEVICE
+            # For ALSA device, use environment variables (ffplay doesn't support -ao alsa:device= syntax)
             cmd = [
                 'ffplay',
                 '-nodisp',
                 '-autoexit',
                 '-loglevel', 'error',  # Reduce logging
                 '-af', f'volume={volume}',
+                str(audio_path)
             ]
-            # Add ALSA device if specified
-            if device:
-                cmd.extend(['-ao', f'alsa:device={device}'])
-            cmd.append(str(audio_path))
         elif player == 'mpv':
             # mpv: --no-video (no video), --really-quiet (minimal output), --volume=X (0-100)
             # For ALSA, use --audio-device=alsa/DEVICE
@@ -99,9 +96,20 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
         
         # Prepare environment with ALSA device if needed
         env = os.environ.copy()
-        if device and player in ['ffplay', 'mpv']:
-            # Set ALSA environment variables as fallback
-            env['AUDIODEV'] = device
+        if device:
+            if player == 'ffplay':
+                # ffplay doesn't support -ao alsa:device= syntax
+                # Use default ALSA device (configured in ~/.asoundrc) or set via environment
+                # For hw:1,0 format, we can't directly specify it to ffplay
+                # Instead, rely on default ALSA device or use a different player
+                # Note: The system's .asoundrc should configure the default device
+                pass  # Use default ALSA device
+            elif player == 'mpv':
+                # mpv uses --audio-device option
+                pass  # Already handled in cmd construction
+            else:
+                # Other players: use AUDIODEV
+                env['AUDIODEV'] = device
         
         # Run player without blocking (detach from parent process)
         # Note: Errors from detached process are not captured (acceptable for background playback)

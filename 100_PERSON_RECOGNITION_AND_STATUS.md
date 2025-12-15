@@ -1179,15 +1179,59 @@ aplay -l | grep "card 1"
 # Verify audio file exists
 ls -l ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/
 
-# Test ffplay directly
-ffplay -nodisp -autoexit -af "volume=0.05" /path/to/audio.mp3
+# Check current volume (default is 0.05 = 5%, very quiet)
+ros2 param get /audio_notification_node audio_volume
+
+# Test ffplay directly (should work with default ALSA device)
+ffplay -nodisp -autoexit -af "volume=0.5" /path/to/audio.mp3
+
+# Check if ffplay processes are spawned
+ps aux | grep ffplay | grep -v grep
+
+# Monitor service logs for audio playback messages
+journalctl -u r2d2-audio-notification.service -f | grep -E "Playing|audio|Error"
 ```
 
-**Solutions:**
-1. Increase volume: `ros2 param set /audio_notification_node audio_volume 0.5`
-2. Verify ALSA routing: `aplay -l` should show audio device
-3. Check speaker power: Look for power indicator on PAM8403 amplifier
-4. Verify J511 I2S connector is fully seated
+**Common Causes and Solutions:**
+
+1. **Volume too low (most common):**
+   - Default volume is 0.05 (5%), which is very quiet
+   - Solution: `ros2 param set /audio_notification_node audio_volume 0.5` (50% volume)
+
+2. **ffplay ALSA device syntax issue (fixed December 2025):**
+   - **Root Cause:** ffplay doesn't support `-ao alsa:device=hw:1,0` syntax
+   - **Status:** ✅ Fixed in `audio_player.py` - now uses default ALSA device from `~/.asoundrc`
+   - **If still not working:** Rebuild package: `colcon build --packages-select r2d2_audio` and restart service
+
+3. **Audio files not found:**
+   - Verify files exist: `ls -lh ~/dev/r2d2/ros2_ws/install/r2d2_audio/share/r2d2_audio/assets/audio/`
+   - If missing: Rebuild package: `colcon build --packages-select r2d2_audio`
+
+4. **ALSA hardware issues:**
+   - Verify ALSA routing: `aplay -l` should show audio device
+   - Test ALSA directly: `aplay -D hw:1,0 /usr/share/sounds/alsa/Front_Left.wav`
+   - Check speaker power: Look for power indicator on PAM8403 amplifier
+   - Verify J511 I2S connector is fully seated
+
+5. **Service not using updated code:**
+   - After code changes, rebuild and restart: 
+     ```bash
+     cd ~/dev/r2d2/ros2_ws
+     colcon build --packages-select r2d2_audio
+     sudo systemctl restart r2d2-audio-notification.service
+     ```
+
+**Debugging Steps:**
+1. Check service logs for "🔊 Playing" messages (INFO level)
+2. Verify ffplay process spawns: `ps aux | grep ffplay`
+3. Test audio_player.py directly:
+   ```bash
+   python3 ~/dev/r2d2/ros2_ws/install/r2d2_audio/lib/python3.10/site-packages/r2d2_audio/audio_player.py \
+     ~/dev/r2d2/ros2_ws/install/r2d2_audio/share/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 2.mp3 \
+     0.5 hw:1,0
+   ```
+
+**For detailed debugging guide, see:** [`AUDIO_DEBUG_FINDINGS.md`](AUDIO_DEBUG_FINDINGS.md)
 
 ### 10.2 Issue: LBPH Model Not Found
 
@@ -1269,6 +1313,41 @@ journalctl -u r2d2-audio-notification.service -n 50
      recognition_frame_skip:=3
    ```
 2. Check for other processes: `top -bn1 | head -20`
+
+### 10.7 Issue: Audio Beeps Too Frequent
+
+**Symptom:** Audio alerts play too often, even with cooldown
+
+**Diagnosis:**
+```bash
+# Check current cooldown setting
+ros2 param get /audio_notification_node cooldown_seconds
+
+# Monitor state transitions
+journalctl -u r2d2-audio-notification.service -f | grep "recognized\|No faces"
+```
+
+**Common Causes:**
+1. **Rapid state transitions:** Camera briefly loses sight of face, causing RED → BLUE → RED cycles
+2. **Cooldown too short:** Default 2 seconds may not be enough for unstable recognition
+3. **Face detection instability:** Camera angle or lighting causing intermittent face detection
+
+**Solutions:**
+1. **Increase cooldown period:**
+   ```bash
+   ros2 param set /audio_notification_node cooldown_seconds 5.0  # 5 seconds
+   # Or even longer:
+   ros2 param set /audio_notification_node cooldown_seconds 10.0  # 10 seconds
+   ```
+
+2. **Improve camera positioning:** Ensure stable view of face, reduce camera shake
+
+3. **Adjust recognition parameters:** Increase `recognition_frame_skip` to reduce processing frequency
+
+**Expected Behavior:**
+- Recognition alert should play once when person is first recognized
+- No repeated beeps while continuously recognized (cooldown prevents this)
+- Loss alert plays after ~20 seconds of confirmed absence
 
 ---
 
@@ -1551,10 +1630,19 @@ The web dashboard UI now provides enhanced error messages:
 
 ---
 
-**Document Version:** 1.3  
+**Document Version:** 1.4  
 **Last Updated:** December 15, 2025  
 **Status:** ✅ Production Ready  
 **Next Review:** After major system changes or user feedback
+
+**Recent Changes (v1.4 - December 15, 2025):**
+- **Audio Debugging & Fixes:** Enhanced troubleshooting section with ffplay ALSA device fix
+  - Added detailed diagnosis steps for "No Audio Heard" issue
+  - Documented ffplay compatibility fix (removed unsupported `-ao alsa:device=` syntax)
+  - Added new section 10.7 for "Audio Beeps Too Frequent" issue
+  - Added cooldown adjustment recommendations
+  - Enhanced error logging in audio_notification_node.py (DEBUG → INFO for playback messages)
+  - See [`AUDIO_DEBUG_FINDINGS.md`](AUDIO_DEBUG_FINDINGS.md) for complete debugging process
 
 **Recent Changes (v1.3 - December 15, 2025):**
 - **Immediate State Transitions:** Fixed state machine to provide instant feedback when camera is turned away

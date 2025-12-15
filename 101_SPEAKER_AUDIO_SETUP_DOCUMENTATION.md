@@ -380,6 +380,36 @@ aplay -D hw:1,0 /tmp/silence.wav
 dmesg | grep -i "xrun\|underrun"
 ```
 
+### Issue 5: ffplay Audio Player Compatibility (December 2025)
+
+**Symptom:** Audio playback fails silently when using ffplay with ALSA device specification
+
+**Root Cause:** ffplay does not support the `-ao alsa:device=hw:1,0` command-line syntax. This causes silent failures when the audio notification system tries to play MP3 files.
+
+**Status:** ✅ **Fixed** in `audio_player.py` (December 15, 2025)
+
+**Solution Applied:**
+- Removed unsupported `-ao alsa:device=` syntax from ffplay command
+- ffplay now uses the default ALSA device configured in `~/.asoundrc`
+- The system's `.asoundrc` already routes to `hw:1,0`, so audio plays correctly
+
+**Verification:**
+```bash
+# Test ffplay with default device (should work)
+ffplay -nodisp -autoexit -af "volume=0.5" /path/to/audio.mp3
+
+# Test audio_player.py directly
+python3 ~/dev/r2d2/ros2_ws/install/r2d2_audio/lib/python3.10/site-packages/r2d2_audio/audio_player.py \
+  /path/to/audio.mp3 0.5 hw:1,0
+```
+
+**Note:** If you encounter audio playback issues with ffplay, ensure:
+1. `~/.asoundrc` is configured correctly (see Step 2 in ALSA Configuration section)
+2. Default ALSA device routes to `hw:1,0`
+3. Audio notification system has been rebuilt after the fix: `colcon build --packages-select r2d2_audio`
+
+**For complete debugging guide:** See [`AUDIO_DEBUG_FINDINGS.md`](../AUDIO_DEBUG_FINDINGS.md) and [`100_PERSON_RECOGNITION_AND_STATUS.md`](../100_PERSON_RECOGNITION_AND_STATUS.md) Section 10.1
+
 ---
 
 ## Making Settings Persistent
@@ -505,9 +535,15 @@ Before declaring the audio setup complete, verify:
 
 ---
 
-**Document Version:** 1.1  
+**Document Version:** 1.2  
 **Last Updated:** December 15, 2025  
 **Author:** Claude (AI Assistant)  
 **Status:** Ready for testing and feedback  
 **Related:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) for complete ROS 2 integration and system setup
+
+**Recent Changes (v1.2 - December 15, 2025):**
+- **ffplay Compatibility Fix:** Added troubleshooting section (Issue 5) documenting ffplay ALSA device syntax incompatibility
+  - Documented that ffplay doesn't support `-ao alsa:device=hw:1,0` syntax
+  - Noted that fix has been applied in `audio_player.py` to use default ALSA device
+  - Added verification steps and references to debugging documentation
 
