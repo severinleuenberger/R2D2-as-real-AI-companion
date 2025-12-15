@@ -54,24 +54,19 @@ def generate_launch_description():
         ),
         
         # Jitter tolerance (brief gap tolerance)
+        # NOTE: Deprecated - kept for compatibility only. State machine uses fixed REACQUIRE_WINDOW=5.0s
         DeclareLaunchArgument(
             'jitter_tolerance_seconds',
             default_value='5.0',
-            description='Tolerance for brief recognition gaps (keeps status "recognized" during brief losses)'
+            description='Tolerance for brief recognition gaps (DEPRECATED - not used)'
         ),
         
         # Loss confirmation (time before confirming loss)
+        # NOTE: Deprecated - kept for compatibility only. State machine uses fixed RED_HOLD_TIME=15.0s
         DeclareLaunchArgument(
             'loss_confirmation_seconds',
             default_value='15.0',
-            description='Time to wait before confirming loss and playing alert audio (GLOBAL parameter)'
-        ),
-        
-        # Recognition cooldown
-        DeclareLaunchArgument(
-            'cooldown_seconds',
-            default_value='2.0',
-            description='Minimum seconds between recognition alerts'
+            description='Time to wait before confirming loss and playing alert audio (DEPRECATED - not used)'
         ),
         
         # Enable/disable
@@ -93,7 +88,6 @@ def generate_launch_description():
                 'alsa_device': LaunchConfiguration('alsa_device'),
                 'jitter_tolerance_seconds': LaunchConfiguration('jitter_tolerance_seconds'),
                 'loss_confirmation_seconds': LaunchConfiguration('loss_confirmation_seconds'),
-                'cooldown_seconds': LaunchConfiguration('cooldown_seconds'),
                 'enabled': LaunchConfiguration('enabled'),
             }]
         ),

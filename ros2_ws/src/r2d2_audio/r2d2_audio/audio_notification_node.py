@@ -1,27 +1,37 @@
 #!/usr/bin/env python3
 """
-R2D2 Audio Notification Node - Enhanced Recognition State Management
+R2D2 Audio Notification Node - Fixed State Machine Implementation
 
-Subscribes to face recognition results and triggers MP3 audio alerts when
-specific people are recognized or confirmed lost.
+Implements exact timing rules for person recognition state management:
+- BLUE: Target person not recognized. LED blue. On entry play "Voicy R2-D2 - 5.mp3" (lost you).
+- RED: Target person (Severin) recognized. LED red. On entry from BLUE play "Voicy R2-D2 - 2.mp3" (hello).
+  Never replay hello while staying in RED.
+
+Input: Continuous recognition boolean (recognized = true iff person_id == "severin").
+Evaluated continuously at sub-second cadence.
+
+Fixed timing rules:
+- REACQUIRE_WINDOW = 5.0s: Continuous recognized==False required in RED before transition
+- RED_HOLD_TIME = 15.0s: Minimum seconds RED state must be held
+
+Core rules:
+1. BLUE -> RED: Immediate transition when recognized becomes true, play hello, set red_enter_time
+2. RED minimum hold: Must remain RED for at least 15 seconds regardless of recognition dropouts
+3. 5s reacquire rule in RED: If recognized==False, start loss timer. If recognized==True, clear timer immediately
+4. RED -> BLUE: Only when (now - red_enter_time) >= 15s AND (now - last_recognized_true_time) >= 5s
+5. BLUE -> RED: Immediate re-recognition (no cooldown, no delay)
 
 Subscribes to:
-  - /r2d2/perception/person_id (String): Person name or "unknown"
+  - /r2d2/perception/person_id (String): Person name (e.g., "severin")
 
 Publishes:
+  - /r2d2/audio/person_status (String): JSON status (RED/BLUE)
   - /r2d2/audio/notification_event (String): Event descriptions for debugging
-
-Features:
-  - MP3 audio alert when target person is recognized (transition "Hello!")
-  - Tolerates brief gaps (< 5 seconds) in recognition (jitter tolerance)
-  - MP3 audio alert when person confirmed lost (> 5s jitter + 15s confirmation "Oh, I lost you!")
-  - Fully parameterizable audio files, timing, and volume
-  - Background service ready
 """
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, Int32
+from std_msgs.msg import String
 import subprocess
 import time
 from pathlib import Path
@@ -35,8 +45,8 @@ import json
 @dataclass
 class PersonStatusData:
     """Person recognition status data."""
-    status: str  # "red" | "blue" | "green"
-    person_identity: str  # "severin" | "unknown" | "no_person"
+    status: str  # "red" | "blue"
+    person_identity: str  # "severin" | "no_person"
     timestamp_sec: int  # ROS 2 time seconds
     timestamp_nanosec: int  # ROS 2 time nanoseconds
     confidence: float  # 0.0-1.0
@@ -51,10 +61,21 @@ class AudioNotificationNode(Node):
     """
     ROS 2 node for MP3 audio notifications based on face recognition.
     
-    State machine:
-    - Tolerates brief recognition gaps (< 5 seconds jitter tolerance)
-    - Triggers loss alert after jitter exceeded + 15 second confirmation window
-    - Plays parameterizable MP3 audio files for recognition and loss events
+    State machine implements exact timing rules:
+    - BLUE: Target person not recognized. LED blue. On entry play "lost you" audio.
+    - RED: Target person recognized. LED red. On entry from BLUE play "hello" audio.
+      Never replay hello while staying in RED.
+    
+    Fixed timing constants:
+    - REACQUIRE_WINDOW = 5.0s: Continuous recognized==False required in RED before transition
+    - RED_HOLD_TIME = 15.0s: Minimum seconds RED state must be held
+    
+    State transitions:
+    - BLUE -> RED: Immediate when recognized==True, play hello, set red_enter_time
+    - RED minimum hold: Must remain RED for at least 15 seconds
+    - RED reacquire: If recognized==False, start loss timer. If recognized==True, clear timer.
+    - RED -> BLUE: Only when 15s hold met AND 5s continuous loss
+    - BLUE -> RED: Immediate re-recognition (no cooldown)
     """
     
     def __init__(self):
@@ -66,10 +87,8 @@ class AudioNotificationNode(Node):
         self.declare_parameter('target_person', 'severin')
         self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume) - 5% volume (subtle)
         self.declare_parameter('alsa_device', 'hw:1,0')    # ALSA device for audio output (e.g., hw:1,0)
-        self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
-        self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
-        self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
-        self.declare_parameter('recognition_cooldown_after_loss_seconds', 5.0)  # Quiet period after loss alert
+        self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Deprecated - kept for compatibility only
+        self.declare_parameter('loss_confirmation_seconds', 15.0)  # Deprecated - kept for compatibility only
         self.declare_parameter('recognition_audio_file', 'Voicy_R2-D2 - 2.mp3')  # Recognition alert audio
         self.declare_parameter('loss_audio_file', 'Voicy_R2-D2 - 5.mp3')  # Loss alert audio
         self.declare_parameter('enabled', True)
@@ -78,32 +97,32 @@ class AudioNotificationNode(Node):
         self.target_person = self.get_parameter('target_person').value
         self.audio_volume = self.get_parameter('audio_volume').value
         self.alsa_device = self.get_parameter('alsa_device').value
+        # Deprecated parameters kept for compatibility (not used in new state machine)
         self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
         self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
-        self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
-        self.recognition_cooldown_after_loss = self.get_parameter('recognition_cooldown_after_loss_seconds').value
         recognition_audio_filename = self.get_parameter('recognition_audio_file').value
         loss_audio_filename = self.get_parameter('loss_audio_file').value
         self.enabled = self.get_parameter('enabled').value
         
-        # Enhanced state tracking
-        self.is_currently_recognized = False  # True if logically "recognized" (tolerates brief gaps)
-        self.last_recognition_time: Optional[float] = None  # Last time saw target person
-        self.loss_jitter_exceeded_time: Optional[float] = None  # When jitter tolerance was first exceeded
-        self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
-        self.last_loss_beep_time: Optional[float] = None  # Cooldown for loss beeps (after 15s confirmation)
-        self.loss_alert_time: Optional[float] = None  # When loss alert was triggered (for quiet period)
+        # State machine constants (fixed timing rules - DO NOT CHANGE)
+        # REACQUIRE_WINDOW: Continuous recognized==False required in RED before transition to BLUE
+        #   - Prevents false transitions during brief recognition dropouts
+        #   - Must be 5.0s as specified
+        self.REACQUIRE_WINDOW = 5.0
+        # RED_HOLD_TIME: Minimum seconds RED state must be held before transition to BLUE is allowed
+        #   - Ensures RED state is maintained for at least 15 seconds regardless of recognition dropouts
+        #   - Must be 15.0s as specified
+        self.RED_HOLD_TIME = 15.0
         
-        # Status tracking (for LED, STT-LLM-TTS, database)
-        self.current_status = "blue"  # "red" (recognized) | "blue" (lost) | "green" (unknown)
-        self.current_person = "no_person"  # "severin" | "unknown" | "no_person"
+        # State tracking
+        self.current_status = "blue"  # "red" (recognized) | "blue" (lost)
+        self.current_person = "no_person"  # "severin" | "no_person"
         self.status_changed_time = time.time()
-        self.unknown_person_detected = False
-        self.last_known_state = "unknown"
         
-        # Track face count to detect when no faces are visible
-        self.last_face_count = None
-        self.last_face_count_time = None
+        # Recognition state
+        self.recognized: bool = False  # Continuous boolean (true iff person_id == target_person)
+        self.red_enter_time: Optional[float] = None  # Timestamp when entered RED state (for 15s minimum hold)
+        self.last_recognized_true_time: Optional[float] = None  # Last time recognized == True (for 5s reacquire window)
         
         # Find audio player and audio files
         # Get the directory where this script is located
@@ -151,33 +170,13 @@ class AudioNotificationNode(Node):
                 f"Audio player script not found at {self.audio_player_path}"
             )
         
-        # Create subscription to person_id topic
+        # Create subscription to person_id topic (only input needed - no face_count shortcuts)
         self.person_sub = self.create_subscription(
             String,
             '/r2d2/perception/person_id',
             self.person_callback,
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
-        
-        # Create subscription to face_count topic to detect when no faces are visible
-        self.face_count_sub = self.create_subscription(
-            Int32,
-            '/r2d2/perception/face_count',
-            self.face_count_callback,
-            qos_profile=rclpy.qos.QoSProfile(depth=10)
-        )
-        
-        # Create subscription to face_count topic to detect when no faces are visible
-        self.face_count_sub = self.create_subscription(
-            Int32,
-            '/r2d2/perception/face_count',
-            self.face_count_callback,
-            qos_profile=rclpy.qos.QoSProfile(depth=10)
-        )
-        
-        # Track last face count to detect transitions
-        self.last_face_count = None
-        self.last_face_count_time = None
         
         # Create publisher for notification events (for debugging/monitoring)
         self.event_pub = self.create_publisher(
@@ -193,8 +192,9 @@ class AudioNotificationNode(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
-        # Create timer for loss detection (check every 500ms)
-        self.create_timer(0.5, self.check_loss_state)
+        # Create timer for state machine evaluation (check every 500ms for continuous evaluation)
+        # This ensures state transitions happen promptly even if person_id topic slows
+        self.create_timer(0.5, self._evaluate_state_machine)
         
         # Create timer for regular status publishing (10 Hz = every 100ms)
         # This ensures web page and other subscribers get regular updates even when person_id topic stops publishing
@@ -207,10 +207,8 @@ class AudioNotificationNode(Node):
             f"  Loss audio: {self.loss_audio.name}\n"
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  ALSA device: {self.alsa_device}\n"
-            f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
-            f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
-            f"  Alert cooldown: {self.cooldown_seconds}s (min between alerts)\n"
-            f"  Recognition cooldown after loss: {self.recognition_cooldown_after_loss}s (quiet period after loss alert)\n"
+            f"  REACQUIRE_WINDOW: {self.REACQUIRE_WINDOW}s (continuous loss required in RED)\n"
+            f"  RED_HOLD_TIME: {self.RED_HOLD_TIME}s (minimum RED state duration)\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
         )
@@ -219,205 +217,118 @@ class AudioNotificationNode(Node):
         """
         Handle person_id messages from face recognition.
         
+        Evaluates recognized boolean continuously (true iff person_id == target_person).
+        Updates last_recognized_true_time when recognized becomes True.
+        Triggers state machine evaluation on every callback.
+        
         Args:
-            msg: String message containing person name or "unknown"
+            msg: String message containing person name (e.g., "severin") or other values
         """
+        if not self.enabled:
+            return
+        
         person_id = msg.data
         current_time = time.time()
         
+        # Evaluate recognized boolean continuously (true iff person_id == target_person)
+        self.recognized = (person_id == self.target_person)
+        
+        # Update last_recognized_true_time when recognized becomes True
+        if self.recognized:
+            self.last_recognized_true_time = current_time
+        
+        # Trigger state machine evaluation on every callback
+        self._evaluate_state_machine()
+    
+    def _evaluate_state_machine(self):
+        """
+        Evaluate state machine according to exact timing rules.
+        
+        Core rules:
+        1. BLUE -> RED: Immediate transition when recognized==True, play hello, set red_enter_time
+        2. RED minimum hold: Must remain RED for at least 15 seconds
+        3. 5s reacquire rule in RED: If recognized==False, start loss timer. If recognized==True, clear timer.
+        4. RED -> BLUE: Only when 15s hold met AND 5s continuous loss
+        5. BLUE -> RED: Immediate re-recognition (no cooldown)
+        """
         if not self.enabled:
             return
         
-        is_target_recognized = (person_id == self.target_person)
-        
-        if is_target_recognized:
-            # Target person detected
-            self.last_recognition_time = current_time
-            
-            # Check if we're in the quiet period after a loss alert
-            in_quiet_period = False
-            if self.loss_alert_time is not None:
-                time_since_loss_alert = current_time - self.loss_alert_time
-                if time_since_loss_alert < self.recognition_cooldown_after_loss:
-                    in_quiet_period = True
-            
-            if not self.is_currently_recognized:
-                # Only transition to RECOGNIZED if NOT in quiet period
-                if not in_quiet_period:
-                    # Transition: LOST/UNKNOWN → RECOGNIZED (RED)
-                    self.is_currently_recognized = True
-                    self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
-                    self.current_status = "red"
-                    self.current_person = person_id
-                    self.status_changed_time = current_time
-                    self.unknown_person_detected = False
-                    self.last_known_state = person_id
-                    self.loss_alert_time = None  # Clear loss alert time on re-recognition
-                    
-                    # Publish status FIRST (so LED lights up immediately)
-                    self._publish_status("red", person_id, confidence=0.95)
-                    
-                    # Then trigger beep
-                    self._trigger_recognition_alert()
-                    self._publish_event(f"🎉 Recognized {self.target_person}!")
-                    self.get_logger().info(f"✓ {self.target_person} recognized!")
-                else:
-                    # In quiet period - stay in BLUE state but update last_recognition_time
-                    # This way if person stays visible after quiet period, we'll transition to RED
-                    self.get_logger().debug(
-                        f"In quiet period ({self.recognition_cooldown_after_loss}s): "
-                        f"suppressing recognition alert for {self.target_person}"
-                    )
-            else:
-                # Already in RECOGNIZED state - just reset timer
-                self.last_recognition_time = current_time
-                # Publish status update (duration keeps updating)
-                self._publish_status("red", person_id, confidence=0.95)
-        
-        elif person_id == "unknown":
-            # Unknown person detected (not the target)
-            
-            # CRITICAL: If we were in RED state, we need to handle transition properly
-            # The timer will handle loss detection, but we should NOT reset is_currently_recognized here
-            # because we want the timer to detect when we've been away long enough
-            
-            if not self.unknown_person_detected:
-                self.unknown_person_detected = True
-                self.current_status = "green"
-                self.current_person = "unknown"
-                self.status_changed_time = current_time
-                
-                # Publish status
-                self._publish_status("green", "unknown", confidence=0.70)
-                self.get_logger().info("🟢 Unknown person detected")
-            else:
-                # Update duration while unknown person present
-                self._publish_status("green", "unknown", confidence=0.70)
-        elif person_id == "no_person":
-            # No person detected - immediately transition to BLUE
-            # This handles cases where person_id explicitly publishes "no_person"
-            if self.current_status != "blue":
-                self.current_status = "blue"
-                self.current_person = "no_person"
-                self.status_changed_time = current_time
-                self.is_currently_recognized = False
-                self.unknown_person_detected = False
-                self.loss_jitter_exceeded_time = None  # Reset loss timer
-                
-                self._publish_status("blue", "no_person", confidence=0.0)
-                self.get_logger().info("🔵 No person detected - transitioned to BLUE")
-            else:
-                # Already in BLUE - just update duration
-                self._publish_status("blue", "no_person", confidence=0.0)
-        else:
-            pass
-    
-    def face_count_callback(self, msg: Int32):
-        """
-        Handle face_count messages to detect when no faces are visible.
-        When face_count == 0 and we're in GREEN state, transition to BLUE.
-        """
-        face_count = msg.data
         current_time = time.time()
         
-        if not self.enabled:
+        # Rule 1: BLUE -> RED transition
+        if self.current_status == "blue" and self.recognized:
+            # Immediate transition to RED (no delay, no cooldown)
+            self.current_status = "red"
+            self.current_person = self.target_person
+            self.status_changed_time = current_time
+            self.red_enter_time = current_time  # Set RED entry time for 15s minimum hold
+            self.last_recognized_true_time = current_time  # Clear loss timers
+            
+            # Publish status FIRST (so LED lights up immediately)
+            self._publish_status("red", self.target_person, confidence=0.95)
+            
+            # Play hello audio on entry
+            self._trigger_recognition_alert()
+            self._publish_event(f"🎉 Recognized {self.target_person}!")
+            self.get_logger().info(f"✓ {self.target_person} recognized! (BLUE -> RED)")
             return
         
-        self.last_face_count = face_count
-        self.last_face_count_time = current_time
-        
-        # If no faces are detected (face_count == 0)
-        if face_count == 0:
-            # CRITICAL: When no faces are visible, we should be in BLUE state (no person)
-            # This handles the case where the status incorrectly shows GREEN or RED when no one is visible
+        # Rule 2 & 3: RED state handling (minimum hold + reacquire window)
+        if self.current_status == "red":
+            # Rule 2: RED minimum hold - cannot transition to BLUE until 15s have passed
+            time_in_red = current_time - (self.red_enter_time or current_time)
             
-            if self.current_status == "green":
-                # If we're in GREEN (unknown person), immediately transition to BLUE (no person)
-                # This fixes the issue where status stays GREEN when no one is visible
-                self.current_status = "blue"
-                self.current_person = "no_person"
-                self.status_changed_time = current_time
-                self.unknown_person_detected = False
+            # Rule 3: 5s reacquire rule in RED
+            if self.recognized:
+                # If recognized becomes True, immediately clear loss timers and stay RED
+                self.last_recognized_true_time = current_time
+                # Update status (duration keeps updating)
+                self._publish_status("red", self.target_person, confidence=0.95)
+                # No audio, no state change - just reset the loss timer
+            else:
+                # recognized == False in RED
+                # Check if we can transition to BLUE (Rule 4)
+                if self.last_recognized_true_time is None:
+                    # Initialize if not set (shouldn't happen, but safety check)
+                    self.last_recognized_true_time = current_time - self.REACQUIRE_WINDOW
                 
-                self._publish_status("blue", "no_person", confidence=0.0)
-                self.get_logger().info("🔵 No faces detected - transitioned from GREEN to BLUE")
-            
-            elif self.current_status == "red":
-                # If we're in RED (target person recognized) and face_count == 0,
-                # immediately transition to BLUE (no person) - don't wait for loss timer
-                # This provides immediate feedback when camera is turned away
-                self.current_status = "blue"
-                self.current_person = "no_person"
-                self.status_changed_time = current_time
-                self.is_currently_recognized = False
-                self.unknown_person_detected = False
-                self.loss_jitter_exceeded_time = None  # Reset loss timer
-                self.loss_alert_time = None  # Clear loss alert time so re-recognition isn't blocked
+                time_since_last_recognized = current_time - self.last_recognized_true_time
                 
-                self._publish_status("blue", "no_person", confidence=0.0)
-                self.get_logger().info("🔵 No faces detected - transitioned from RED to BLUE")
-            
-            # Note: The loss timer is still used for jitter tolerance when person_id changes
-            # but face_count > 0 (e.g., brief recognition failures)
-            
-        # If faces are detected (face_count > 0), the person_id callback will handle
-        # the state transitions (RED for target, GREEN for unknown)
-    
-    def check_loss_state(self):
-        """
-        Timer callback: Check if person has been continuously lost for > loss_confirmation seconds.
-        
-        Timing logic:
-        1. Jitter tolerance window (0 to 5s absence): No action - brief gap tolerance
-        2. Loss confirmation window (5s to 20s absence): Monitoring for confirmed loss
-        3. At 20s+ continuous absence: Fire loss alert (with cooldown to prevent spam)
-        
-        Resets when person is re-recognized.
-        """
-        if not self.enabled or not self.is_currently_recognized:
-            return
-        
-        current_time = time.time()
-        time_since_last_recognition = current_time - (self.last_recognition_time or current_time)
-        
-        # STEP 1: Check if jitter tolerance window has been exceeded (5 seconds)
-        if time_since_last_recognition > self.jitter_tolerance:
-            # Person has been absent for > 5 seconds
-            
-            # Track when jitter tolerance was first exceeded
-            if self.loss_jitter_exceeded_time is None:
-                self.loss_jitter_exceeded_time = current_time
-            
-            # STEP 2: Check if loss confirmation window has been met
-            # (15 seconds of continuous absence AFTER jitter tolerance exceeded)
-            time_in_loss_window = current_time - self.loss_jitter_exceeded_time
-            
-            if time_in_loss_window > self.loss_confirmation:
-                # Confirmed loss: Jitter exceeded + 15 seconds confirmed
-                # Check cooldown to prevent spam
-                if self.last_loss_beep_time is None or \
-                   (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                    self.is_currently_recognized = False
-                    self.loss_jitter_exceeded_time = None  # Reset for next cycle
-                    self.unknown_person_detected = False
-                    
-                    # Record when loss alert fires (start of quiet period)
-                    self.loss_alert_time = current_time
-                    
-                    # UPDATE STATUS FIRST (so LED lights up immediately)
+                # Rule 4: RED -> BLUE transition (only allowed path)
+                # BOTH conditions must hold:
+                # a) Minimum 15s hold time has passed
+                # b) Continuous recognized==False for at least 5s
+                if time_in_red >= self.RED_HOLD_TIME and time_since_last_recognized >= self.REACQUIRE_WINDOW:
+                    # Transition to BLUE immediately
                     self.current_status = "blue"
                     self.current_person = "no_person"
                     self.status_changed_time = current_time
+                    self.red_enter_time = None  # Clear RED entry time
+                    self.last_recognized_true_time = None  # Clear loss timers
+                    
+                    # Publish status FIRST (so LED lights up immediately)
                     self._publish_status("blue", "no_person", confidence=0.0)
                     
-                    # THEN trigger beep
+                    # Play lost you audio on entry
                     self._trigger_loss_alert()
-                    self.last_loss_beep_time = current_time  # Set loss alert cooldown
-                    self._publish_event(f"❌ {self.target_person} lost (confirmed after {time_since_last_recognition:.1f}s absence)")
+                    self._publish_event(f"❌ {self.target_person} lost (after {time_in_red:.1f}s in RED, {time_since_last_recognized:.1f}s continuous loss)")
                     self.get_logger().info(
-                        f"✗ {self.target_person} lost (after {time_since_last_recognition:.1f}s absence, "
-                        f"{time_in_loss_window:.1f}s in loss window)"
+                        f"✗ {self.target_person} lost (RED -> BLUE: {time_in_red:.1f}s in RED, "
+                        f"{time_since_last_recognized:.1f}s continuous loss)"
                     )
+                else:
+                    # Still in RED - update status (duration keeps updating)
+                    # No audio, no state change - waiting for either:
+                    # - 15s minimum hold to pass (if not yet)
+                    # - 5s continuous loss (if 15s hold already met)
+                    self._publish_status("red", self.target_person, confidence=0.95)
+        
+        # Rule 5: BLUE state (idle, waiting for recognition)
+        # No special handling needed - Rule 1 handles BLUE -> RED transition
+        if self.current_status == "blue":
+            # Update status (duration keeps updating)
+            self._publish_status("blue", "no_person", confidence=0.0)
     
     def publish_current_status(self):
         """
@@ -427,10 +338,9 @@ class AudioNotificationNode(Node):
         if not self.enabled:
             return
         
-        # Map current state to confidence values
+        # Map current state to confidence values (only RED and BLUE states)
         confidence_map = {
             "red": 0.95,
-            "green": 0.70,
             "blue": 0.0
         }
         
@@ -444,8 +354,8 @@ class AudioNotificationNode(Node):
         Publishes as JSON String message to /r2d2/audio/person_status
         
         Args:
-            status: "red" (recognized) | "blue" (lost) | "green" (unknown)
-            person_identity: "severin" | "unknown" | "no_person"
+            status: "red" (recognized) | "blue" (lost)
+            person_identity: "severin" | "no_person"
             confidence: 0.0-1.0 detection confidence
         """
         current_time = time.time()
@@ -473,30 +383,20 @@ class AudioNotificationNode(Node):
     
     def _trigger_recognition_alert(self):
         """
-        Play recognition audio when target person is recognized (transition).
-        Respects cooldown to prevent spam.
+        Play recognition audio when target person is recognized (BLUE -> RED transition).
+        Audio only plays on state entry, never during RED state.
+        No cooldown needed - state machine ensures this is only called on entry.
         """
-        current_time = time.time()
-        
-        # Check cooldown
-        if self.last_recognition_beep_time is not None:
-            time_since_last_alert = current_time - self.last_recognition_beep_time
-            if time_since_last_alert < self.cooldown_seconds:
-                self.get_logger().debug(
-                    f"Recognition alert suppressed (cooldown: {time_since_last_alert:.1f}s "
-                    f"< {self.cooldown_seconds}s)"
-                )
-                return
-        
         self._play_audio_file(
             audio_file=self.recognition_audio,
             alert_type="RECOGNITION"
         )
-        self.last_recognition_beep_time = current_time
     
     def _trigger_loss_alert(self):
         """
-        Play loss audio when person is confirmed lost.
+        Play loss audio when person is confirmed lost (RED -> BLUE transition).
+        Audio only plays on state entry.
+        No cooldown needed - state machine ensures this is only called on entry.
         """
         self._play_audio_file(
             audio_file=self.loss_audio,

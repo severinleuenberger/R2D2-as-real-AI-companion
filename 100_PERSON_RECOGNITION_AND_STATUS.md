@@ -451,18 +451,27 @@ sudo systemctl restart r2d2-audio-notification.service
 ### 5.4 Audio Behavior
 
 **What You'll Hear:**
-- 🔊 **"Hello!"** MP3 when your face enters the frame (unknown → recognized)
-- ⏸ **Silent** while continuously recognized (no repeated beeps)
-- 🔔 **"Oh, I lost you!"** MP3 if you're absent for >20 seconds (5s jitter + 15s confirmation)
-- 🔊 **"Hello!"** MP3 when you return (lost → recognized)
+- 🔊 **"Hello!"** MP3 when target person is recognized (BLUE → RED transition)
+- ⏸ **Silent** while continuously recognized in RED state (no repeated beeps)
+- 🔔 **"Oh, I lost you!"** MP3 when target person is confirmed lost (RED → BLUE transition)
+  - Only plays after minimum 15 seconds in RED state AND 5 seconds of continuous loss
+- 🔊 **"Hello!"** MP3 when target person is recognized again (BLUE → RED, immediate, no delay)
 
 **State Transitions:**
 ```
-UNKNOWN → RECOGNIZED: 🔊 "Hello!" plays
-RECOGNIZED → RECOGNIZED (jitter < 5s): ⏸ Silent (no alert)
-RECOGNIZED → LOST (>20s absence): 🔔 "Oh, I lost you!" plays
-LOST → RECOGNIZED: 🔊 "Hello!" plays
+BLUE → RED: 🔊 "Hello!" plays (immediate when recognized==True)
+RED → RED (recognized==True): ⏸ Silent (no audio, stays in RED)
+RED → RED (recognized==False, <15s hold): ⏸ Silent (must hold RED for 15s minimum)
+RED → RED (recognized==False, <5s loss): ⏸ Silent (waiting for 5s continuous loss)
+RED → BLUE: 🔔 "Oh, I lost you!" plays (after 15s hold AND 5s continuous loss)
+BLUE → RED: 🔊 "Hello!" plays (immediate re-recognition, no cooldown)
 ```
+
+**Key Timing Rules:**
+- **RED Minimum Hold:** System must remain in RED state for at least 15 seconds after entering RED
+- **5s Reacquire Window:** While in RED, if recognition drops, system waits 5 seconds of continuous loss before transitioning to BLUE
+- **Immediate Re-recognition:** If `recognized==True` during the 5s loss window, timer is cleared and system stays in RED (no audio)
+- **No Cooldowns:** BLUE → RED transitions happen immediately when recognized (no delays or cooldowns)
 
 ### 5.5 Audio Files
 
@@ -509,96 +518,123 @@ sudo systemctl restart r2d2-audio-notification.service
 
 ### 6.1 Overview
 
-The status system is the core state machine that tracks person recognition and drives all outputs (audio, LED, logging). It implements a three-state model with sophisticated timing controls.
+The status system is the core state machine that tracks person recognition and drives all outputs (audio, LED, logging). It implements a **two-state model** (RED/BLUE) with **fixed timing rules** that ensure reliable behavior.
 
-### 6.2 Three-State Recognition Model
+**Key Principles:**
+- **Continuous Evaluation:** Recognition boolean (`recognized = person_id == "severin"`) is evaluated continuously at sub-second cadence
+- **Fixed Timing Constants:** `REACQUIRE_WINDOW = 5.0s` and `RED_HOLD_TIME = 15.0s` (not configurable)
+- **No Shortcuts:** System never bypasses timing rules based on `face_count` or `"no_person"` messages
+- **Audio on Entry Only:** Audio plays only on state transitions (BLUE → RED or RED → BLUE), never during state
+
+### 6.2 Two-State Recognition Model
 
 **🔴 RED - Target Person Recognized (Active Engagement)**
-- **Conditions:** Target person is currently visible
+- **Conditions:** Target person is currently recognized (`person_id == "severin"`)
 - **Status:** `{"status": "red", "person_identity": "severin", ...}` (actual recognized name)
 - **LED:** Solid RED (GPIO pin 17)
-- **Audio:** "Hello!" played on transition (no repeated beeps)
-- **Next State:** → BLUE after 5s jitter + 15s confirmation
+- **Audio:** "Hello!" played **only** on BLUE → RED transition (never replays while in RED)
+- **Minimum Hold Time:** System **must** remain in RED for at least 15 seconds after entering RED
+- **Reacquire Rule:** If recognition drops while in RED, system waits 5 seconds of continuous loss before transitioning to BLUE
+- **Re-recognition:** If `recognized==True` during loss timer, timer is immediately cleared and system stays in RED (no audio)
 
 **Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin"), allowing the UI to display the person's actual name instead of a generic identifier.
 
-**🔵 BLUE - No Person Recognized (Idle/Waiting)**
-- **Conditions:** No target person visible, confirmed loss OR no faces detected (face_count == 0)
+**🔵 BLUE - Target Person Not Recognized (Idle/Waiting)**
+- **Conditions:** Target person not recognized (`person_id != "severin"`)
 - **Status:** `{"status": "blue", "person_identity": "no_person", ...}`
 - **LED:** Solid BLUE (GPIO pin 22)
-- **Audio:** "Oh, I lost you!" played on transition (only after 20s confirmed loss)
-- **Next State:** → RED when target person detected
-- **Immediate Transition:** When `face_count == 0`, system immediately transitions to BLUE (no 20s delay) for instant feedback when camera is turned away
-
-**🟢 GREEN - Unknown Person Detected (Caution)**
-- **Conditions:** Face detected but not the target person
-- **Status:** `{"status": "green", "person_identity": "other_person", ...}`
-- **LED:** Solid GREEN (GPIO pin 27)
-- **Audio:** NO beeps (silent detection)
-- **Next State:** → RED if target appears (target takes priority)
+- **Audio:** "Oh, I lost you!" played **only** on RED → BLUE transition
+- **Transition Conditions:** RED → BLUE only occurs when **BOTH**:
+  - Minimum 15 seconds have passed since entering RED (`RED_HOLD_TIME`)
+  - Continuous `recognized==False` for at least 5 seconds (`REACQUIRE_WINDOW`)
+- **Immediate Re-recognition:** BLUE → RED transitions happen immediately when `recognized==True` (no cooldown, no delay)
 
 ### 6.3 State Machine Diagram
 
 ```
                               INITIAL STATE
-                              (BLUE: idle)
+                              🔵 BLUE (idle)
                                    │
-                    ┌──────────────┬┴──────────────┐
-                    │              │               │
-              target person   "unknown"      other person
-              detected        or other        detected
-                    │         person           │
-                    │         detected         │
-                    ▼              │            ▼
-              🔊 Play "Hello!"     │        🟢 GREEN STATE
-              🔴 RED STATE         ▼        (no beep, silent)
-              (active)         🟢 GREEN     
-                    │          STATE        
-                    │            │          
-         ┌──────────┴────────┐   │
-         │                   │   │
-    RED continues       target person
-    (visible or        appears
-     jitter < 5s)         │
-         │                │
-         │                ▼
-         │           🔴 RED STATE
-         │                │
-         │    ┌───────────┴────────────┐
-         │    │                        │
-         │    │ target person     Loss confirmed:
-         │    │ leaves            5s jitter +
-         │    │ + stays           15s confirmation
-         │    │ away 20s           │
-         │    │ total              ▼
-         │    │                🔊 Play "Lost you!"
-         │    │                🔵 BLUE STATE
-         │    │                (idle, waiting)
-         │    │                   │
-         │    └───────┬───────────┘
-         │            │
-         └─────────────────→ BLUE STATE (idle, waiting)
+                                   │ recognized == True
+                                   │ (immediate, no delay)
+                                   ▼
+                         🔊 Play "Hello!" (Voicy_R2-D2 - 2.mp3)
+                         🔴 RED STATE (active)
+                         red_enter_time = now
+                         last_recognized_true_time = now
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                            │
+         recognized == True              recognized == False
+         (stay in RED)                  (start loss timer)
+                    │                            │
+                    │                            │
+         Clear loss timer                time_since_last_recognized
+         last_recognized_true_time = now        │
+         (no audio, no state change)             │
+                                                │
+                    ┌───────────────────────────┘
+                    │
+                    │ Check transition conditions:
+                    │ 1. (now - red_enter_time) >= 15.0s? (RED_HOLD_TIME)
+                    │ 2. (now - last_recognized_true_time) >= 5.0s? (REACQUIRE_WINDOW)
+                    │
+                    │ If BOTH conditions met:
+                    ▼
+         🔊 Play "Oh, I lost you!" (Voicy_R2-D2 - 5.mp3)
+         🔵 BLUE STATE (idle)
+         Clear all timers
+         (ready for immediate re-recognition)
+                    │
+                    │ recognized == True
+                    │ (immediate, no cooldown)
+                    ▼
+         (repeat cycle)
 ```
 
-### 6.4 Timing Configuration
+### 6.4 Fixed Timing Rules
 
-**Key Timing Parameters:**
+**Timing Constants (Fixed, Not Configurable):**
 
-| Parameter | Default | Purpose |
-|-----------|---------|---------|
-| `jitter_tolerance_seconds` | `5.0` | Brief interruption tolerance (ignores gaps < 5s) |
-| `loss_confirmation_seconds` | `15.0` | Confirmation window AFTER jitter (total ~20s to loss alert) |
-| `cooldown_seconds` | `2.0` | Min time between same alert type |
-| `recognition_cooldown_after_loss_seconds` | `5.0` | Quiet period after loss alert (prevents rapid beeping) |
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `REACQUIRE_WINDOW` | `5.0s` | Continuous `recognized==False` required in RED before transition to BLUE |
+| `RED_HOLD_TIME` | `15.0s` | Minimum seconds RED state must be held (guaranteed minimum duration) |
 
-**Total Time to Loss Alert:** ~20 seconds (5s jitter + 15s confirmation)
+**Core Rules:**
 
-**⚠️ Important Note (December 15, 2025):**
-The system now has **immediate state transitions** when no faces are detected:
-- When `face_count == 0` and status is RED → **immediate transition to BLUE** (no 20s delay)
-- When `face_count == 0` and status is GREEN → **immediate transition to BLUE**
-- When `person_id == "no_person"` is received → **immediate transition to BLUE**
-- This provides instant feedback when the camera is turned away, while the 20s loss confirmation timer is still used for jitter tolerance when `person_id` changes but `face_count > 0` (e.g., brief recognition failures)
+1. **BLUE → RED Transition:**
+   - Trigger: `recognized == True` (immediate, no delay)
+   - Actions: Play "Hello!", set `red_enter_time = now`, clear loss timers
+   - Audio: Plays only on entry, never replays while in RED
+
+2. **RED Minimum Hold:**
+   - System **must** remain in RED for at least 15 seconds after entering RED
+   - Cannot transition to BLUE until `(now - red_enter_time) >= 15.0s`
+   - This ensures RED state is maintained regardless of brief recognition dropouts
+
+3. **5s Reacquire Rule in RED:**
+   - While in RED, if `recognized == False`:
+     - Start/continue loss timer: `time_since_last_recognized = now - last_recognized_true_time`
+   - If `recognized == True` at any time:
+     - Immediately clear loss timers: `last_recognized_true_time = now`
+     - Remain in RED (no audio, no state change)
+
+4. **RED → BLUE Transition (Only Allowed Path):**
+   - Transition occurs **only** when **BOTH** conditions hold:
+     - `(now - red_enter_time) >= 15.0s` (minimum hold time met)
+     - `(now - last_recognized_true_time) >= 5.0s` (5s continuous loss)
+   - Actions: Play "Oh, I lost you!", clear all timers, transition to BLUE
+
+5. **BLUE Reset:**
+   - After BLUE, RED may occur immediately when `recognized == True` (no cooldown, no delay)
+   - BLUE is a full reset for the next "first recognition"
+
+**⚠️ Important Notes (December 2025):**
+- **No Shortcuts:** System never uses `face_count == 0` or `person_id == "no_person"` to bypass timing rules
+- **No Cooldowns:** BLUE → RED transitions happen immediately (no delays or cooldowns)
+- **Audio on Entry Only:** Audio plays only on state transitions, never during state
+- **Continuous Evaluation:** Recognition boolean is evaluated continuously at sub-second cadence (every `person_id` callback and every 0.5s timer tick)
 
 ### 6.5 Status Message Format
 
@@ -607,18 +643,16 @@ The system now has **immediate state transitions** when no faces are detected:
 **Message Structure:**
 ```json
 {
-  "status": "red|blue|green",
-  "person_identity": "severin|no_person|unknown",
+  "status": "red|blue",
+  "person_identity": "severin|no_person",
   "timestamp_sec": 1765212914,
   "timestamp_nanosec": 949382424,
   "confidence": 0.95,
-  "duration_seconds": 15.3,
-  "is_loss_state": false,
-  "audio_event": "recognition|loss|none"
+  "duration_in_state": 15.3
 }
 ```
 
-**Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin" when recognized, "unknown" for unknown persons, "no_person" when no one is detected). This allows the web dashboard and other consumers to display the actual person's name.
+**Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin" when recognized, "no_person" when not recognized). This allows the web dashboard and other consumers to display the actual person's name. The system only has two states: RED (recognized) and BLUE (not recognized).
 
 **Example Messages:**
 
@@ -628,9 +662,7 @@ The system now has **immediate state transitions** when no faces are detected:
   "status": "red",
   "person_identity": "severin",
   "confidence": 0.95,
-  "duration_seconds": 12.5,
-  "is_loss_state": false,
-  "audio_event": "none"
+  "duration_in_state": 12.5
 }
 ```
 
@@ -640,9 +672,7 @@ The system now has **immediate state transitions** when no faces are detected:
   "status": "blue",
   "person_identity": "no_person",
   "confidence": 0.0,
-  "duration_seconds": 8.3,
-  "is_loss_state": true,
-  "audio_event": "loss"
+  "duration_in_state": 8.3
 }
 ```
 
@@ -652,18 +682,16 @@ The system now has **immediate state transitions** when no faces are detected:
 
 **GPIO Pins:**
 - RED: GPIO 17 (Pin 17 on 40-pin header)
-- GREEN: GPIO 27 (Pin 27 on 40-pin header)
 - BLUE: GPIO 22 (Pin 22 on 40-pin header)
 
-**Note (December 2025):** The system uses the original/default Jetson AGX Orin 40-pin header configuration. All GPIO pins (17, 27, 22, 32) are available for their default functions. No custom device tree overlays are active.
+**Note (December 2025):** The system uses the original/default Jetson AGX Orin 40-pin header configuration. All GPIO pins (17, 22, 32) are available for their default functions. No custom device tree overlays are active.
 
 **LED Behavior:**
 
-| Status | Red | Green | Blue | Visual |
-|--------|-----|-------|------|--------|
-| RED (recognized) | ON | OFF | OFF | 🔴 Solid Red |
-| BLUE (lost) | OFF | OFF | ON | 🔵 Solid Blue |
-| GREEN (unknown) | OFF | ON | OFF | 🟢 Solid Green |
+| Status | Red | Blue | Visual |
+|--------|-----|------|--------|
+| RED (recognized) | ON | OFF | 🔴 Solid Red |
+| BLUE (not recognized) | OFF | ON | 🔵 Solid Blue |
 
 **Launch LED Node:**
 ```bash
@@ -796,30 +824,33 @@ journalctl -u r2d2-audio-notification.service -n 20 | grep -i error
 
 ### 8.1 Audio Notification Parameters
 
-**All Parameters:**
+**Active Parameters:**
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `target_person` | String | `target_person` | any name | Person to recognize (should match training data) |
-| `audio_volume` | Float | `0.05` | 0.0-1.0 | Global volume control (0-100%) |
-| `jitter_tolerance_seconds` | Float | `5.0` | 1.0-10.0 | Brief gap tolerance |
-| `loss_confirmation_seconds` | Float | `15.0` | 5.0-30.0 | Confirmation window |
-| `cooldown_seconds` | Float | `2.0` | 1.0-5.0 | Min between same alert type |
-| `recognition_cooldown_after_loss_seconds` | Float | `5.0` | 3.0-10.0 | Quiet period after loss alert |
+| `target_person` | String | `severin` | any name | Person to recognize (should match training data) |
+| `audio_volume` | Float | `0.05` | 0.0-1.0 | Global volume control (0-100%, default 5% - very quiet) |
 | `recognition_audio_file` | String | `Voicy_R2-D2 - 2.mp3` | filename | Audio file for "Hello!" |
 | `loss_audio_file` | String | `Voicy_R2-D2 - 5.mp3` | filename | Audio file for "Lost you!" |
 | `enabled` | Boolean | `true` | true/false | Enable/disable system |
+
+**Deprecated Parameters (kept for compatibility, not used):**
+- `jitter_tolerance_seconds` - Deprecated, state machine uses fixed `REACQUIRE_WINDOW = 5.0s`
+- `loss_confirmation_seconds` - Deprecated, state machine uses fixed `RED_HOLD_TIME = 15.0s`
+
+**⚠️ Important:** Timing constants (`REACQUIRE_WINDOW = 5.0s`, `RED_HOLD_TIME = 15.0s`) are **fixed** and cannot be changed via parameters. The state machine implements exact timing rules as specified.
 
 **View Current Parameters:**
 ```bash
 ros2 param list /audio_notification_node
 ros2 param get /audio_notification_node audio_volume
+ros2 param get /audio_notification_node target_person
 ```
 
 **Set Parameters (Runtime, Temporary):**
 ```bash
 ros2 param set /audio_notification_node audio_volume 0.3
-ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
+ros2 param set /audio_notification_node target_person alice
 ```
 
 **Set Parameters (Permanent):**
@@ -827,7 +858,7 @@ Edit service file:
 ```bash
 sudo nano /etc/systemd/system/r2d2-audio-notification.service
 # Modify ExecStart line to add parameters:
-ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.3 loss_confirmation_seconds:=20.0
+ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.3 target_person:=alice
 sudo systemctl daemon-reload
 sudo systemctl restart r2d2-audio-notification.service
 ```
@@ -846,25 +877,27 @@ sudo systemctl restart r2d2-audio-notification.service
 **Tuning Guidelines:**
 - **CPU Optimization:** Increase `recognition_frame_skip` (e.g., 3 or 4) to reduce CPU
 - **Accuracy vs Speed:** Lower `recognition_confidence_threshold` (e.g., 60.0) for more detections
-- **Audio Responsiveness:** Lower `loss_confirmation_seconds` (e.g., 10.0) for faster alerts
-- **False Alarm Prevention:** Increase `jitter_tolerance_seconds` (e.g., 7.0) for noisy environments
+- **State Machine Timing:** Timing constants are fixed (`REACQUIRE_WINDOW = 5.0s`, `RED_HOLD_TIME = 15.0s`) and cannot be tuned
 
 ### 8.3 Configuration Examples
 
-**Loud, Responsive Setup:**
+**Loud Volume Setup:**
 ```bash
 ros2 launch r2d2_audio audio_notification.launch.py \
   audio_volume:=0.8 \
-  loss_confirmation_seconds:=10.0 \
-  jitter_tolerance_seconds:=3.0
+  target_person:=severin
 ```
 
-**Quiet, Patient Setup:**
+**Quiet Volume Setup:**
 ```bash
 ros2 launch r2d2_audio audio_notification.launch.py \
-  audio_volume:=0.2 \
-  loss_confirmation_seconds:=20.0 \
-  jitter_tolerance_seconds:=7.0
+  audio_volume:=0.1 \
+  target_person:=severin
+```
+
+**Default Setup (5% volume, very quiet):**
+```bash
+ros2 launch r2d2_audio audio_notification.launch.py
 ```
 
 **Minimal CPU Usage:**
