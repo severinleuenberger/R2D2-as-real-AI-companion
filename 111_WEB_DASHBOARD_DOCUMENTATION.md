@@ -129,6 +129,14 @@ The R2D2 Web Dashboard is a comprehensive web-based interface for monitoring and
 - ✅ ROS 2 Humble installed
 - ✅ R2D2 system running (camera, perception, audio services)
 
+**Default Boot Behavior:**
+- After reboot, the system starts in **Recognition Status mode** by default:
+  - `r2d2-camera-perception.service` - Starts automatically (face recognition active)
+  - `r2d2-audio-notification.service` - Starts automatically (audio alerts active)
+  - `r2d2-heartbeat.service` - Starts automatically (system health monitoring)
+- `r2d2-camera-stream.service` - Does NOT start automatically (can be started via dashboard if needed)
+- To change default behavior, use: `~/dev/r2d2/change_default_boot_services.sh`
+
 ### 2.2 Install Dependencies
 
 **Step 1: Install rosbridge_suite**
@@ -167,6 +175,33 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 ```
 
 **Security Note:** This allows passwordless sudo only for specific systemctl commands on r2d2 services.
+
+### 2.3.1 Configure Default Boot Services
+
+**Default Configuration:**
+The system is configured to start in **Recognition Status mode** after reboot:
+- `r2d2-camera-perception.service` - Enabled (starts automatically)
+- `r2d2-audio-notification.service` - Enabled (starts automatically)
+- `r2d2-heartbeat.service` - Enabled (starts automatically)
+- `r2d2-camera-stream.service` - Disabled (does NOT start automatically)
+
+**To Change Default Boot Behavior:**
+```bash
+# Use the provided script to change default services
+~/dev/r2d2/change_default_boot_services.sh
+
+# Or manually configure:
+sudo systemctl disable r2d2-camera-stream.service      # Disable camera stream
+sudo systemctl enable r2d2-camera-perception.service  # Enable recognition
+sudo systemctl enable r2d2-audio-notification.service # Enable audio alerts
+```
+
+**Verify Configuration:**
+```bash
+systemctl is-enabled r2d2-camera-stream.service      # Should show: disabled
+systemctl is-enabled r2d2-camera-perception.service   # Should show: enabled
+systemctl is-enabled r2d2-audio-notification.service  # Should show: enabled
+```
 
 ### 2.4 Start Services
 
@@ -260,6 +295,17 @@ Replace `100.95.133.26` with your Jetson's Tailscale IP (check with `tailscale i
 - `audio` - Audio notification service
 - `camera` - Camera and perception pipeline
 - `powerbutton` - Power button service (optional)
+- `camera-stream` - MJPEG video stream service
+- `heartbeat` - System health monitoring service
+
+**Default Boot Behavior:**
+After system reboot, the following services start automatically:
+- ✅ `r2d2-camera-perception.service` - Recognition Status mode active
+- ✅ `r2d2-audio-notification.service` - Audio alerts active
+- ✅ `r2d2-heartbeat.service` - System health monitoring active
+- ❌ `r2d2-camera-stream.service` - Does NOT start automatically (can be started via dashboard)
+
+To change this default behavior, see [Section 2.3.1: Configure Default Boot Services](#231-configure-default-boot-services).
 
 ### 3.3 Volume Control
 
@@ -806,6 +852,35 @@ Response: {
 
 4. Check if server binds to correct interface:
    - Verify `HOST=0.0.0.0` in config (allows external connections)
+
+### 6.7 Services Not Starting After Reboot
+
+**Symptoms:** After reboot, Recognition Status is not active or camera stream starts instead
+
+**Solutions:**
+1. Check which services are enabled:
+   ```bash
+   systemctl is-enabled r2d2-camera-stream.service      # Should be: disabled
+   systemctl is-enabled r2d2-camera-perception.service  # Should be: enabled
+   systemctl is-enabled r2d2-audio-notification.service # Should be: enabled
+   ```
+
+2. Fix default boot configuration:
+   ```bash
+   # Use the provided script
+   ~/dev/r2d2/change_default_boot_services.sh
+   
+   # Or manually:
+   sudo systemctl disable r2d2-camera-stream.service
+   sudo systemctl enable r2d2-camera-perception.service
+   sudo systemctl enable r2d2-audio-notification.service
+   ```
+
+3. Verify services are running after reboot:
+   ```bash
+   systemctl status r2d2-camera-perception.service
+   systemctl status r2d2-audio-notification.service
+   ```
 
 ---
 

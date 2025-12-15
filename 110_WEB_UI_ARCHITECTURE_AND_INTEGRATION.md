@@ -1084,16 +1084,30 @@ pip install -r requirements.txt
 # Install systemd services
 sudo cp r2d2-heartbeat.service /etc/systemd/system/
 sudo cp r2d2-camera-stream.service /etc/systemd/system/
+sudo cp r2d2-camera-perception.service /etc/systemd/system/
+sudo cp r2d2-audio-notification.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# Enable services (optional - auto-start on boot)
+# Enable services for auto-start on boot
+# Default configuration: Recognition Status mode (camera-perception + audio-notification)
 sudo systemctl enable r2d2-heartbeat.service
-sudo systemctl enable r2d2-camera-stream.service
+sudo systemctl enable r2d2-camera-perception.service
+sudo systemctl enable r2d2-audio-notification.service
+# Camera stream is NOT enabled by default (can be started manually via dashboard)
 
 # Start services
 sudo systemctl start r2d2-heartbeat.service
-sudo systemctl start r2d2-camera-stream.service
+sudo systemctl start r2d2-camera-perception.service
+sudo systemctl start r2d2-audio-notification.service
 ```
+
+**Default Boot Behavior:**
+- After reboot, the system starts in **Recognition Status mode** by default:
+  - `r2d2-camera-perception.service` - Starts automatically (face recognition active)
+  - `r2d2-audio-notification.service` - Starts automatically (audio alerts active)
+  - `r2d2-heartbeat.service` - Starts automatically (system health monitoring)
+- `r2d2-camera-stream.service` - Does NOT start automatically (can be started via dashboard if needed)
+- To change default behavior, use: `~/dev/r2d2/change_default_boot_services.sh`
 
 ### 11.3 Passwordless Sudo Setup
 
@@ -1223,13 +1237,19 @@ cd ~/dev/r2d2/web_dashboard
 
 ### 13.2 Updated Service List
 
-| Service | Systemd Name | Purpose | Port |
-|---------|-------------|---------|------|
-| Audio Notification | `r2d2-audio-notification.service` | Person recognition alerts | - |
-| Camera Perception | `r2d2-camera-perception.service` | Camera + face recognition | - |
-| Power Button | `r2d2-powerbutton.service` | Shutdown control | - |
-| Heartbeat | `r2d2-heartbeat.service` | System health monitoring | - |
-| Camera Stream | `r2d2-camera-stream.service` | MJPEG video stream | 8081 |
+| Service | Systemd Name | Purpose | Port | Auto-Start on Boot |
+|---------|-------------|---------|------|-------------------|
+| Audio Notification | `r2d2-audio-notification.service` | Person recognition alerts | - | ✅ Yes (default) |
+| Camera Perception | `r2d2-camera-perception.service` | Camera + face recognition | - | ✅ Yes (default) |
+| Power Button | `r2d2-powerbutton.service` | Shutdown control | - | ⚠️ Optional |
+| Heartbeat | `r2d2-heartbeat.service` | System health monitoring | - | ✅ Yes (default) |
+| Camera Stream | `r2d2-camera-stream.service` | MJPEG video stream | 8081 | ❌ No (manual start) |
+
+**Default Boot Configuration:**
+- After reboot, the system starts in **Recognition Status mode** by default
+- Camera-perception and audio-notification services start automatically
+- Camera-stream service does NOT start automatically (can be started via dashboard)
+- To change default behavior, run: `~/dev/r2d2/change_default_boot_services.sh`
 
 ### 13.3 Updated Topic List
 

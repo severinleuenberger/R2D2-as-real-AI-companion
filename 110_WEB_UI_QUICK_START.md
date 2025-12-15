@@ -109,6 +109,8 @@ sudo systemctl start r2d2-web-ui
 - **API Docs:** http://100.95.133.26:5000/docs (FastAPI Swagger)
 - **Database:** `~/dev/r2d2/data/r2d2_web.db`
 
+**Note:** For the current web dashboard (port 8080), see [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md). The dashboard defaults to **Recognition Status mode** after reboot (camera-perception + audio-notification services start automatically).
+
 ---
 
 ## Database Schema (Quick Reference)
