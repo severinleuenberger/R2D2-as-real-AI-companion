@@ -1260,6 +1260,13 @@ cd ~/dev/r2d2/web_dashboard
   - `audio-notification`: Checks for `/r2d2/audio/person_status` topic
 - Returns detailed error messages if service starts but topics don't publish
 
+**Camera Device Exclusivity Enhancement (December 15, 2025):**
+- Enhanced service manager to include `sleep 3` delay when switching between camera services
+- The "Start Recognition" command now includes: `stop camera-stream && sleep 3 && start camera-perception && start audio-notification`
+- This 3-second delay ensures the OAK-D camera device is fully released before the next service attempts to access it
+- Prevents `X_LINK_DEVICE_ALREADY_IN_USE` errors when switching between recognition and stream modes
+- Both the service manager API (`get_recognition_mode_command`) and the HTML command display include this delay
+
 **rosbridge Detection:**
 - Added `/api/status/rosbridge` endpoint for rosbridge availability detection
 - Does NOT auto-start rosbridge (detection only, as per design constraints)
@@ -1289,14 +1296,56 @@ cd ~/dev/r2d2/web_dashboard
 - Provides colored output and summary with common fixes
 
 **Files Modified:**
-- `web_dashboard/app/services/service_manager.py` - Device exclusivity, topic verification
+- `web_dashboard/app/services/service_manager.py` - Device exclusivity, topic verification, sleep 3 delay (December 15, 2025)
 - `web_dashboard/app/api/status.py` - rosbridge detection endpoint
-- `web_dashboard/app/static/js/dashboard.js` - Enhanced error messages, rosbridge status checking
+- `web_dashboard/app/static/js/dashboard.js` - Enhanced error messages, rosbridge status checking, status stream fixes (December 15, 2025)
+- `web_dashboard/app/templates/index.html` - Added sleep 3 delay to Start Recognition command (December 15, 2025)
 - `web_dashboard/verify_integration.sh` - New verification script
 
 **Created:** December 12, 2025  
 **Status:** ✅ Implemented & Production Ready  
-**Last Updated:** December 14, 2025
+**Last Updated:** December 15, 2025
+
+### 13.5 Status Stream Display Fixes (December 15, 2025)
+
+**Issue Fixed:**
+The status stream on the web dashboard was not updating correctly when person recognition state changed, showing stale data or getting stuck in previous states.
+
+**Root Cause:**
+- State transitions in the audio notification node were delayed (20s loss confirmation timer)
+- Web dashboard was correctly receiving and displaying status messages, but state transitions were too slow
+- Camera device exclusivity required a delay between stopping and starting camera services
+
+**Fixes Applied:**
+
+1. **Immediate State Transitions (Backend):**
+   - Modified `audio_notification_node.py` to immediately transition RED→BLUE when `face_count == 0`
+   - Added handling for `person_id == "no_person"` in `person_callback` for immediate BLUE transition
+   - Clear `loss_alert_time` on transitions to prevent blocking re-recognition
+   - The 20s loss confirmation timer is still used for jitter tolerance when `person_id` changes but `face_count > 0`
+
+2. **Camera Device Exclusivity (Web Dashboard):**
+   - Updated `service_manager.py` to include `sleep 3` delay in recognition mode command
+   - Updated `index.html` to include `sleep 3` delay in "Start Recognition" button command
+   - Prevents `X_LINK_DEVICE_ALREADY_IN_USE` errors when switching between camera services
+
+3. **Status Stream Display:**
+   - Fixed status stream container updates to show current state immediately
+   - Status stream now correctly displays person name (e.g., "severin") instead of generic identifiers
+   - Real-time updates work correctly when camera is turned away or back
+
+**Files Modified:**
+- `ros2_ws/src/r2d2_audio/r2d2_audio/audio_notification_node.py` - Immediate state transitions
+- `r2d2-camera-perception.service` - Added `target_person_name:=severin` parameter
+- `web_dashboard/app/services/service_manager.py` - Added sleep 3 delay for camera exclusivity
+- `web_dashboard/app/templates/index.html` - Added sleep 3 delay to Start Recognition command
+- `web_dashboard/app/static/js/dashboard.js` - Status stream display fixes
+
+**Testing:**
+- Status transitions now occur immediately when camera is turned away (RED→BLUE)
+- Status transitions occur immediately when camera is turned back (BLUE→RED)
+- No stuck states or stale data in web dashboard
+- Status stream shows correct person name and updates in real-time
 
 **Related Documents:**
 - `001_ARCHITECTURE_OVERVIEW.md` - System architecture

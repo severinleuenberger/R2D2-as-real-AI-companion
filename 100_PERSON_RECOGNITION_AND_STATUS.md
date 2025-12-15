@@ -523,11 +523,12 @@ The status system is the core state machine that tracks person recognition and d
 **Note:** `person_identity` contains the actual recognized person name from the perception topic (e.g., "severin"), allowing the UI to display the person's actual name instead of a generic identifier.
 
 **🔵 BLUE - No Person Recognized (Idle/Waiting)**
-- **Conditions:** No target person visible, confirmed loss
+- **Conditions:** No target person visible, confirmed loss OR no faces detected (face_count == 0)
 - **Status:** `{"status": "blue", "person_identity": "no_person", ...}`
 - **LED:** Solid BLUE (GPIO pin 22)
-- **Audio:** "Oh, I lost you!" played on transition
+- **Audio:** "Oh, I lost you!" played on transition (only after 20s confirmed loss)
 - **Next State:** → RED when target person detected
+- **Immediate Transition:** When `face_count == 0`, system immediately transitions to BLUE (no 20s delay) for instant feedback when camera is turned away
 
 **🟢 GREEN - Unknown Person Detected (Caution)**
 - **Conditions:** Face detected but not the target person
@@ -591,6 +592,13 @@ The status system is the core state machine that tracks person recognition and d
 | `recognition_cooldown_after_loss_seconds` | `5.0` | Quiet period after loss alert (prevents rapid beeping) |
 
 **Total Time to Loss Alert:** ~20 seconds (5s jitter + 15s confirmation)
+
+**⚠️ Important Note (December 15, 2025):**
+The system now has **immediate state transitions** when no faces are detected:
+- When `face_count == 0` and status is RED → **immediate transition to BLUE** (no 20s delay)
+- When `face_count == 0` and status is GREEN → **immediate transition to BLUE**
+- When `person_id == "no_person"` is received → **immediate transition to BLUE**
+- This provides instant feedback when the camera is turned away, while the 20s loss confirmation timer is still used for jitter tolerance when `person_id` changes but `face_count > 0` (e.g., brief recognition failures)
 
 ### 6.5 Status Message Format
 
@@ -699,6 +707,14 @@ sudo systemctl stop r2d2-audio-notification.service
 - ✅ Automatic restart limit (max 3 consecutive failures)
 - ✅ Full environment sourcing
 - ✅ Proper logging to systemd journal
+- ✅ Permanent `target_person_name` parameter configuration (e.g., `target_person_name:=severin`)
+
+**Camera Perception Service Configuration:**
+The `r2d2-camera-perception.service` file includes the `target_person_name` parameter to ensure consistent person identification:
+```bash
+ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_bringup r2d2_camera_perception.launch.py enable_face_recognition:=true target_person_name:=severin'
+```
+This ensures the perception node publishes the actual person name (e.g., "severin") instead of a generic identifier, allowing the web dashboard and other consumers to display the correct name.
 
 ### 7.2 Complete System Startup
 
@@ -712,8 +728,11 @@ source ~/.bashrc
 source install/setup.bash
 
 ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
-  enable_face_recognition:=true
+  enable_face_recognition:=true \
+  target_person_name:=severin
 ```
+
+**Note:** The `target_person_name` parameter ensures the perception node publishes the correct person name (e.g., "severin") instead of a generic identifier. This parameter is automatically set in the systemd service file for production use.
 
 **Terminal 2: Audio Notifications (if not using service)**
 ```bash
@@ -1530,12 +1549,21 @@ The web dashboard UI now provides enhanced error messages:
 
 ---
 
-**Document Version:** 1.2  
+**Document Version:** 1.3  
 **Last Updated:** December 15, 2025  
 **Status:** ✅ Production Ready  
 **Next Review:** After major system changes or user feedback
 
-**Recent Changes (v1.2):**
+**Recent Changes (v1.3 - December 15, 2025):**
+- **Immediate State Transitions:** Fixed state machine to provide instant feedback when camera is turned away
+  - When `face_count == 0` and status is RED → immediate transition to BLUE (no 20s delay)
+  - When `face_count == 0` and status is GREEN → immediate transition to BLUE
+  - When `person_id == "no_person"` is received → immediate transition to BLUE
+  - The 20s loss confirmation timer is still used for jitter tolerance when `person_id` changes but `face_count > 0`
+- **Re-recognition Fix:** Clear `loss_alert_time` on state transitions to prevent blocking re-recognition after camera is turned back
+- **Service Configuration:** Added permanent `target_person_name:=severin` parameter to `r2d2-camera-perception.service` for consistent person identification across reboots
+
+**Recent Changes (v1.2 - December 14, 2025):**
 - Updated `person_identity` field to display actual recognized person name (e.g., "severin") instead of generic "target_person" parameter value
 - Web dashboard now shows actual person names in Recognition Status and Status Stream sections
 - Status messages now use the actual person ID from perception topic for better UI clarity
