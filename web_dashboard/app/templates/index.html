@@ -51,7 +51,7 @@
                 <div class="recognition-controls">
                     <div class="copyable-command" onclick="copyToClipboard('recognition-start-command')" title="Click to copy command">
                         <span class="command-label">Start Recognition</span>
-                        <code id="recognition-start-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service && sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</code>
+                        <code id="recognition-start-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service && sleep 3 && sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</code>
                         <span class="copy-indicator">📋</span>
                     </div>
                     <div class="copyable-command" onclick="copyToClipboard('recognition-stop-command')" title="Click to copy command">

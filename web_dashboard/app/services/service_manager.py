@@ -366,7 +366,8 @@ class ServiceManager:
             camera_cmd = self.get_service_command("camera", "start")
             audio_cmd = self.get_service_command("audio", "start")
             stream_cmd = self.get_service_command("camera-stream", "stop")
-            return f"{stream_cmd} && {camera_cmd} && {audio_cmd}"
+            return f"{stream_cmd} && sleep 3 && {camera_cmd} && {audio_cmd}"
+
         elif action == "stop":
             audio_cmd = self.get_service_command("audio", "stop")
             camera_cmd = self.get_service_command("camera", "stop")

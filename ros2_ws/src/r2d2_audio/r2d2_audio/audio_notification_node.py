@@ -29,26 +29,6 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 import json
 
-# #region agent log
-DEBUG_LOG_PATH = '/home/severin/.cursor/debug.log'
-def _debug_log(location, message, data, hypothesis_id=None):
-    try:
-        with open(DEBUG_LOG_PATH, 'a') as f:
-            import json
-            log_entry = {
-                'timestamp': int(time.time() * 1000),
-                'location': location,
-                'message': message,
-                'data': data,
-                'sessionId': 'debug-session',
-                'runId': 'run1'
-            }
-            if hypothesis_id:
-                log_entry['hypothesisId'] = hypothesis_id
-            f.write(json.dumps(log_entry) + '\n')
-    except:
-        pass
-# #endregion
 
 
 # Simple PersonStatus data class (alternative to ROS message)
@@ -245,17 +225,6 @@ class AudioNotificationNode(Node):
         person_id = msg.data
         current_time = time.time()
         
-        # #region agent log
-        _debug_log('audio_notification_node.py:196', 'person_callback called', {
-            'person_id': person_id,
-            'current_time': current_time,
-            'is_currently_recognized': self.is_currently_recognized,
-            'last_recognition_time': self.last_recognition_time,
-            'current_status': self.current_status,
-            'current_person': self.current_person
-        }, 'A')
-        # #endregion
-        
         if not self.enabled:
             return
         
@@ -283,6 +252,7 @@ class AudioNotificationNode(Node):
                     self.status_changed_time = current_time
                     self.unknown_person_detected = False
                     self.last_known_state = person_id
+                    self.loss_alert_time = None  # Clear loss alert time on re-recognition
                     
                     # Publish status FIRST (so LED lights up immediately)
                     self._publish_status("red", person_id, confidence=0.95)
@@ -306,14 +276,6 @@ class AudioNotificationNode(Node):
         
         elif person_id == "unknown":
             # Unknown person detected (not the target)
-            # #region agent log
-            _debug_log('audio_notification_node.py:279', 'Unknown person detected', {
-                'was_recognized': self.is_currently_recognized,
-                'previous_status': self.current_status,
-                'last_recognition_time': self.last_recognition_time,
-                'time_since_recognition': current_time - (self.last_recognition_time or current_time) if self.last_recognition_time else None
-            }, 'B')
-            # #endregion
             
             # CRITICAL: If we were in RED state, we need to handle transition properly
             # The timer will handle loss detection, but we should NOT reset is_currently_recognized here
@@ -331,14 +293,24 @@ class AudioNotificationNode(Node):
             else:
                 # Update duration while unknown person present
                 self._publish_status("green", "unknown", confidence=0.70)
+        elif person_id == "no_person":
+            # No person detected - immediately transition to BLUE
+            # This handles cases where person_id explicitly publishes "no_person"
+            if self.current_status != "blue":
+                self.current_status = "blue"
+                self.current_person = "no_person"
+                self.status_changed_time = current_time
+                self.is_currently_recognized = False
+                self.unknown_person_detected = False
+                self.loss_jitter_exceeded_time = None  # Reset loss timer
+                
+                self._publish_status("blue", "no_person", confidence=0.0)
+                self.get_logger().info("🔵 No person detected - transitioned to BLUE")
+            else:
+                # Already in BLUE - just update duration
+                self._publish_status("blue", "no_person", confidence=0.0)
         else:
-            # #region agent log
-            _debug_log('audio_notification_node.py:324', 'Unexpected person_id value', {
-                'person_id': person_id,
-                'current_status': self.current_status,
-                'is_currently_recognized': self.is_currently_recognized
-            }, 'F')
-            # #endregion
+            pass
     
     def face_count_callback(self, msg: Int32):
         """
@@ -347,16 +319,6 @@ class AudioNotificationNode(Node):
         """
         face_count = msg.data
         current_time = time.time()
-        
-        # #region agent log
-        _debug_log('audio_notification_node.py:335', 'face_count_callback', {
-            'face_count': face_count,
-            'current_status': self.current_status,
-            'current_person': self.current_person,
-            'is_currently_recognized': self.is_currently_recognized,
-            'unknown_person_detected': self.unknown_person_detected
-        }, 'H')
-        # #endregion
         
         if not self.enabled:
             return
@@ -367,7 +329,7 @@ class AudioNotificationNode(Node):
         # If no faces are detected (face_count == 0)
         if face_count == 0:
             # CRITICAL: When no faces are visible, we should be in BLUE state (no person)
-            # This handles the case where the status incorrectly shows GREEN when no one is visible
+            # This handles the case where the status incorrectly shows GREEN or RED when no one is visible
             
             if self.current_status == "green":
                 # If we're in GREEN (unknown person), immediately transition to BLUE (no person)
@@ -377,19 +339,26 @@ class AudioNotificationNode(Node):
                 self.status_changed_time = current_time
                 self.unknown_person_detected = False
                 
-                # #region agent log
-                _debug_log('audio_notification_node.py:371', 'No faces detected - transitioning GREEN to BLUE', {
-                    'previous_status': 'green',
-                    'new_status': 'blue'
-                }, 'I')
-                # #endregion
-                
                 self._publish_status("blue", "no_person", confidence=0.0)
                 self.get_logger().info("🔵 No faces detected - transitioned from GREEN to BLUE")
             
-            # If we're in RED state (target person recognized) and face_count == 0,
-            # the timer will handle the transition to BLUE after the loss confirmation period (~20 seconds)
-            # This allows for jitter tolerance (brief interruptions are ignored)
+            elif self.current_status == "red":
+                # If we're in RED (target person recognized) and face_count == 0,
+                # immediately transition to BLUE (no person) - don't wait for loss timer
+                # This provides immediate feedback when camera is turned away
+                self.current_status = "blue"
+                self.current_person = "no_person"
+                self.status_changed_time = current_time
+                self.is_currently_recognized = False
+                self.unknown_person_detected = False
+                self.loss_jitter_exceeded_time = None  # Reset loss timer
+                self.loss_alert_time = None  # Clear loss alert time so re-recognition isn't blocked
+                
+                self._publish_status("blue", "no_person", confidence=0.0)
+                self.get_logger().info("🔵 No faces detected - transitioned from RED to BLUE")
+            
+            # Note: The loss timer is still used for jitter tolerance when person_id changes
+            # but face_count > 0 (e.g., brief recognition failures)
             
         # If faces are detected (face_count > 0), the person_id callback will handle
         # the state transitions (RED for target, GREEN for unknown)
@@ -406,29 +375,10 @@ class AudioNotificationNode(Node):
         Resets when person is re-recognized.
         """
         if not self.enabled or not self.is_currently_recognized:
-            # #region agent log
-            _debug_log('audio_notification_node.py:273', 'check_loss_state early return', {
-                'enabled': self.enabled,
-                'is_currently_recognized': self.is_currently_recognized
-            }, 'C')
-            # #endregion
             return
         
         current_time = time.time()
         time_since_last_recognition = current_time - (self.last_recognition_time or current_time)
-        
-        # #region agent log
-        _debug_log('audio_notification_node.py:277', 'check_loss_state calculation', {
-            'current_time': current_time,
-            'last_recognition_time': self.last_recognition_time,
-            'time_since_last_recognition': time_since_last_recognition,
-            'jitter_tolerance': self.jitter_tolerance,
-            'loss_confirmation': self.loss_confirmation,
-            'loss_jitter_exceeded_time': self.loss_jitter_exceeded_time,
-            'current_status': self.current_status,
-            'current_person': self.current_person
-        }, 'D')
-        # #endregion
         
         # STEP 1: Check if jitter tolerance window has been exceeded (5 seconds)
         if time_since_last_recognition > self.jitter_tolerance:
@@ -447,15 +397,6 @@ class AudioNotificationNode(Node):
                 # Check cooldown to prevent spam
                 if self.last_loss_beep_time is None or \
                    (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                    # #region agent log
-                    _debug_log('audio_notification_node.py:294', 'Loss confirmed - transitioning to BLUE', {
-                        'time_since_last_recognition': time_since_last_recognition,
-                        'time_in_loss_window': time_in_loss_window,
-                        'previous_status': self.current_status,
-                        'previous_person': self.current_person
-                    }, 'E')
-                    # #endregion
-                    
                     self.is_currently_recognized = False
                     self.loss_jitter_exceeded_time = None  # Reset for next cycle
                     self.unknown_person_detected = False
@@ -525,17 +466,6 @@ class AudioNotificationNode(Node):
         msg = String()
         msg.data = status_data.to_json()
         self.status_pub.publish(msg)
-        
-        # #region agent log
-        _debug_log('audio_notification_node.py:420', 'Status published', {
-            'status': status,
-            'person_identity': person_identity,
-            'confidence': confidence,
-            'duration': duration,
-            'is_currently_recognized': self.is_currently_recognized,
-            'last_recognition_time': self.last_recognition_time
-        }, 'G')
-        # #endregion
         
         self.get_logger().debug(
             f"📊 Status: {status.upper()} | Person: {person_identity} | Duration: {duration:.1f}s"
