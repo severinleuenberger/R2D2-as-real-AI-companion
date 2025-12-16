@@ -1,7 +1,7 @@
 # Person Recognition and Status System - Complete Setup Guide
 
-**Date:** December 9, 2025  
-**Version:** 1.0 - Comprehensive Merged Documentation  
+**Date:** December 9, 2025 (Updated: December 9, 2025)  
+**Version:** 2.0 - 2-State Fixed-Timing Specification  
 **Status:** ✅ Production Ready  
 **Platform:** NVIDIA Jetson AGX Orin 64GB with ROS 2 Humble  
 **Author:** R2D2 Development Team
@@ -17,24 +17,32 @@ This document provides a **complete, step-by-step guide** for setting up and ope
 ```
 OAK-D Camera → Perception Pipeline → Face Recognition → Status Machine → Audio/LED Output
      ↓              ↓                      ↓                  ↓                ↓
-  30 FPS RGB    Image Processing      Person ID         RED/BLUE/GREEN    🔊 Beeps + 🔴🟢🔵 LEDs
+  30 FPS RGB    Image Processing      Person ID         RED/BLUE          🔊 Beeps + 🔴🔵 LEDs
 ```
 
 **Complete System Flow:**
 1. **Camera captures** RGB frames (1920×1080 @ 30 FPS)
 2. **Perception pipeline** processes frames (downscales, detects faces)
 3. **Face recognition** identifies specific person using LBPH model
-4. **Status machine** tracks state (RED=recognized, BLUE=lost, GREEN=unknown)
+4. **Status machine** tracks state (RED=recognized, BLUE=not recognized)
 5. **Audio alerts** play MP3 sounds on state transitions
 6. **LED feedback** shows visual status via GPIO RGB LED
 
 **Key Capabilities:**
 - ✅ Real-time person recognition at 6-13 Hz
-- ✅ Smart state management with jitter tolerance and loss confirmation
+- ✅ Fixed-timing state management (15s RED hold, 5s continuous loss)
 - ✅ Audio alerts: "Hello!" on recognition, "Oh, I lost you!" on loss
-- ✅ Visual feedback: RGB LED shows system state
+- ✅ Visual feedback: RGB LED shows system state (RED/BLUE only)
 - ✅ Production-ready: Systemd services, error handling, logging
 - ✅ Training pipeline: Complete workflow for model creation
+
+---
+
+## ⚠️ Specification Correction Note
+
+**Important:** Earlier documentation versions (v1.3 and prior) incorrectly described immediate BLUE transitions when `face_count == 0` or `person_id == "no_person"`. These behaviors are **NOT** part of the authoritative specification. The correct behavior uses only fixed timing rules (15s RED hold + 5s continuous loss) with no shortcuts. This document (v2.0) represents the authoritative specification.
+
+---
 
 **Prerequisites (Hardware Setup):**
 Before starting, ensure hardware is configured:
@@ -404,7 +412,7 @@ The audio notification system provides real-time audio alerts when person recogn
 
 **What It Does:**
 - Subscribes to `/r2d2/perception/person_id`
-- Tracks recognition state (RED/BLUE/GREEN)
+- Tracks recognition state (RED/BLUE)
 - Plays MP3 audio alerts on state transitions
 - Publishes status JSON for LED and other consumers
 
@@ -592,6 +600,68 @@ The status system is the core state machine that tracks person recognition and d
          (repeat cycle)
 ```
 
+### 6.3.1 Authoritative State Machine Specification (Normative)
+
+This section defines the authoritative specification using normative language (MUST/MUST NOT/SHALL/SHALL NOT). All implementations MUST conform to these rules.
+
+**State Definitions:**
+- **RED State:** Target person is recognized (`person_id == target_person`)
+- **BLUE State:** Target person is not recognized (`person_id != target_person`)
+
+**Transition Rules (MUST be followed exactly):**
+
+1. **BLUE → RED Transition:**
+   - **MUST** occur immediately when `recognized == True` (no delay, no cooldown)
+   - **MUST** set `red_enter_time = current_time` on entry
+   - **MUST** set `last_recognized_true_time = current_time` on entry
+   - **MUST** play recognition audio ("Hello!") on entry only
+   - **MUST NOT** replay audio while remaining in RED state
+
+2. **RED State Minimum Hold:**
+   - **MUST** remain in RED for a minimum of 15 seconds after BLUE→RED transition
+   - **MUST NOT** transition to BLUE until `(current_time - red_enter_time) >= 15.0s`
+   - The 15-second RED hold is **ABSOLUTE and NON-BYPASSABLE**
+   - **MUST NOT** be overridden by:
+     - `face_count == 0`
+     - `person_id == "no_person"`
+     - Camera loss
+     - Missing or stale perception messages
+     - Any other condition
+
+3. **RED → BLUE Transition (ONLY Allowed Path):**
+   - **MUST** occur **ONLY** when **BOTH** conditions hold:
+     - `(current_time - red_enter_time) >= 15.0s` (minimum hold time met)
+     - `(current_time - last_recognized_true_time) >= 5.0s` (5s continuous non-recognition)
+   - **MUST NOT** occur under any other conditions
+   - **MUST** clear `red_enter_time = None` on transition
+   - **MUST** clear `last_recognized_true_time = None` on transition
+   - **MUST** play loss audio ("Oh, I lost you!") on entry only
+
+4. **Loss Timer Management:**
+   - While in RED, if `recognized == False`:
+     - **MUST** calculate `time_since_last_recognized = current_time - last_recognized_true_time`
+   - If `recognized == True` at any time:
+     - **MUST** immediately reset: `last_recognized_true_time = current_time`
+     - **MUST** remain in RED (no audio, no state change)
+   - The 5s continuous loss window **MUST** represent continuous absence (resets on reacquire), not cumulative
+
+5. **BLUE → RED Re-recognition:**
+   - **MUST** occur immediately when `recognized == True` (no cooldown, no delay)
+   - **MUST NOT** impose any delay or cooldown period
+
+**Timer Management Requirements:**
+- `red_enter_time` **MUST** be set only on BLUE→RED entry
+- `red_enter_time` **MUST NOT** be reset on every recognized frame
+- `red_enter_time` **MUST** only be cleared on RED→BLUE transition
+- `last_recognized_true_time` **MUST** be updated when `recognized` becomes True (for loss timer reset)
+- `last_recognized_true_time` is **INDEPENDENT** of `red_enter_time` (both must be tracked separately)
+
+**Input Handling Requirements:**
+- Implementations **MUST** handle stale input via a timer/watchdog mechanism
+- If no `person_id` message received for threshold (e.g., 3 seconds), **MUST** treat input as stale
+- When input is stale, **MUST** force `recognized = False` to allow normal loss logic to progress
+- **MUST NOT** use stale input detection to bypass timing rules (15s hold + 5s continuous loss still apply)
+
 ### 6.4 Fixed Timing Rules
 
 **Timing Constants (Fixed, Not Configurable):**
@@ -635,6 +705,45 @@ The status system is the core state machine that tracks person recognition and d
 - **No Cooldowns:** BLUE → RED transitions happen immediately (no delays or cooldowns)
 - **Audio on Entry Only:** Audio plays only on state transitions, never during state
 - **Continuous Evaluation:** Recognition boolean is evaluated continuously at sub-second cadence (every `person_id` callback and every 0.5s timer tick)
+
+### 6.4.1 Known Implementation Risks
+
+This section documents known risks and requirements for correct implementation.
+
+**Risk 1: RED State Can Get Stuck Forever**
+
+**Problem:** If upstream recognition continuously publishes the target person value (e.g., "severin") even when the person is gone, the system will remain in RED state indefinitely.
+
+**Root Causes:**
+- Upstream recognition never publishes a non-target value
+- The RED entry timestamp (`red_enter_time`) is reset on every recognized frame (MUST only be set on BLUE→RED transition)
+- Missing watchdog/timer mechanism for stale input
+
+**Requirements:**
+- Implementations **MUST** handle stale input via a timer/watchdog mechanism
+- If no `person_id` message received for threshold (e.g., 3 seconds), **MUST** force `recognized = False`
+- **MUST NOT** use stale input detection to bypass timing rules (15s hold + 5s continuous loss still apply)
+- `red_enter_time` **MUST** be set only on BLUE→RED entry
+- `red_enter_time` **MUST NOT** be reset on every recognized frame
+
+**Risk 2: Loss Timer Not Representing Continuous Non-Recognition**
+
+**Problem:** The 5s continuous loss window must represent continuous absence, not cumulative loss. If the timer is not reset on reacquire, the system may transition to BLUE prematurely.
+
+**Requirements:**
+- `last_recognized_true_time` **MUST** be updated to `current_time` when `recognized` becomes True
+- This ensures the 5s window represents continuous absence (resets on reacquire), not cumulative loss
+- The loss timer **MUST** reset immediately when recognition is reacquired
+
+**Risk 3: Missing Watchdog/Timer Tick for Stale Input**
+
+**Problem:** If the `person_id` topic stops publishing, the `recognized` boolean will remain at its last value. If the last value was `True`, the system will stay in RED forever.
+
+**Requirements:**
+- Implementations **MUST** track the timestamp of the last `person_id` message received
+- Implementations **MUST** check for stale input in the state machine evaluation loop
+- When input is stale, **MUST** force `recognized = False` to allow normal loss logic to progress
+- The stale input check **MUST NOT** bypass timing rules (it only affects the `recognized` boolean)
 
 ### 6.5 Status Message Format
 
@@ -803,7 +912,7 @@ sudo systemctl status r2d2-audio-notification.service
 # Should show: active (running)
 
 # 3. Verify audio system
-ros2 topic echo /r2d2/audio/person_status --no-arr -n 3
+timeout 5s ros2 topic echo /r2d2/audio/person_status --once --no-arr
 # Should show: {"status": "blue", ...}
 
 # 4. Test audio playback
@@ -932,7 +1041,7 @@ cd ~/dev/r2d2
 
 **What It Shows:**
 - 👤 **Person Recognition Stream**: Live updates when person is detected/recognized
-- 📊 **Status Stream**: Real-time state changes (RED/BLUE/GREEN)
+- 📊 **Status Stream**: Real-time state changes (RED/BLUE)
 - 🔔 **Audio Event Stream**: Recognition and loss alerts as they occur
 - 👥 **Face Detection Stream**: Number of faces detected in real-time
 
@@ -1191,7 +1300,6 @@ Before declaring the system "working":
 **Interpreting Status Colors:**
 - 🔴 **RED**: Target person recognized, system actively engaged
 - 🔵 **BLUE**: No person detected, system idle/waiting
-- 🟢 **GREEN**: Unknown person detected, system in caution mode
 
 ---
 
@@ -1306,17 +1414,31 @@ ls -la ~/dev/r2d2/data/face_recognition/models/severin_lbph.xml
 
 **Diagnosis:**
 ```bash
-# Check parameters
-ros2 param get /audio_notification_node jitter_tolerance_seconds
-ros2 param get /audio_notification_node loss_confirmation_seconds
+# Check current status
+ros2 topic echo /r2d2/audio/person_status --once --no-arr
+
+# Monitor state transitions
+journalctl -u r2d2-audio-notification.service -f | grep "lost\|recognized"
 ```
 
-**Expected Timing:** ~20 seconds total (5s jitter + 15s confirmation)
+**Expected Timing:** ~20 seconds total (15s RED hold + 5s continuous loss)
+
+**Important:** Timing is **fixed and not configurable**. The system uses:
+- `RED_HOLD_TIME = 15.0s` (minimum RED state duration)
+- `REACQUIRE_WINDOW = 5.0s` (continuous loss required)
 
 **Solutions:**
-1. Adjust jitter tolerance: `ros2 param set /audio_notification_node jitter_tolerance_seconds 3.0`
-2. Adjust confirmation window: `ros2 param set /audio_notification_node loss_confirmation_seconds 10.0`
-3. Restart service: `sudo systemctl restart r2d2-audio-notification.service`
+1. **Timing cannot be adjusted** - these are fixed constants in the state machine
+2. If alerts fire too early/too late, the issue is likely with recognition stability, not timing
+3. **Improve recognition parameters:**
+   - Adjust face recognition confidence thresholds
+   - Improve camera positioning for stable face detection
+   - Ensure adequate lighting for consistent recognition
+4. **Monitor recognition stability:**
+   ```bash
+   ros2 topic hz /r2d2/perception/person_id
+   ros2 topic echo /r2d2/perception/person_id
+   ```
 
 ### 10.5 Issue: Service Crashes on Startup
 
@@ -1349,38 +1471,45 @@ journalctl -u r2d2-audio-notification.service -n 50
 
 ### 10.7 Issue: Audio Beeps Too Frequent
 
-**Symptom:** Audio alerts play too often, even with cooldown
+**Symptom:** Audio alerts play too often
 
 **Diagnosis:**
 ```bash
-# Check current cooldown setting
-ros2 param get /audio_notification_node cooldown_seconds
-
 # Monitor state transitions
-journalctl -u r2d2-audio-notification.service -f | grep "recognized\|No faces"
+journalctl -u r2d2-audio-notification.service -f | grep "recognized\|lost"
+
+# Check recognition stability
+ros2 topic echo /r2d2/perception/person_id
 ```
 
 **Common Causes:**
-1. **Rapid state transitions:** Camera briefly loses sight of face, causing RED → BLUE → RED cycles
-2. **Cooldown too short:** Default 2 seconds may not be enough for unstable recognition
-3. **Face detection instability:** Camera angle or lighting causing intermittent face detection
+1. **Rapid state transitions:** System is transitioning between RED and BLUE frequently
+2. **Recognition instability:** Face recognition is unstable, causing frequent recognition/loss cycles
+3. **Camera positioning:** Camera angle or lighting causing intermittent face detection
+
+**Important:** The 2-state model does **not** have a cooldown parameter. Audio plays **only** on state transitions (BLUE→RED or RED→BLUE). If beeps are too frequent, it's due to rapid state transitions, not cooldown settings.
 
 **Solutions:**
-1. **Increase cooldown period:**
+1. **Improve recognition stability:**
+   - Adjust camera positioning for stable face view
+   - Ensure adequate lighting for consistent recognition
+   - Reduce camera shake or movement
+
+2. **Improve face detection:**
+   - Check face detection rate: `ros2 topic hz /r2d2/perception/face_count`
+   - Ensure face is consistently detected before recognition runs
+
+3. **Monitor state transitions:**
    ```bash
-   ros2 param set /audio_notification_node cooldown_seconds 5.0  # 5 seconds
-   # Or even longer:
-   ros2 param set /audio_notification_node cooldown_seconds 10.0  # 10 seconds
+   ros2 topic echo /r2d2/audio/person_status --no-arr
    ```
-
-2. **Improve camera positioning:** Ensure stable view of face, reduce camera shake
-
-3. **Adjust recognition parameters:** Increase `recognition_frame_skip` to reduce processing frequency
+   If you see frequent RED↔BLUE transitions, the issue is recognition stability, not audio settings.
 
 **Expected Behavior:**
-- Recognition alert should play once when person is first recognized
-- No repeated beeps while continuously recognized (cooldown prevents this)
-- Loss alert plays after ~20 seconds of confirmed absence
+- Recognition alert plays **once** on BLUE→RED transition
+- Loss alert plays **once** on RED→BLUE transition
+- No audio while staying in the same state
+- If beeps are frequent, it indicates rapid state transitions (recognition instability)
 
 ---
 
@@ -1442,8 +1571,8 @@ journalctl -u r2d2-audio-notification.service -n 50 | grep ERROR
 # Increase volume
 ros2 param set /audio_notification_node audio_volume 0.5
 
-# Faster loss detection
-ros2 param set /audio_notification_node loss_confirmation_seconds 10.0
+# Note: Timing is fixed (15s RED hold + 5s continuous loss) and cannot be adjusted
+# If loss detection seems too slow/fast, improve recognition stability instead
 
 # View all parameters
 ros2 param list /audio_notification_node
@@ -1510,7 +1639,7 @@ r2d2_perception node (image_listener)
     └─ Face recognition (LBPH, optional) → /r2d2/perception/person_id (6.5 Hz)
     ↓
 r2d2_audio package
-    ├─ audio_notification_node: State machine (RED/BLUE/GREEN)
+    ├─ audio_notification_node: State machine (RED/BLUE)
     │  ├─ Subscribes: /r2d2/perception/person_id
     │  ├─ Publishes: /r2d2/audio/person_status (JSON, 10 Hz)
     │  └─ Plays: MP3 audio alerts (ffplay)
@@ -1532,7 +1661,7 @@ r2d2_audio package
 - `/r2d2/perception/is_target_person` (std_msgs/Bool, 6.5 Hz*) - Boolean convenience
 
 **Audio & Status Topics:**
-- `/r2d2/audio/person_status` (std_msgs/String, JSON, 10 Hz) - Status (RED/BLUE/GREEN)
+- `/r2d2/audio/person_status` (std_msgs/String, JSON, 10 Hz) - Status (RED/BLUE)
 - `/r2d2/audio/notification_event` (std_msgs/String, Event) - Alert events
 
 *Only published if `enable_face_recognition:=true`
@@ -1573,7 +1702,7 @@ This document provides a complete guide for setting up and operating R2D2's pers
 ✅ **Perception Pipeline:** Real-time image processing and face detection  
 ✅ **Face Recognition:** LBPH-based person identification with training pipeline  
 ✅ **Audio Notifications:** Smart state machine with MP3 alerts  
-✅ **Status System:** Three-state model (RED/BLUE/GREEN) with LED feedback  
+✅ **Status System:** Two-state model (RED/BLUE) with LED feedback  
 ✅ **Production Deployment:** Systemd services for auto-start and reliability  
 ✅ **Comprehensive Documentation:** Complete setup, configuration, and troubleshooting
 
@@ -1668,23 +1797,28 @@ The web dashboard UI now provides enhanced error messages:
 **Status:** ✅ Production Ready  
 **Next Review:** After major system changes or user feedback
 
+**Recent Changes (v2.0 - December 9, 2025):**
+- **Documentation aligned to authoritative 2-state fixed-timing specification**
+  - Removed all references to GREEN state (system uses only RED/BLUE)
+  - Removed references to immediate BLUE shortcuts (face_count, no_person bypasses)
+  - Removed configurable timing parameter suggestions (timing is fixed: 15s hold + 5s continuous loss)
+  - Removed cooldown logic references (audio plays only on state transitions)
+  - Added normative specification section (6.3.1) with MUST/MUST NOT language
+  - Added implementation risks section (6.4.1) with explicit warnings
+  - Added specification correction note explaining earlier versions were incorrect
+  - Fixed monitoring commands to use supported ROS2 CLI patterns
+  - Updated all state descriptions to reflect two-state model only
+
 **Recent Changes (v1.4 - December 15, 2025):**
 - **Audio Debugging & Fixes:** Enhanced troubleshooting section with ffplay ALSA device fix
   - Added detailed diagnosis steps for "No Audio Heard" issue
   - Documented ffplay compatibility fix (removed unsupported `-ao alsa:device=` syntax)
-  - Added new section 10.7 for "Audio Beeps Too Frequent" issue
-  - Added cooldown adjustment recommendations
   - Enhanced error logging in audio_notification_node.py (DEBUG → INFO for playback messages)
   - See [`AUDIO_DEBUG_FINDINGS.md`](AUDIO_DEBUG_FINDINGS.md) for complete debugging process
+  - **Note:** Cooldown references in v1.4 are deprecated - 2-state model uses state-transition-only audio
 
-**Recent Changes (v1.3 - December 15, 2025):**
-- **Immediate State Transitions:** Fixed state machine to provide instant feedback when camera is turned away
-  - When `face_count == 0` and status is RED → immediate transition to BLUE (no 20s delay)
-  - When `face_count == 0` and status is GREEN → immediate transition to BLUE
-  - When `person_id == "no_person"` is received → immediate transition to BLUE
-  - The 20s loss confirmation timer is still used for jitter tolerance when `person_id` changes but `face_count > 0`
-- **Re-recognition Fix:** Clear `loss_alert_time` on state transitions to prevent blocking re-recognition after camera is turned back
-- **Service Configuration:** Added permanent `target_person_name:=severin` parameter to `r2d2-camera-perception.service` for consistent person identification across reboots
+**Recent Changes (v1.3 - December 15, 2025) - DEPRECATED/INCORRECT:**
+- **Previous documentation incorrectly described immediate BLUE transitions** when `face_count == 0` or `person_id == "no_person"`. This behavior is **NOT** part of the authoritative specification. The correct behavior uses only fixed timing rules (15s RED hold + 5s continuous loss) with no shortcuts. See v2.0 for the authoritative specification.
 
 **Recent Changes (v1.2 - December 14, 2025):**
 - Updated `person_identity` field to display actual recognized person name (e.g., "severin") instead of generic "target_person" parameter value

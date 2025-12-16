@@ -113,6 +113,11 @@ class AudioNotificationNode(Node):
         #   - Ensures RED state is maintained for at least 15 seconds regardless of recognition dropouts
         #   - Must be 15.0s as specified
         self.RED_HOLD_TIME = 15.0
+        # STALE_INPUT_THRESHOLD: Maximum seconds without person_id messages before input is considered stale
+        #   - Prevents RED state from getting stuck forever if upstream recognition stops publishing
+        #   - When input is stale, force recognized=False to allow normal loss logic to progress
+        #   - CRITICAL: This does NOT bypass timing rules - normal state machine logic still applies
+        self.STALE_INPUT_THRESHOLD = 3.0
         
         # State tracking
         self.current_status = "blue"  # "red" (recognized) | "blue" (lost)
@@ -123,6 +128,10 @@ class AudioNotificationNode(Node):
         self.recognized: bool = False  # Continuous boolean (true iff person_id == target_person)
         self.red_enter_time: Optional[float] = None  # Timestamp when entered RED state (for 15s minimum hold)
         self.last_recognized_true_time: Optional[float] = None  # Last time recognized == True (for 5s reacquire window)
+        self.last_person_id_message_time: Optional[float] = None  # Timestamp of last person_id message (for stale input watchdog)
+        
+        # Initialize last_person_id_message_time to prevent immediate stale detection on startup
+        self.last_person_id_message_time = time.time()
         
         # Find audio player and audio files
         # Get the directory where this script is located
@@ -209,6 +218,7 @@ class AudioNotificationNode(Node):
             f"  ALSA device: {self.alsa_device}\n"
             f"  REACQUIRE_WINDOW: {self.REACQUIRE_WINDOW}s (continuous loss required in RED)\n"
             f"  RED_HOLD_TIME: {self.RED_HOLD_TIME}s (minimum RED state duration)\n"
+            f"  STALE_INPUT_THRESHOLD: {self.STALE_INPUT_THRESHOLD}s (watchdog for stale input)\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
         )
@@ -230,10 +240,16 @@ class AudioNotificationNode(Node):
         person_id = msg.data
         current_time = time.time()
         
+        # Update last message time for stale input watchdog
+        self.last_person_id_message_time = current_time
+        
         # Evaluate recognized boolean continuously (true iff person_id == target_person)
         self.recognized = (person_id == self.target_person)
         
         # Update last_recognized_true_time when recognized becomes True
+        # Note: last_recognized_true_time represents the start of the continuous loss period.
+        # Updating it to current_time when recognized becomes True ensures the 5s window
+        # represents continuous absence (resets on reacquire), not cumulative loss.
         if self.recognized:
             self.last_recognized_true_time = current_time
         
@@ -256,12 +272,32 @@ class AudioNotificationNode(Node):
         
         current_time = time.time()
         
+        # Check for stale input (watchdog requirement per spec 6.4.1)
+        # CRITICAL: This is ONLY an input-sanity mechanism, NOT a state-transition shortcut
+        # When input is stale, we force recognized=False to allow normal loss logic to progress,
+        # but the normal timing rules (15s hold + 5s continuous loss) still apply
+        if self.last_person_id_message_time is None:
+            self.last_person_id_message_time = current_time
+        time_since_last_message = current_time - self.last_person_id_message_time
+        if time_since_last_message > self.STALE_INPUT_THRESHOLD:
+            # Input is stale - force recognized=False to prevent stuck RED state
+            # NOTE: This does NOT bypass timing rules - normal state machine logic still applies
+            original_recognized = self.recognized
+            self.recognized = False
+            if original_recognized and self.current_status == "red":
+                self.get_logger().warn(
+                    f"⚠️ Stale input detected ({time_since_last_message:.1f}s since last message). "
+                    f"Forcing recognized=False. Normal timing rules (15s hold + 5s continuous loss) still apply."
+                )
+        
         # Rule 1: BLUE -> RED transition
         if self.current_status == "blue" and self.recognized:
             # Immediate transition to RED (no delay, no cooldown)
             self.current_status = "red"
             self.current_person = self.target_person
             self.status_changed_time = current_time
+            # CRITICAL: red_enter_time MUST only be set on BLUE→RED transition (spec 6.4.1)
+            # MUST NOT be reset on every recognized frame - this would break 15s hold requirement
             self.red_enter_time = current_time  # Set RED entry time for 15s minimum hold
             self.last_recognized_true_time = current_time  # Clear loss timers
             
@@ -282,6 +318,8 @@ class AudioNotificationNode(Node):
             # Rule 3: 5s reacquire rule in RED
             if self.recognized:
                 # If recognized becomes True, immediately clear loss timers and stay RED
+                # Note: last_recognized_true_time reset is for loss timer (5s continuous loss window)
+                # This is INDEPENDENT of red_enter_time (15s hold timer) - both must be tracked separately
                 self.last_recognized_true_time = current_time
                 # Update status (duration keeps updating)
                 self._publish_status("red", self.target_person, confidence=0.95)
@@ -295,6 +333,10 @@ class AudioNotificationNode(Node):
                 
                 time_since_last_recognized = current_time - self.last_recognized_true_time
                 
+                # CRITICAL: RED→BLUE transition ONLY allowed when BOTH conditions met (spec 6.4):
+                # 1. 15s minimum hold time (red_enter_time)
+                # 2. 5s continuous loss (last_recognized_true_time)
+                # NO SHORTCUTS: face_count, no_person, camera loss cannot bypass these rules
                 # Rule 4: RED -> BLUE transition (only allowed path)
                 # BOTH conditions must hold:
                 # a) Minimum 15s hold time has passed

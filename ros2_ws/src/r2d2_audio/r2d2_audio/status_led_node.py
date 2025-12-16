@@ -5,7 +5,6 @@ Status LED Controller - Visual feedback for person recognition state.
 Subscribes to /r2d2/audio/person_status (JSON String message) and controls LED colors:
   - RED (GPIO): Target person recognized (active engagement)
   - BLUE (GPIO): No person recognized (idle/waiting)
-  - GREEN (GPIO): Unknown person detected (caution)
 
 This provides real-time visual feedback synchronized with audio alerts
 and feeds into the dialogue system for context awareness.
@@ -48,7 +47,7 @@ class StatusLEDNode(Node):
         # Get parameters
         self.led_pins = {
             'red': self.get_parameter('led_pin_red').value,
-            'green': self.get_parameter('led_pin_green').value,
+            'green': self.get_parameter('led_pin_green').value,  # Note: green pin kept for hardware compatibility but unused (2-state model)
             'blue': self.get_parameter('led_pin_blue').value,
         }
         self.brightness = self.get_parameter('brightness').value
@@ -142,12 +141,6 @@ class StatusLEDNode(Node):
             self._set_color('blue')
             if not self.simulate_gpio:
                 self.get_logger().debug("🔵 LED: BLUE (Idle, awaiting)")
-        
-        elif self.current_status == "green":
-            # GREEN: Unknown person detected (CAUTION)
-            self._set_color('green')
-            if not self.simulate_gpio:
-                self.get_logger().debug("🟢 LED: GREEN (Unknown person)")
     
     def _set_color(self, color: str):
         """
