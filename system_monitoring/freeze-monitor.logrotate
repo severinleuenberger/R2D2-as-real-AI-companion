@@ -1,0 +1,38 @@
+# Logrotate configuration for freeze monitor logs
+# This file should be installed to /etc/logrotate.d/freeze-monitor
+
+/var/log/freeze_logs/*.log {
+    # Rotate daily or when file size exceeds 100M
+    daily
+    size 100M
+    
+    # Keep 7 days of logs
+    rotate 7
+    
+    # Compress old logs
+    compress
+    delaycompress
+    
+    # Don't error if log file is missing
+    missingok
+    
+    # Don't rotate if log is empty
+    notifempty
+    
+    # Create new log file with these permissions
+    create 0644 root root
+    
+    # Use date as suffix for rotated files
+    dateext
+    dateformat -%Y%m%d-%s
+    
+    # Post-rotate actions
+    postrotate
+        # Signal the service if it's running (optional, our monitor handles this gracefully)
+        systemctl is-active freeze-monitor.service > /dev/null 2>&1 && systemctl reload-or-restart freeze-monitor.service || true
+    endscript
+    
+    # Share scripts between all log files
+    sharedscripts
+}
+

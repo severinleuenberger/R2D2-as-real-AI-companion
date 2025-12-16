@@ -1,0 +1,30 @@
+[Unit]
+Description=Jetson Freeze Diagnostic Monitor
+Documentation=https://github.com/your-repo
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/severin/freeze_monitor.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=freeze-monitor
+
+# Run as root to access hardware metrics
+User=root
+Group=root
+
+# Resource limits to prevent monitor from causing issues
+CPUQuota=10%
+MemoryLimit=200M
+
+# Restart policy
+StartLimitInterval=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
+
