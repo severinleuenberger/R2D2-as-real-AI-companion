@@ -456,6 +456,15 @@ sudo journalctl -u r2d2-audio-notification.service -f
 sudo systemctl restart r2d2-audio-notification.service
 ```
 
+**After Code Changes:**
+If you modify the audio notification node code, you must rebuild and restart:
+```bash
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_audio
+source install/setup.bash
+sudo systemctl restart r2d2-audio-notification.service
+```
+
 ### 5.4 Audio Behavior
 
 **What You'll Hear:**
@@ -721,8 +730,9 @@ This section documents known risks and requirements for correct implementation.
 
 **Requirements:**
 - Implementations **MUST** handle stale input via a timer/watchdog mechanism
-- If no `person_id` message received for threshold (e.g., 3 seconds), **MUST** force `recognized = False`
+- If no `person_id` message received for threshold (3.0 seconds in current implementation), **MUST** force `recognized = False`
 - **MUST NOT** use stale input detection to bypass timing rules (15s hold + 5s continuous loss still apply)
+- The stale input watchdog is **ONLY** an input-sanity mechanism, **NOT** a state-transition shortcut
 - `red_enter_time` **MUST** be set only on BLUE→RED entry
 - `red_enter_time` **MUST NOT** be reset on every recognized frame
 
