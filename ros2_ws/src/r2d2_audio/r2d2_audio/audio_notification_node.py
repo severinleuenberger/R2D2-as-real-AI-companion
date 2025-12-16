@@ -113,6 +113,11 @@ class AudioNotificationNode(Node):
         #   - Ensures RED state is maintained for at least 15 seconds regardless of recognition dropouts
         #   - Must be 15.0s as specified
         self.RED_HOLD_TIME = 15.0
+        # BLUE_HOLD_TIME: Minimum seconds BLUE state must be held before transition to RED is allowed
+        #   - Prevents rapid BLUE→RED flapping after loss confirmation
+        #   - Ensures BLUE state is maintained for at least 5 seconds regardless of brief re-detections
+        #   - Must be 5.0s as specified
+        self.BLUE_HOLD_TIME = 5.0
         # STALE_INPUT_THRESHOLD: Maximum seconds without person_id messages before input is considered stale
         #   - Prevents RED state from getting stuck forever if upstream recognition stops publishing
         #   - When input is stale, force recognized=False to allow normal loss logic to progress
@@ -127,11 +132,16 @@ class AudioNotificationNode(Node):
         # Recognition state
         self.recognized: bool = False  # Continuous boolean (true iff person_id == target_person)
         self.red_enter_time: Optional[float] = None  # Timestamp when entered RED state (for 15s minimum hold)
+        self.blue_enter_time: Optional[float] = None  # Timestamp when entered BLUE state (for 5s minimum hold)
         self.last_recognized_true_time: Optional[float] = None  # Last time recognized == True (for 5s reacquire window)
         self.last_person_id_message_time: Optional[float] = None  # Timestamp of last person_id message (for stale input watchdog)
         
         # Initialize last_person_id_message_time to prevent immediate stale detection on startup
         self.last_person_id_message_time = time.time()
+        
+        # Initialize blue_enter_time if starting in BLUE state
+        if self.current_status == "blue":
+            self.blue_enter_time = time.time()
         
         # Find audio player and audio files
         # Get the directory where this script is located
@@ -218,6 +228,7 @@ class AudioNotificationNode(Node):
             f"  ALSA device: {self.alsa_device}\n"
             f"  REACQUIRE_WINDOW: {self.REACQUIRE_WINDOW}s (continuous loss required in RED)\n"
             f"  RED_HOLD_TIME: {self.RED_HOLD_TIME}s (minimum RED state duration)\n"
+            f"  BLUE_HOLD_TIME: {self.BLUE_HOLD_TIME}s (minimum BLUE state duration)\n"
             f"  STALE_INPUT_THRESHOLD: {self.STALE_INPUT_THRESHOLD}s (watchdog for stale input)\n"
             f"  Enabled: {self.enabled}\n"
             f"  Audio player: {self.audio_player_path}"
@@ -290,25 +301,50 @@ class AudioNotificationNode(Node):
                     f"Forcing recognized=False. Normal timing rules (15s hold + 5s continuous loss) still apply."
                 )
         
-        # Rule 1: BLUE -> RED transition
-        if self.current_status == "blue" and self.recognized:
-            # Immediate transition to RED (no delay, no cooldown)
-            self.current_status = "red"
-            self.current_person = self.target_person
-            self.status_changed_time = current_time
-            # CRITICAL: red_enter_time MUST only be set on BLUE→RED transition (spec 6.4.1)
-            # MUST NOT be reset on every recognized frame - this would break 15s hold requirement
-            self.red_enter_time = current_time  # Set RED entry time for 15s minimum hold
-            self.last_recognized_true_time = current_time  # Clear loss timers
+        # Rule 1: BLUE -> RED transition (with minimum hold requirement)
+        if self.current_status == "blue":
+            # Check if minimum BLUE hold time has elapsed
+            if self.blue_enter_time is None:
+                # Initialize if not set (shouldn't happen, but safety check)
+                self.blue_enter_time = current_time
             
-            # Publish status FIRST (so LED lights up immediately)
-            self._publish_status("red", self.target_person, confidence=0.95)
+            time_in_blue = current_time - self.blue_enter_time
             
-            # Play hello audio on entry
-            self._trigger_recognition_alert()
-            self._publish_event(f"🎉 Recognized {self.target_person}!")
-            self.get_logger().info(f"✓ {self.target_person} recognized! (BLUE -> RED)")
-            return
+            # CRITICAL: BLUE hold is a state-level debounce and must never be bypassed
+            # The minimum 5s BLUE hold MUST be enforced regardless of:
+            # - Transient recognition spikes (brief re-detections)
+            # - Stale input recovery (watchdog forcing recognized=False then back to True)
+            # - Confidence changes or recognition jitter
+            # - Any other condition that might cause recognition to briefly become True
+            # This is a hard minimum - no early exit, no shortcuts, no exceptions
+            
+            # BLUE → RED transition only allowed if BOTH conditions met:
+            # 1. Minimum 5s hold time has passed
+            # 2. Target person is currently recognized
+            if self.recognized and time_in_blue >= self.BLUE_HOLD_TIME:
+                # Transition to RED (minimum hold time met)
+                self.current_status = "red"
+                self.current_person = self.target_person
+                self.status_changed_time = current_time
+                # CRITICAL: red_enter_time MUST only be set on BLUE→RED transition (spec 6.4.1)
+                # MUST NOT be reset on every recognized frame - this would break 15s hold requirement
+                self.red_enter_time = current_time  # Set RED entry time for 15s minimum hold
+                self.last_recognized_true_time = current_time  # Clear loss timers
+                self.blue_enter_time = None  # Clear BLUE entry time
+                
+                # Publish status FIRST (so LED lights up immediately)
+                self._publish_status("red", self.target_person, confidence=0.95)
+                
+                # Play hello audio on entry
+                self._trigger_recognition_alert()
+                self._publish_event(f"🎉 Recognized {self.target_person}!")
+                self.get_logger().info(f"✓ {self.target_person} recognized! (BLUE -> RED after {time_in_blue:.1f}s in BLUE)")
+                return
+            elif self.recognized and time_in_blue < self.BLUE_HOLD_TIME:
+                # Person recognized but BLUE hold time not met - stay in BLUE, no audio
+                # No status publish needed - 1 Hz heartbeat timer handles regular updates
+                # No audio, no state change - waiting for 5s minimum hold to pass
+                return
         
         # Rule 2 & 3: RED state handling (minimum hold + reacquire window)
         if self.current_status == "red":
@@ -346,6 +382,9 @@ class AudioNotificationNode(Node):
                     self.current_status = "blue"
                     self.current_person = "no_person"
                     self.status_changed_time = current_time
+                    # CRITICAL: blue_enter_time MUST only be set on RED→BLUE transition
+                    # MUST NOT be reset on every non-recognized frame - this would break 5s hold requirement
+                    self.blue_enter_time = current_time  # Set BLUE entry time for 5s minimum hold
                     self.red_enter_time = None  # Clear RED entry time
                     self.last_recognized_true_time = None  # Clear loss timers
                     
