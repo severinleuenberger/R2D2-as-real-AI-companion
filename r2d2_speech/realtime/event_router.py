@@ -31,6 +31,7 @@ class EventRouter:
         self,
         realtime_client,
         transcript_handler,
+        audio_playback=None,
     ):
         """
         Initialize event router.
@@ -38,9 +39,11 @@ class EventRouter:
         Args:
             realtime_client: RealtimeClient instance
             transcript_handler: TranscriptHandler instance
+            audio_playback: Optional AudioPlayback instance for assistant audio
         """
         self.client = realtime_client
         self.transcript_handler = transcript_handler
+        self.audio_playback = audio_playback
         
         self.running = False
         
@@ -91,20 +94,19 @@ class EventRouter:
             if event_type == "conversation.item.input_audio_transcription.completed":
                 await self._handle_user_transcript(event)
             
-            # Assistant transcript events
-            elif event_type == "response.output_audio_transcript.delta":
+            # Assistant transcript events (handle both old and new event names)
+            elif event_type in ["response.output_audio_transcript.delta", "response.audio_transcript.delta"]:
                 await self._handle_assistant_transcript_delta(event)
             
-            elif event_type == "response.output_audio_transcript.done":
+            elif event_type in ["response.output_audio_transcript.done", "response.audio_transcript.done"]:
                 await self._handle_assistant_transcript_done(event)
             
-            # Audio events (for future playback implementation)
-            elif event_type == "response.output_audio.delta":
-                # TODO: Route to audio playback handler
-                logger.debug("Audio delta received (playback not implemented)")
+            # Audio events (playback) (handle both old and new event names)
+            elif event_type in ["response.output_audio.delta", "response.audio.delta"]:
+                await self._handle_audio_delta(event)
             
-            elif event_type == "response.output_audio.done":
-                logger.debug("Audio playback complete")
+            elif event_type in ["response.output_audio.done", "response.audio.done"]:
+                await self._handle_audio_done(event)
             
             # Session events
             elif event_type == "session.created":
@@ -119,6 +121,32 @@ class EventRouter:
             
             elif event_type == "response.done":
                 logger.info("Response complete")
+                # Log full response structure for debugging
+                response_obj = event.get("response", {})
+                output_items = response_obj.get("output", [])
+                logger.info(f"  Response has {len(output_items)} output items")
+                for i, item in enumerate(output_items):
+                    item_type = item.get("type", "unknown")
+                    logger.info(f"    Item [{i}]: type={item_type}")
+                    if item_type == "message":
+                        content = item.get("content", [])
+                        logger.info(f"      Content parts: {len(content)}")
+                        for j, part in enumerate(content):
+                            part_type = part.get("type", "unknown")
+                            logger.info(f"        Part [{j}]: {part_type}")
+                            if part_type == "audio":
+                                has_transcript = bool(part.get("transcript"))
+                                logger.info(f"          Has transcript: {has_transcript}")
+            
+            # VAD events
+            elif event_type == "input_audio_buffer.speech_started":
+                logger.info("🎤 Speech detected - listening...")
+            
+            elif event_type == "input_audio_buffer.speech_stopped":
+                logger.info("🔇 Speech ended - processing...")
+            
+            elif event_type == "input_audio_buffer.committed":
+                logger.info("✓ Audio buffer committed")
             
             # Error events
             elif event_type == "error":
@@ -126,7 +154,7 @@ class EventRouter:
             
             # Other events (log for debugging)
             else:
-                logger.debug(f"Unhandled event: {event_type}")
+                logger.info(f"Unhandled event: {event_type}")
                 
         except Exception as e:
             logger.error(f"Error routing event {event_type}: {e}", exc_info=True)
@@ -193,17 +221,59 @@ class EventRouter:
         except Exception as e:
             logger.error(f"Error handling assistant transcript done: {e}", exc_info=True)
     
+    async def _handle_audio_delta(self, event: Dict[str, Any]) -> None:
+        """
+        Handle audio delta event (assistant audio playback).
+        
+        Event: response.output_audio.delta or response.audio.delta
+        """
+        try:
+            # Get base64 audio chunk (try both possible field names)
+            audio_delta = event.get("delta", event.get("audio", ""))
+            
+            if not audio_delta:
+                logger.warning("Audio delta event received but no audio data found")
+                return
+            
+            # Play audio chunk if playback is available
+            if self.audio_playback and self.audio_playback.is_running:
+                self.audio_playback.play_chunk(audio_delta)
+                logger.debug(f"Playing audio chunk ({len(audio_delta)} chars base64)")
+            else:
+                logger.warning("Audio delta received but playback not active")
+                
+        except Exception as e:
+            logger.error(f"Error handling audio delta: {e}", exc_info=True)
+    
+    async def _handle_audio_done(self, event: Dict[str, Any]) -> None:
+        """
+        Handle audio done event.
+        
+        Event: response.output_audio.done
+        """
+        try:
+            # Flush playback buffer
+            if self.audio_playback and self.audio_playback.is_running:
+                self.audio_playback.flush()
+            
+            logger.debug("Audio playback complete")
+            
+        except Exception as e:
+            logger.error(f"Error handling audio done: {e}", exc_info=True)
+    
     def _handle_error(self, event: Dict[str, Any]) -> None:
         """
         Handle error event.
         
         Event: error
         """
-        error_code = event.get("code", "unknown")
-        error_message = event.get("message", "No error message")
+        # Try different error structures
+        error_code = event.get("code", event.get("error", {}).get("code", "unknown"))
+        error_message = event.get("message", event.get("error", {}).get("message", "No error message"))
         
+        # Log the full event for debugging
         logger.error(f"Realtime API error [{error_code}]: {error_message}")
-        logger.debug(f"Full error event: {event}")
+        logger.error(f"Full error event: {event}")
     
     def stop(self) -> None:
         """

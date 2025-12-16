@@ -2,7 +2,7 @@
 Test Realtime Connection with HyperX QuadCast S Microphone
 ===========================================================
 
-Enhanced test that captures real audio from HyperX QuadCast S.
+Enhanced test using AudioStreamManager for continuous streaming.
 
 Usage:
     cd ~/dev/r2d2
@@ -13,14 +13,8 @@ Usage:
 import asyncio
 import logging
 import sys
-import base64
-import struct
 from datetime import datetime
 from pathlib import Path
-
-# Audio capture
-import pyaudio
-import numpy as np
 
 # Add package to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -28,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config import get_config
 from storage import init_db, create_session, get_session_messages
 from realtime import RealtimeClient, EventRouter, TranscriptHandler
+from utils import AudioStreamManager
 
 # Configure logging
 logging.basicConfig(
@@ -37,126 +32,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def find_hyperx_device():
-    """
-    Find HyperX QuadCast S microphone device.
-    
-    Returns:
-        Tuple of (device_index, device_info) or (None, None) if not found
-    """
-    p = pyaudio.PyAudio()
-    
-    print("\n🔍 Searching for HyperX QuadCast S...")
-    
-    for i in range(p.get_device_count()):
-        info = p.get_device_info_by_index(i)
-        name = info.get('name', '').lower()
-        
-        # Look for HyperX or QuadCast in device name
-        if ('hyperx' in name or 'quadcast' in name) and info.get('maxInputChannels', 0) > 0:
-            print(f"✓ Found: {info['name']}")
-            print(f"  - Device Index: {i}")
-            print(f"  - Channels: {info['maxInputChannels']}")
-            print(f"  - Sample Rate: {int(info['defaultSampleRate'])} Hz")
-            p.terminate()
-            return i, info
-    
-    p.terminate()
-    return None, None
-
-
-def capture_audio_from_mic(device_index, duration_seconds=3.0, sample_rate=24000):
-    """
-    Capture audio from microphone and convert to PCM16 @ 24kHz mono.
-    
-    Args:
-        device_index: PyAudio device index
-        duration_seconds: How long to record
-        sample_rate: Target sample rate (24000 for Realtime API)
-        
-    Returns:
-        Base64-encoded PCM16 audio data
-    """
-    p = pyaudio.PyAudio()
-    
-    # Get device info
-    device_info = p.get_device_info_by_index(device_index)
-    device_sample_rate = int(device_info['defaultSampleRate'])
-    device_channels = device_info['maxInputChannels']
-    
-    print(f"\n🎤 Recording {duration_seconds} seconds from microphone...")
-    print(f"  - Device sample rate: {device_sample_rate} Hz")
-    print(f"  - Device channels: {device_channels}")
-    print(f"  - Target: 24000 Hz mono PCM16")
-    
-    # Open stream
-    stream = p.open(
-        format=pyaudio.paInt16,
-        channels=min(device_channels, 2),  # Use up to stereo
-        rate=device_sample_rate,
-        input=True,
-        input_device_index=device_index,
-        frames_per_buffer=1024
-    )
-    
-    # Record
-    print(f"🔴 RECORDING... (speak now for {duration_seconds} seconds)")
-    frames = []
-    num_frames = int(device_sample_rate * duration_seconds / 1024)
-    
-    for i in range(num_frames):
-        data = stream.read(1024, exception_on_overflow=False)
-        frames.append(data)
-    
-    print("✓ Recording complete")
-    
-    # Stop stream
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    
-    # Convert to numpy array
-    audio_data = b''.join(frames)
-    audio_array = np.frombuffer(audio_data, dtype=np.int16)
-    
-    # Convert to mono if stereo
-    if device_channels > 1:
-        audio_array = audio_array.reshape(-1, device_channels)
-        audio_array = audio_array.mean(axis=1).astype(np.int16)
-        print("  - Converted to mono")
-    
-    # Resample if needed
-    if device_sample_rate != sample_rate:
-        # Simple resampling (linear interpolation)
-        num_samples_target = int(len(audio_array) * sample_rate / device_sample_rate)
-        indices = np.linspace(0, len(audio_array) - 1, num_samples_target)
-        audio_array = np.interp(indices, np.arange(len(audio_array)), audio_array).astype(np.int16)
-        print(f"  - Resampled to {sample_rate} Hz")
-    
-    # Convert to PCM16 bytes
-    pcm_bytes = audio_array.tobytes()
-    
-    # Check audio levels
-    rms = np.sqrt(np.mean(audio_array.astype(float)**2))
-    peak = np.max(np.abs(audio_array))
-    rms_db = 20 * np.log10(rms / 32768.0) if rms > 0 else -100
-    peak_db = 20 * np.log10(peak / 32768.0) if peak > 0 else -100
-    
-    print(f"  - Audio level: RMS={rms_db:.1f} dB, Peak={peak_db:.1f} dB")
-    
-    if rms < 100:
-        print("  ⚠ Warning: Audio level very low - speak louder!")
-    
-    # Base64 encode
-    base64_audio = base64.b64encode(pcm_bytes).decode('utf-8')
-    print(f"  - Encoded {len(pcm_bytes)} bytes → {len(base64_audio)} base64 chars")
-    
-    return base64_audio
-
-
 async def test_realtime_with_mic():
     """
     Test Realtime API with real microphone audio from HyperX QuadCast S.
+    
+    Uses AudioStreamManager for continuous streaming.
     """
     print("=" * 60)
     print("Test: Realtime with HyperX QuadCast S Microphone")
@@ -164,6 +44,7 @@ async def test_realtime_with_mic():
     print()
     
     client = None
+    audio_manager = None
     
     try:
         # Step 1: Load configuration
@@ -172,50 +53,35 @@ async def test_realtime_with_mic():
         print(f"✓ Config loaded")
         print(f"  - Model: {config['realtime_model']}")
         print(f"  - Voice: {config['realtime_voice']}")
+        print(f"  - Native rate: {config['mic_native_sample_rate']} Hz")
+        print(f"  - Target rate: {config['mic_sample_rate']} Hz")
         print()
         
-        # Step 2: Find HyperX microphone
-        print("Step 2: Finding HyperX QuadCast S...")
-        device_index, device_info = find_hyperx_device()
-        
-        if device_index is None:
-            print("✗ HyperX QuadCast S not found!")
-            print("\nAvailable input devices:")
-            p = pyaudio.PyAudio()
-            for i in range(p.get_device_count()):
-                info = p.get_device_info_by_index(i)
-                if info.get('maxInputChannels', 0) > 0:
-                    print(f"  [{i}] {info['name']}")
-            p.terminate()
-            return False
-        
-        print()
-        
-        # Step 3: Initialize database
-        print("Step 3: Initializing database...")
+        # Step 2: Initialize database
+        print("Step 2: Initializing database...")
         db_path = config['db_path']
         init_db(db_path)
         print(f"✓ Database initialized")
         print()
         
-        # Step 4: Create session record
-        print("Step 4: Creating session record...")
-        session_id = f"test-mic-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        # Step 3: Create session record
+        print("Step 3: Creating session record...")
+        session_id = f"test-stream-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         create_session(
             db_path,
             session_id,
             metadata={
                 "model": config['realtime_model'],
                 "voice": config['realtime_voice'],
-                "test": "microphone",
-                "device": device_info['name'],
+                "test": "streaming",
+                "native_rate": config['mic_native_sample_rate'],
             }
         )
         print(f"✓ Session created: {session_id}")
         print()
         
-        # Step 5: Connect to Realtime API
-        print("Step 5: Connecting to Realtime API...")
+        # Step 4: Connect to Realtime API
+        print("Step 4: Connecting to Realtime API...")
         client = RealtimeClient(
             api_key=config['openai_api_key'],
             model=config['realtime_model'],
@@ -225,8 +91,8 @@ async def test_realtime_with_mic():
         print(f"✓ WebSocket connected")
         print()
         
-        # Step 6: Create session
-        print("Step 6: Creating Realtime session...")
+        # Step 5: Create session
+        print("Step 5: Creating Realtime session...")
         await client.create_session(
             instructions="You are a helpful assistant. Respond naturally to what you hear.",
             temperature=0.8
@@ -234,73 +100,97 @@ async def test_realtime_with_mic():
         print(f"✓ Session created")
         print()
         
-        # Step 7: Initialize handlers
-        print("Step 7: Initializing event handlers...")
+        # Step 6: Initialize AudioStreamManager
+        print("Step 6: Initializing AudioStreamManager...")
+        audio_manager = AudioStreamManager(config, client)
+        print(f"✓ Audio manager initialized")
+        print(f"  - Device: {audio_manager.device_info['name']}")
+        print(f"  - Native rate: {audio_manager.native_rate} Hz")
+        print(f"  - Target rate: {audio_manager.target_rate} Hz")
+        print()
+        
+        # Step 7: Start audio playback
+        print("Step 7: Starting audio playback...")
+        audio_manager.start_playback()
+        print(f"✓ Playback started")
+        print()
+        
+        # Step 8: Initialize handlers
+        print("Step 8: Initializing event handlers...")
         transcript_handler = TranscriptHandler(db_path, session_id)
-        event_router = EventRouter(client, transcript_handler)
+        event_router = EventRouter(
+            client,
+            transcript_handler,
+            audio_playback=audio_manager.playback
+        )
         print(f"✓ Handlers initialized")
         print()
         
-        # Step 8: Start event listener
-        print("Step 8: Starting event listener...")
+        # Step 9: Start event listener
+        print("Step 9: Starting event listener...")
         event_task = asyncio.create_task(event_router.start_listening())
         await asyncio.sleep(0.5)  # Let listener start
         print(f"✓ Event listener started")
         print()
         
-        # Step 9: Wait for user to press Enter
+        # Step 10: Start audio streaming
+        print("Step 10: Starting audio streaming...")
+        await audio_manager.start()
+        print(f"✓ Audio streaming started")
+        print()
+        
+        # Step 11: Stream audio continuously
         print("=" * 60)
-        print("Ready to record!")
+        print("Ready! Speak into the microphone")
         print("=" * 60)
-        input("Press ENTER to start recording (3 seconds)... ")
+        print()
+        print("The system will:")
+        print("  1. Capture audio continuously")
+        print("  2. Send to OpenAI Realtime API")
+        print("  3. Transcribe your speech")
+        print("  4. Generate and play assistant response")
+        print("  5. Save both to database")
+        print()
+        print("Speak now! (Will run for 30 seconds, or press Ctrl+C to stop)")
         print()
         
-        # Step 10: Capture audio
-        print("Step 9: Capturing audio from HyperX QuadCast S...")
-        base64_audio = capture_audio_from_mic(device_index, duration_seconds=3.0)
-        print()
+        # Stream for 30 seconds
+        start_time = asyncio.get_event_loop().time()
+        chunk_count = 0
         
-        # Step 11: Send audio to Realtime API
-        print("Step 10: Sending audio to Realtime API...")
-        
-        # Send in chunks (100ms each)
-        audio_bytes = base64.b64decode(base64_audio)
-        chunk_size = 24000 * 2 * 0.1  # 100ms chunks (24kHz * 2 bytes * 0.1s)
-        chunk_size = int(chunk_size)
-        
-        for i in range(0, len(audio_bytes), chunk_size):
-            chunk = audio_bytes[i:i+chunk_size]
-            chunk_base64 = base64.b64encode(chunk).decode('utf-8')
-            await client.send_audio_frame(chunk_base64)
-            await asyncio.sleep(0.1)  # Real-time pacing
-        
-        # Commit audio
-        await client.commit_audio()
-        print("✓ Audio sent and committed")
-        print()
-        
-        # Step 12: Wait for events
-        print("Step 11: Waiting for transcripts (30 seconds max)...")
-        print("  - Waiting for user transcript...")
-        print("  - Waiting for assistant response...")
-        print()
-        
-        for i in range(30):
-            await asyncio.sleep(1)
+        while asyncio.get_event_loop().time() - start_time < 30:
+            # Process and send one chunk
+            success = await audio_manager.process_and_send()
             
-            messages = get_session_messages(db_path, session_id)
+            if success:
+                chunk_count += 1
+                
+                # Show progress every 50 chunks (~5 seconds)
+                if chunk_count % 50 == 0:
+                    elapsed = asyncio.get_event_loop().time() - start_time
+                    print(f"  ... streaming ({int(elapsed)}s, {chunk_count} chunks sent)")
             
-            if len(messages) >= 2:
-                print(f"✓ Received both transcripts!")
-                break
-            
-            if i > 0 and i % 5 == 0:
-                print(f"  ... waiting ({i}s elapsed, {len(messages)} messages)")
+            # Small delay to maintain real-time pacing
+            await asyncio.sleep(0.01)
         
         print()
+        print(f"✓ Streaming complete ({chunk_count} chunks sent)")
+        print()
         
-        # Step 13: Display results
-        print("Step 12: Results")
+        # Step 12: Stop streaming
+        print("Step 11: Stopping audio streaming...")
+        await audio_manager.stop()
+        audio_manager.stop_playback()
+        print(f"✓ Audio stopped")
+        print()
+        
+        # Step 13: Wait a bit for final events
+        print("Step 12: Waiting for final events...")
+        await asyncio.sleep(3)
+        print()
+        
+        # Step 14: Display results
+        print("Step 13: Results")
         print("=" * 60)
         
         messages = get_session_messages(db_path, session_id)
@@ -308,8 +198,8 @@ async def test_realtime_with_mic():
         if len(messages) == 0:
             print("⚠ No transcripts received")
             print("  Possible reasons:")
-            print("  - Audio too quiet (check mic level)")
-            print("  - No speech detected")
+            print("  - No speech detected (try speaking louder)")
+            print("  - Sample rate mismatch (run test_sample_rates_v2.py)")
             print("  - API issue")
             return False
         
@@ -331,18 +221,23 @@ async def test_realtime_with_mic():
         if has_user and has_assistant:
             print("✅ TEST PASSED")
             print("=" * 60)
-            print("✓ Microphone capture works")
-            print("✓ Audio sent to Realtime API")
+            print("✓ Audio streaming works")
             print("✓ User transcript received")
-            print("✓ Assistant response received")
+            print("✓ Assistant response generated")
+            print("✓ Assistant audio played")
             print("✓ Both saved to database")
             return True
-        else:
+        elif has_user:
             print("⚠ PARTIAL SUCCESS")
             print("=" * 60)
-            print(f"✓ User transcript: {'YES' if has_user else 'NO'}")
-            print(f"✓ Assistant transcript: {'YES' if has_assistant else 'NO'}")
-            return has_user  # Partial pass if we got user transcript
+            print("✓ User transcript received")
+            print("✗ No assistant response (check API/events)")
+            return False
+        else:
+            print("✗ NO TRANSCRIPTS")
+            print("=" * 60)
+            print("✗ Check sample rate and audio levels")
+            return False
         
     except KeyboardInterrupt:
         print("\n\n⚠ Test interrupted by user")
@@ -358,10 +253,19 @@ async def test_realtime_with_mic():
         return False
         
     finally:
+        # Cleanup
+        print("\nCleaning up...")
+        
+        if audio_manager:
+            if audio_manager.is_running:
+                await audio_manager.stop()
+            if audio_manager.playback:
+                audio_manager.stop_playback()
+        
         if client and client.connected:
-            print("\nCleaning up...")
             await client.disconnect()
-            print("✓ Disconnected")
+        
+        print("✓ Cleanup complete")
 
 
 def main():

@@ -56,11 +56,12 @@ def get_config() -> Dict[str, Any]:
         ),
         "realtime_voice": os.getenv("REALTIME_VOICE", "alloy"),
         
-        # Audio device settings (optional, for future use)
-        "mic_device": os.getenv("MIC_DEVICE", "hw:1,0"),
-        "mic_sample_rate": int(os.getenv("MIC_SAMPLE_RATE", "24000")),
+        # Audio device settings (optional)
+        "mic_device": os.getenv("MIC_DEVICE"),  # None if not set - use auto-detection
+        "mic_native_sample_rate": int(os.getenv("MIC_NATIVE_SAMPLE_RATE", "48000")),
+        "mic_sample_rate": int(os.getenv("MIC_SAMPLE_RATE", "24000")),  # Target for API
         "mic_channels": int(os.getenv("MIC_CHANNELS", "1")),
-        "sink_device": os.getenv("SINK_DEVICE", "hw:1,0"),
+        "sink_device": os.getenv("SINK_DEVICE", "default"),
         
         # Database path
         "db_path": os.path.expanduser(

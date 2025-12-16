@@ -117,19 +117,17 @@ class RealtimeClient:
             "session": {
                 "modalities": ["audio", "text"],
                 
-                # Enable input audio transcription (API handles model internally)
-                "input_audio_transcription": True,
+                # Enable input audio transcription with Whisper model
+                "input_audio_transcription": {
+                    "model": "whisper-1"
+                },
                 
-                # Enable output audio and transcript
-                "output_audio": True,
-                "output_audio_transcript": True,
-                
-                # Server VAD with auto-response
+                # Server VAD with auto-response (adjusted for better detection)
                 "turn_detection": {
                     "type": "server_vad",
-                    "threshold": 0.5,
+                    "threshold": 0.3,  # More sensitive (lower = more sensitive)
                     "prefix_padding_ms": 300,
-                    "silence_duration_ms": 500
+                    "silence_duration_ms": 700  # Longer silence to ensure natural pauses
                 },
                 
                 # Voice and temperature
