@@ -29,9 +29,10 @@ Simple, reliable power button control for R2D2 robot using two buttons on the Je
 ## Software Implementation
 
 ### File Locations
-- **Source**: `/home/severin/dev/r2d2/r2d2_power_button_simple.py`
-- **Deployed**: `/usr/local/bin/r2d2_power_button.py`
+- **Source**: `/home/severin/dev/r2d2/r2d2_power_button.py` (version controlled)
+- **Deployed**: `/usr/local/bin/r2d2_power_button.py` (system location)
 - **Service**: `/etc/systemd/system/r2d2-powerbutton.service`
+- **Deployment Script**: `/home/severin/dev/r2d2/deploy_power_button.sh`
 
 ### Service Configuration
 ```bash
@@ -44,6 +45,23 @@ journalctl -u r2d2-powerbutton.service -f
 # Restart service
 sudo systemctl restart r2d2-powerbutton.service
 ```
+
+### Deployment
+
+To deploy updates from source to system location:
+
+```bash
+cd /home/severin/dev/r2d2
+./deploy_power_button.sh
+```
+
+The deployment script will:
+1. Copy the source file to `/usr/local/bin/r2d2_power_button.py`
+2. Set proper permissions (executable, owned by root)
+3. Restart the service automatically
+4. Display service status
+
+**Note**: Always edit the source file in `/home/severin/dev/r2d2/r2d2_power_button.py`, then deploy using the script. The deployed file requires root permissions to modify.
 
 ### Logging
 - **File**: `/var/log/r2d2_power_button.log`
@@ -207,10 +225,17 @@ while True:
 ## Files
 
 ```
-r2d2_power_button_simple.py       - Main handler code (~150 lines)
+r2d2_power_button.py              - Main handler code (source, ~277 lines)
+deploy_power_button.sh             - Deployment script
 r2d2-powerbutton.service           - Systemd service definition
-POWER_BUTTON_FINAL_DOCUMENTATION.md - This file
+020_POWER_BUTTON_FINAL_DOCUMENTATION.md - This file
 ```
+
+**Deployment Workflow:**
+1. Edit source file: `/home/severin/dev/r2d2/r2d2_power_button.py`
+2. Test changes locally if needed
+3. Deploy: `./deploy_power_button.sh`
+4. Commit to git: `git add r2d2_power_button.py && git commit -m "..." && git push`
 
 ## Key Specifications
 
@@ -272,3 +297,4 @@ The system has been reverted to the original Jetson pin configuration. No custom
 **Status**: Production Ready (Button 1 verified and working with audio playback, Button 2 ready)
 **Configuration**: Original Jetson default (no custom overlays)
 **Features**: Shutdown with R2-D2 audio feedback
+**Deployment**: Automated via `deploy_power_button.sh` script
