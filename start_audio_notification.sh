@@ -22,7 +22,7 @@ export OPENBLAS_CORETYPE=ARMV8
 # Launch the audio notification node with optional parameters
 # Default parameters:
 #   target_person: severin
-#   audio_volume: 0.05 (5% - very quiet, as specified)
+#   audio_volume: 0.02 (2% - very quiet, as specified)
 #   recognition_audio_file: Voicy_R2-D2 - 2.mp3
 #   loss_audio_file: Voicy_R2-D2 - 5.mp3
 # Note: Timing constants (REACQUIRE_WINDOW=5.0s, RED_HOLD_TIME=15.0s) are fixed in code
@@ -30,9 +30,9 @@ export OPENBLAS_CORETYPE=ARMV8
 # Example overrides:
 #   ./start_audio_notification.sh "target_person:=alice" "audio_volume:=0.5"
 
-# Set default volume to 0.05 (5% - very quiet) if not provided via command line
+# Set default volume to 0.02 (2% - very quiet) if not provided via command line
 if [[ "$*" != *"audio_volume"* ]]; then
-    exec python3 -m r2d2_audio.audio_notification_node audio_volume:=0.05 "$@"
+    exec python3 -m r2d2_audio.audio_notification_node audio_volume:=0.02 "$@"
 else
     exec python3 -m r2d2_audio.audio_notification_node "$@"
 fi
