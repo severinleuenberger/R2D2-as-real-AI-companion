@@ -205,9 +205,9 @@ class AudioNotificationNode(Node):
         # This ensures state transitions happen promptly even if person_id topic slows
         self.create_timer(0.5, self._evaluate_state_machine)
         
-        # Create timer for regular status publishing (10 Hz = every 100ms)
+        # Create timer for regular status publishing (1 Hz = every 1 second)
         # This ensures web page and other subscribers get regular updates even when person_id topic stops publishing
-        self.create_timer(0.1, self.publish_current_status)
+        self.create_timer(1.0, self.publish_current_status)
         
         self.get_logger().info(
             f"Audio Notification Node initialized (Audio Files):\n"
@@ -374,7 +374,7 @@ class AudioNotificationNode(Node):
     
     def publish_current_status(self):
         """
-        Timer callback: Regularly publish current status (10 Hz) so web page and other subscribers
+        Timer callback: Regularly publish current status (1 Hz) so web page and other subscribers
         get updates even when person_id topic stops publishing.
         """
         if not self.enabled:
