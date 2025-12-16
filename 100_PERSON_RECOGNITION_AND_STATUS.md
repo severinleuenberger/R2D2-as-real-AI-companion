@@ -913,29 +913,69 @@ ros2 topic hz /r2d2/audio/person_status
 ### 7.3 Post-Reboot Verification
 
 **After Rebooting Jetson:**
+
+**Option A: Automated Verification Script (Recommended)**
+```bash
+# Wait 30 seconds for system to stabilize
+sleep 30
+
+# Run comprehensive verification script
+cd ~/dev/r2d2
+./verify_person_recognition_system.sh
+```
+
+**Option B: Manual Verification Commands**
 ```bash
 # 1. Wait 30 seconds for system to stabilize
 sleep 30
 
-# 2. Check service status
+# 2. Check service status (should show: active (running))
 sudo systemctl status r2d2-audio-notification.service
-# Should show: active (running)
+sudo systemctl status r2d2-camera-perception.service
 
-# 3. Verify audio system
+# 3. Verify services are enabled for autostart
+systemctl is-enabled r2d2-audio-notification.service
+# Should show: enabled
+
+systemctl is-enabled r2d2-camera-perception.service
+# Should show: enabled
+
+# 4. Verify ROS2 topics exist
+source /opt/ros/humble/setup.bash
+source ~/dev/r2d2/ros2_ws/install/setup.bash
+ros2 topic list | grep -E "person_id|person_status"
+
+# 5. Verify audio system is publishing
 timeout 5s ros2 topic echo /r2d2/audio/person_status --once --no-arr
-# Should show: {"status": "blue", ...}
+# Should show: {"status": "blue" or "red", ...}
 
-# 4. Test audio playback
-ros2 topic pub --once /r2d2/perception/person_id std_msgs/String "{data: target_person}"
-# Should play "Hello!" beep
+# 6. Verify topic rates
+ros2 topic hz /r2d2/perception/person_id
+# Should show: ~4-7 Hz
 
-# 5. Check LED feedback (if available)
-# Should see RED LED light up
+ros2 topic hz /r2d2/audio/person_status
+# Should show: ~1-7 Hz
 
-# 6. Verify logs for errors
-journalctl -u r2d2-audio-notification.service -n 20 | grep -i error
-# Should show no errors
+# 7. Check service logs for BLUE_HOLD_TIME (confirms new code is running)
+journalctl -u r2d2-audio-notification.service -n 20 | grep "BLUE_HOLD_TIME"
+# Should show: "BLUE_HOLD_TIME: 5.0s (minimum BLUE state duration)"
+
+# 8. Verify restart-on-failure is configured
+systemctl show r2d2-audio-notification.service | grep Restart
+# Should show: Restart=on-failure
+
+# 9. Test audio playback (optional - requires person in front of camera)
+# Stand in front of camera and wait for recognition
+# Should hear "Hello!" after 5s BLUE hold + recognition
 ```
+
+**Expected Results:**
+- ✅ Both services: `active (running)`
+- ✅ Both services: `enabled` (autostart configured)
+- ✅ Topics exist and publishing
+- ✅ Status messages in valid JSON format
+- ✅ Logs show `BLUE_HOLD_TIME: 5.0s` (confirms new code)
+- ✅ Restart-on-failure configured
 
 ---
 
