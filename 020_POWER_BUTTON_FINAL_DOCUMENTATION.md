@@ -54,11 +54,16 @@ sudo systemctl restart r2d2-powerbutton.service
 
 ### Button 1 (Pin 32)
 ```
-Press and release → Shutdown (shutdown -h now)
-- Detection: Any press triggers shutdown
+Press and release → Play R2-D2 sound → Shutdown (shutdown -h now)
+- Detection: Any press triggers shutdown sequence
+- Audio: Plays MP3 file before shutdown (system default volume)
 - Debounce: 100ms
-- Response time: Immediate
-- Log: "Button pressed" → "Initiating shutdown"
+- Response time: Immediate (audio plays, then shutdown)
+- Log: "Button pressed" → "Playing shutdown sound" → "Initiating shutdown"
+- Audio file: /home/severin/Voicy_R2-D2 - 3.mp3
+- Audio player: ffplay (with -nodisp -autoexit flags)
+- Timeout: 30 seconds maximum playback time
+- Error handling: Shutdown proceeds even if audio fails
 ```
 
 ### Button 2 (J42 Pin 4 + Pin 1)
@@ -102,7 +107,22 @@ The power button system is pre-installed and auto-starting:
 Monitors GPIO Pin 32 for button presses:
 - Debounces electrical noise (100ms threshold)
 - Detects falling edge (press) and rising edge (release)
-- Executes shutdown command on any valid press
+- Executes shutdown sequence on any valid press
+
+### Shutdown Sequence
+```python
+def execute_shutdown():
+    play_shutdown_sound()  # Play R2-D2 MP3
+    shutdown -h now        # Graceful shutdown
+```
+
+### Audio Playback Function
+- **Function**: `play_shutdown_sound()`
+- **File**: `/home/severin/Voicy_R2-D2 - 3.mp3`
+- **Player**: `ffplay -nodisp -autoexit -loglevel quiet`
+- **Volume**: System default (no volume override)
+- **Timeout**: 30 seconds maximum
+- **Error handling**: Always proceeds with shutdown even if audio fails
 
 ### Main Loop
 ```python
@@ -111,7 +131,7 @@ while True:
     # Debounce logic
     if state_stable and state_changed:
         if button_pressed:
-            execute_shutdown()
+            execute_shutdown()  # Plays sound, then shuts down
     time.sleep(POLLING_INTERVAL)  # 20ms
 ```
 
@@ -201,7 +221,10 @@ POWER_BUTTON_FINAL_DOCUMENTATION.md - This file
 | Polling Interval | 20ms |
 | Log File | /var/log/r2d2_power_button.log |
 | Service | r2d2-powerbutton (auto-start, auto-restart) |
-| Action on Press | Graceful shutdown |
+| Action on Press | Play R2-D2 sound → Graceful shutdown |
+| Audio File | /home/severin/Voicy_R2-D2 - 3.mp3 |
+| Audio Player | ffplay (system default volume) |
+| Audio Timeout | 30 seconds |
 | J42 Pin | 4 (POWER) for boot/wake |
 
 ## Next Steps
@@ -245,6 +268,7 @@ The system has been reverted to the original Jetson pin configuration. No custom
 
 ---
 
-**Last Updated**: 2025-12-15
-**Status**: Production Ready (Button 1 verified and working, Button 2 ready)
+**Last Updated**: 2025-12-16
+**Status**: Production Ready (Button 1 verified and working with audio playback, Button 2 ready)
 **Configuration**: Original Jetson default (no custom overlays)
+**Features**: Shutdown with R2-D2 audio feedback
