@@ -3,7 +3,7 @@
     # OpenAI API Configuration
     openai_api_key: ''  # Leave empty to load from ~/.r2d2/.env
     realtime_model: 'gpt-4o-realtime-preview-2024-12-17'
-    realtime_voice: 'alloy'
+    realtime_voice: 'sage'
     
     # Audio Configuration
     mic_device: ''  # Empty for auto-detection
@@ -12,7 +12,7 @@
     sink_device: 'default'
     
     # Database
-    db_path: '~/dev/r2d2/r2d2_speech/data/conversations.db'
+    db_path: '/home/severin/dev/r2d2/r2d2_speech/data/conversations.db'
     
     # Session
     auto_start: true
