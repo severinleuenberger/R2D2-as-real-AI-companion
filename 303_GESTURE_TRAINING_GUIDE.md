@@ -419,22 +419,53 @@ See [250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md](250_PERSON_MANAGEMENT_SYSTEM_REF
 
 ## Production Deployment
 
-After training gestures, the models are ready for deployment:
+After training gestures, deploy to the auto-start system:
 
-1. **Models are stored in:** `data/gesture_recognition/models/{person_name}_gesture_classifier.pkl`
-2. **Registered in:** Person Registry database (`data/persons.db`)
-3. **Used by:** ROS 2 perception pipeline (`image_listener` node)
-4. **Controlled by:** Gesture intent node (speech service start/stop)
+### Step 1: Update Camera Service Model Path
 
-**Launch with gestures enabled:**
 ```bash
-ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
-    enable_face_recognition:=true \
-    enable_gesture_recognition:=true \
-    gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/{person_name}_gesture_classifier.pkl
+# Edit camera service
+sudo nano /etc/systemd/system/r2d2-camera-perception.service
+
+# Verify gesture_recognition_model_path points to your trained model
+# Default: /home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
 ```
 
-For deployment details, see [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md).
+### Step 2: Restart Services
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-camera-perception.service
+sudo systemctl restart r2d2-gesture-intent.service
+```
+
+### Step 3: Verify Auto-Start
+
+```bash
+# Check both services
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-gesture-intent.service
+
+# Watch logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
+### Step 4: Test After Reboot
+
+```bash
+sudo reboot
+# Wait 60 seconds
+# System should auto-start gesture recognition
+# Test gestures in front of camera
+```
+
+**Model Storage:**
+- Location: `data/gesture_recognition/models/{person_name}_gesture_classifier.pkl`
+- Registered in: Person Registry database (`data/persons.db`)
+- Used by: ROS 2 perception pipeline (`image_listener` node)
+- Controlled by: Gesture intent node (auto-starts on boot)
+
+For complete deployment details, see [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md).
 
 ---
 

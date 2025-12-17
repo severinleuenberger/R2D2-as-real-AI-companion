@@ -20,7 +20,7 @@ echo "This node will:"
 echo "  • Listen for gesture events from image_listener"
 echo "  • Control speech service (start/stop)"
 echo "  • Play audio feedback (R2D2 beeps)"
-echo "  • Auto-shutdown after 5 min no presence"
+echo "  • Auto-shutdown after 35 sec no presence"
 echo ""
 echo "========================================================================"
 echo ""
@@ -31,7 +31,7 @@ ros2 launch r2d2_gesture gesture_intent.launch.py \
     cooldown_start_seconds:=5.0 \
     cooldown_stop_seconds:=3.0 \
     auto_shutdown_enabled:=true \
-    auto_shutdown_timeout_seconds:=300.0 \
+    auto_shutdown_timeout_seconds:=35.0 \
     auto_restart_on_return:=false \
     audio_feedback_enabled:=true
 

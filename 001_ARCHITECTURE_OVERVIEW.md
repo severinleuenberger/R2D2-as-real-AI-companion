@@ -876,6 +876,73 @@ The gesture recognition system enables camera-based hand gesture control for con
 
 ---
 
+## 6.5 Production Deployment (Auto-Start Services)
+
+The R2D2 system is configured for automatic startup on boot via systemd services.
+
+### Enabled Services (Auto-Start on Boot)
+
+**Essential Services:**
+- `r2d2-camera-perception.service` - Camera + Face + Gesture Recognition
+- `r2d2-audio-notification.service` - Audio alerts + LED
+- `r2d2-gesture-intent.service` - Gesture-to-speech control
+- `r2d2-heartbeat.service` - System health monitoring
+
+**Service Dependencies:**
+```mermaid
+graph LR
+    Boot[System Boot] --> Systemd
+    Systemd --> CameraService[camera-perception]
+    Systemd --> AudioService[audio-notification]
+    Systemd --> HeartbeatService[heartbeat]
+    CameraService --> GestureService[gesture-intent]
+    AudioService -.provides status.-> GestureService
+```
+
+**Control Commands:**
+```bash
+# Check status of all services
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-audio-notification.service
+sudo systemctl status r2d2-gesture-intent.service
+
+# Enable auto-start on boot
+sudo systemctl enable r2d2-camera-perception.service
+sudo systemctl enable r2d2-audio-notification.service
+sudo systemctl enable r2d2-gesture-intent.service
+
+# Start services manually
+sudo systemctl start r2d2-camera-perception.service
+sudo systemctl start r2d2-gesture-intent.service
+
+# Stop services
+sudo systemctl stop r2d2-gesture-intent.service
+sudo systemctl stop r2d2-camera-perception.service
+
+# View logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+sudo journalctl -u r2d2-camera-perception.service -f
+```
+
+**Post-Reboot Verification:**
+```bash
+# Wait 60 seconds after boot
+sleep 60
+
+# Check all services are running
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-gesture-intent.service
+sudo systemctl status r2d2-audio-notification.service
+
+# All should show: active (running)
+
+# Test gesture recognition
+ros2 topic echo /r2d2/perception/gesture_event
+# Stand in front of camera and make gestures
+```
+
+---
+
 ## 7. Hardware Control Systems
 
 ### 7.1 Power Button System

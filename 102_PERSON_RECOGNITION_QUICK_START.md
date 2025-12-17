@@ -115,6 +115,24 @@ sudo systemctl restart r2d2-audio-notification.service
 sudo journalctl -u r2d2-audio-notification.service -f
 ```
 
+### Gesture Intent Service
+```bash
+# Check gesture intent status
+sudo systemctl status r2d2-gesture-intent.service
+
+# Start gesture service
+sudo systemctl start r2d2-gesture-intent.service
+
+# Stop gesture service
+sudo systemctl stop r2d2-gesture-intent.service
+
+# Restart gesture service
+sudo systemctl restart r2d2-gesture-intent.service
+
+# View gesture logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
 ### Adjust Volume
 ```bash
 # Increase volume (runtime)

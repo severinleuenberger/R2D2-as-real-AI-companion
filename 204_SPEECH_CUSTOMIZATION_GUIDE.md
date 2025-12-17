@@ -374,6 +374,42 @@ ros2 topic echo /r2d2/speech/assistant_transcript
 
 ---
 
+## Gesture Control Parameters
+
+The gesture intent service can be customized via launch parameters or service file.
+
+**Key Parameters:**
+- `auto_shutdown_timeout_seconds` - Default: 35.0 (seconds before auto-shutdown)
+- `cooldown_start_seconds` - Default: 5.0 (cooldown after start gesture)
+- `cooldown_stop_seconds` - Default: 3.0 (cooldown after stop gesture)
+- `audio_feedback_enabled` - Default: true (enable R2D2 beeps)
+
+**Update Service (Permanent):**
+```bash
+# Edit service file
+sudo nano /etc/systemd/system/r2d2-gesture-intent.service
+
+# Change parameters in ExecStart line
+# Example: auto_shutdown_timeout_seconds:=60.0 for 1 minute
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-gesture-intent.service
+```
+
+**Update Launch File (Development):**
+```bash
+# Edit launch file
+nano ~/dev/r2d2/ros2_ws/src/r2d2_gesture/launch/gesture_intent.launch.py
+
+# Change default_value for desired parameter
+# Rebuild: cd ~/dev/r2d2/ros2_ws && colcon build --packages-select r2d2_gesture
+```
+
+**See Also:** [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) for complete parameter reference.
+
+---
+
 ## Troubleshooting
 
 ### "Changes don't take effect"

@@ -694,47 +694,42 @@ sudo systemctl status r2d2-audio-notification.service
 sudo journalctl -u r2d2-audio-notification.service -f
 ```
 
-### Step 8.3: Complete System Startup
+### Step 8.3: Verify Auto-Start Services
 
-**Full R2D2 Startup Sequence:**
+**After installation, the following services should auto-start on boot:**
 
-**Terminal 1: Camera + Perception + Recognition**
 ```bash
-cd ~/dev/r2d2/ros2_ws
-source ~/depthai_env/bin/activate
-source ~/.bashrc
-source install/setup.bash
+# Check all R2D2 services
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-audio-notification.service
+sudo systemctl status r2d2-gesture-intent.service
 
-ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
-  enable_face_recognition:=true
+# All should show: active (running)
 ```
 
-**Terminal 2: Audio Notifications (if not using service)**
+**If gesture service is not enabled yet:**
 ```bash
-cd ~/dev/r2d2/ros2_ws
-source install/setup.bash
-ros2 launch r2d2_audio audio_notification.launch.py
+sudo systemctl enable r2d2-gesture-intent.service
+sudo systemctl start r2d2-gesture-intent.service
 ```
 
-**Terminal 3: LED Node (optional)**
+**Verify system is running:**
 ```bash
-cd ~/dev/r2d2/ros2_ws
-source install/setup.bash
-ros2 run r2d2_audio status_led_node
-```
+# Check ROS 2 nodes
+ros2 node list
+# Should show: /camera_node, /image_listener, /audio_notification_node, /gesture_intent_node
 
-**Terminal 4: Monitoring**
-```bash
 # Watch person recognition
 ros2 topic echo /r2d2/perception/person_id
 
-# Watch status messages
-ros2 topic echo /r2d2/audio/person_status --no-arr
+# Watch gesture events (if gestures trained)
+ros2 topic echo /r2d2/perception/gesture_event
 
-# Check topic rates
-ros2 topic hz /r2d2/perception/person_id
-ros2 topic hz /r2d2/audio/person_status
+# Check service logs
+sudo journalctl -u r2d2-gesture-intent.service -n 20
 ```
+
+**For manual testing (development mode), see:** [`102_PERSON_RECOGNITION_QUICK_START.md`](102_PERSON_RECOGNITION_QUICK_START.md)
 
 ---
 

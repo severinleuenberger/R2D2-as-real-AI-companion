@@ -533,6 +533,40 @@ EOF
 
 ---
 
+## Part 7B: Gesture Control Integration (Optional but Recommended)
+
+The gesture intent service auto-starts and controls the speech system.
+
+**Verify Gesture Service:**
+```bash
+sudo systemctl status r2d2-gesture-intent.service
+# Should show: active (running)
+```
+
+**If not running:**
+```bash
+sudo systemctl enable r2d2-gesture-intent.service
+sudo systemctl start r2d2-gesture-intent.service
+```
+
+**Test Gesture Control:**
+1. Stand in front of camera (person recognized = RED status)
+2. Raise index finger → Speech service starts + beep
+3. Make fist → Speech service stops + beep
+4. Walk away >35 seconds → Auto-shutdown + beep
+
+**Train Gestures (if needed):**
+```bash
+cd ~/dev/r2d2/tests/face_recognition
+source ~/depthai_env/bin/activate
+python3 train_manager.py
+# Select option 8: Train gestures for person
+```
+
+See [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) for complete training instructions.
+
+---
+
 ## Part 8: Verification Checklist
 
 Run through this checklist to ensure everything is working:

@@ -504,6 +504,24 @@ export OPENBLAS_CORETYPE=ARMV8  # Prevents "illegal instruction" errors
 - Service: `/etc/systemd/system/r2d2-audio-notification.service`
 - Startup script: `/home/severin/dev/r2d2/start_audio_service.sh`
 
+**Auto-Start Services:**
+
+**Systemd Services:**
+- Camera-Perception: `/etc/systemd/system/r2d2-camera-perception.service`
+- Audio Notification: `/etc/systemd/system/r2d2-audio-notification.service`
+- Gesture Intent: `/etc/systemd/system/r2d2-gesture-intent.service` (NEW)
+
+**Service Control:**
+```bash
+# Status
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-gesture-intent.service
+
+# Logs
+sudo journalctl -u r2d2-camera-perception.service -f
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
 ### ROS 2 Packages
 
 **Workspace:** `~/dev/r2d2/ros2_ws/`

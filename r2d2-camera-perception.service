@@ -11,7 +11,7 @@ Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/
 Environment="PYTHONUNBUFFERED=1"
 
 # Source ROS 2 setup and launch camera
-ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_bringup r2d2_camera_perception.launch.py enable_face_recognition:=true'
+ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_bringup r2d2_camera_perception.launch.py enable_face_recognition:=true enable_gesture_recognition:=true gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl'
 
 # Restart policy
 Restart=on-failure

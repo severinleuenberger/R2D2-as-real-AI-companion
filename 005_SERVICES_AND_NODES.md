@@ -704,6 +704,63 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
+### Service 8: r2d2-gesture-intent.service
+
+**Name:** `r2d2-gesture-intent.service`  
+**Type:** Systemd service (exec)  
+**Purpose:** Gesture-to-speech control with watchdog and audio feedback
+
+**Dependencies:**
+- Services: r2d2-camera-perception.service (required)
+- Topics: /r2d2/perception/gesture_event, /r2d2/audio/person_status, /r2d2/speech/session_status
+- Services: /r2d2/speech/start_session, /r2d2/speech/stop_session
+
+**Storage Location:**
+- Service file: `/etc/systemd/system/r2d2-gesture-intent.service`
+- Startup script: `/home/severin/dev/r2d2/start_gesture_intent.sh`
+- Template: `/home/severin/dev/r2d2/r2d2-gesture-intent.service`
+- Launch file: `~/dev/r2d2/ros2_ws/src/r2d2_gesture/launch/gesture_intent.launch.py`
+
+**Active Status:** ✅ Enabled and running (auto-start on boot)  
+**When Active:** Always (from boot, after camera-perception)
+
+**Resource Usage:**
+- Total CPU: <1%
+- Total RAM: ~50 MB
+
+**Nodes Launched:**
+- gesture_intent_node (<1% CPU, ~50 MB RAM)
+
+**Parameters:**
+- `enabled:=true`
+- `cooldown_start_seconds:=5.0`
+- `cooldown_stop_seconds:=3.0`
+- `auto_shutdown_enabled:=true`
+- `auto_shutdown_timeout_seconds:=35.0`
+- `audio_feedback_enabled:=true`
+
+**Auto-Restart:** Yes (on failure, max 3 restarts, 5s delay)
+
+**Data Flow:**
+```
+image_listener (camera-perception service)
+    └─ Publishes: /r2d2/perception/gesture_event
+           ↓
+gesture_intent_node (gesture-intent service)
+    ├─ Subscribes to gesture events
+    ├─ Gating logic (person must be RED)
+    ├─ Calls speech start/stop services
+    ├─ Watchdog timer (35s auto-shutdown)
+    └─ Audio feedback (R2D2 beeps)
+```
+
+**Documentation References:**
+- `300_GESTURE_SYSTEM_OVERVIEW.md` - System architecture
+- `310_GESTURE_ROS2_INTEGRATION_COMPLETE.md` - Integration details
+- `303_GESTURE_TRAINING_GUIDE.md` - Training guide
+
+---
+
 ## 3. Web Services Inventory
 
 ### Web Service 1: FastAPI Web Server
@@ -863,7 +920,8 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 | status_led_node | <0.1% | 20 MB | ✅ Yes | ✅ Yes |
 | database_logger_node | <0.1% | 30 MB | ✅ Yes | ✅ Yes |
 | heartbeat_node | <0.5% | 10 MB | ✅ Yes | ✅ Yes |
-| **Core Subtotal** | **15-25%** | **~360 MB** | | |
+|| gesture_intent_node | <1% | 50 MB | ✅ Yes | ✅ Yes |
+| **Core Subtotal** | **16-26%** | **~410 MB** | | |
 | | | | | |
 | **On-Demand Nodes** | | | | |
 | camera_stream_node | 2-5% | 50 MB | ❌ No | ❌ On-demand |
@@ -878,18 +936,19 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 | tailscaled (VPN) | <1% | 30 MB | ✅ Yes | ✅ Yes |
 | r2d2-powerbutton | <0.1% | 10 MB | ⚠️ Optional | ⚠️ Optional |
 | | | | | |
-| **Total (Core Only)** | **~16-26%** | **~400 MB** | | |
-| **Total (All Active)** | **~26-39%** | **~600 MB** | | |
+| **Total (Core Only)** | **~16-27%** | **~410 MB** | | |
+| **Total (All Active)** | **~26-40%** | **~610 MB** | | |
 
 ### 5.2 Service Categorization
 
 #### Always Running (Essential)
 - r2d2-camera-perception.service ✅
 - r2d2-audio-notification.service ✅
+- r2d2-gesture-intent.service ✅
 - r2d2-heartbeat.service ✅
 - tailscaled.service ✅
 
-**Total:** 16-26% CPU, ~400 MB RAM
+**Total:** 16-27% CPU, ~410 MB RAM
 
 #### On-Demand (Start When Needed)
 - r2d2-rosbridge.service ❌

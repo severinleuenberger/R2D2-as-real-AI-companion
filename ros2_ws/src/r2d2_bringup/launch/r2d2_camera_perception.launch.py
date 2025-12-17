@@ -74,6 +74,12 @@ def generate_launch_description():
         description='Name of the person to recognize (should match training data)'
     )
     
+    target_person_gesture_arg = DeclareLaunchArgument(
+        'target_person_gesture_name',
+        default_value='target_person',
+        description='Name of the person whose gestures to recognize'
+    )
+    
     # Declare launch arguments for gesture recognition
     enable_gesture_arg = DeclareLaunchArgument(
         'enable_gesture_recognition',
@@ -82,7 +88,7 @@ def generate_launch_description():
     )
     
     gesture_model_arg = DeclareLaunchArgument(
-        'gesture_recognition_model_path',
+        'gesture_model_path',
         default_value='/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl',
         description='Path to trained gesture classifier model'
     )
@@ -120,8 +126,9 @@ def generate_launch_description():
             'recognition_confidence_threshold': LaunchConfiguration('recognition_confidence_threshold'),
             'recognition_frame_skip': LaunchConfiguration('recognition_frame_skip'),
             'target_person_name': LaunchConfiguration('target_person_name'),
+            'target_person_gesture_name': LaunchConfiguration('target_person_gesture_name'),
             'enable_gesture_recognition': LaunchConfiguration('enable_gesture_recognition'),
-            'gesture_recognition_model_path': LaunchConfiguration('gesture_recognition_model_path'),
+            'gesture_model_path': LaunchConfiguration('gesture_model_path'),
             'gesture_confidence_threshold': LaunchConfiguration('gesture_confidence_threshold'),
             'gesture_frame_skip': LaunchConfiguration('gesture_frame_skip'),
         }.items()
@@ -137,6 +144,7 @@ def generate_launch_description():
         recognition_threshold_arg,
         recognition_skip_arg,
         target_person_arg,
+        target_person_gesture_arg,
         enable_gesture_arg,
         gesture_model_arg,
         gesture_threshold_arg,

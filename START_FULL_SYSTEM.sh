@@ -29,10 +29,14 @@ echo "  This will run in the foreground. Press Ctrl+C to stop."
 echo ""
 echo "Launching: ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \\"
 echo "  enable_face_recognition:=true \\"
+echo "  enable_gesture_recognition:=true \\"
+echo "  gesture_recognition_model_path:=.../severin_gesture_classifier.pkl \\"
 echo "  target_person:=severin"
 echo ""
 
 ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
   enable_face_recognition:=true \
+  enable_gesture_recognition:=true \
+  gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl \
   target_person:=severin
 

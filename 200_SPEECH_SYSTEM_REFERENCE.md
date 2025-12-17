@@ -326,6 +326,34 @@ r2d2_speech/
 | `/r2d2/speech/start_session` | std_srvs/Trigger | Start new session |
 | `/r2d2/speech/stop_session` | std_srvs/Trigger | Stop current session |
 
+### Gesture-Based Speech Control (Auto-Start)
+
+The speech system can be controlled via gestures when the gesture intent service is running.
+
+**Auto-Start Configuration:**
+- Gesture intent node auto-starts on boot via systemd
+- Watches for gesture events from camera-perception
+- Automatically calls speech service start/stop
+- Plays audio feedback (R2D2 beeps) on transitions
+
+**Service Status:**
+```bash
+# Check if gesture intent is running
+sudo systemctl status r2d2-gesture-intent.service
+
+# View gesture logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
+**Gesture Triggers:**
+- 👆 Index finger up → Start speech session
+- ✊ Fist → Stop speech session
+- 🚶 Walk away >35s → Auto-shutdown (watchdog)
+
+**For complete gesture system documentation, see:**
+- [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) - Complete system
+- [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) - Training guide
+
 ### Parameters
 
 | Parameter | Type | Default | Description |

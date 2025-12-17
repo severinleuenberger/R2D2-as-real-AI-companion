@@ -1,7 +1,7 @@
 # R2D2 Gesture System - Complete Overview
 
 **Date:** December 17, 2025  
-**Status:** ✅ PRODUCTION READY  
+**Status:** ✅ PRODUCTION READY - AUTO-START ENABLED  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
 **Purpose:** Camera-based hand gesture recognition for conversation triggering
 
@@ -560,6 +560,63 @@ ros2 launch r2d2_bringup r2d2_gesture_intent.launch.py
 - [x] Verify gating logic
 - [x] Verify performance metrics
 - [x] Update documentation
+
+---
+
+## Production Deployment (Auto-Start)
+
+The gesture system is configured to auto-start on boot via systemd services.
+
+### Auto-Start Configuration
+
+**Enabled Services:**
+- `r2d2-camera-perception.service` - Camera + Face + Gesture Recognition
+- `r2d2-gesture-intent.service` - Gesture intent control (NEW)
+- `r2d2-audio-notification.service` - Audio alerts + LED
+
+**Enable Services:**
+```bash
+sudo systemctl enable r2d2-camera-perception.service
+sudo systemctl enable r2d2-gesture-intent.service
+sudo systemctl enable r2d2-audio-notification.service
+```
+
+**Start Services:**
+```bash
+sudo systemctl start r2d2-camera-perception.service
+sudo systemctl start r2d2-gesture-intent.service
+```
+
+**Verify:**
+```bash
+# Check status
+sudo systemctl status r2d2-gesture-intent.service
+sudo systemctl status r2d2-camera-perception.service
+
+# Watch logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
+**After Reboot:**
+System automatically starts all gesture recognition components. Wait 60 seconds for full initialization.
+
+### Manual Launch (Development/Testing)
+
+For development or testing without auto-start, use manual launch commands:
+
+```bash
+# Terminal 1: Camera + Perception with gestures
+cd ~/dev/r2d2/ros2_ws
+source ~/depthai_env/bin/activate
+source install/setup.bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+  enable_face_recognition:=true \
+  enable_gesture_recognition:=true
+
+# Terminal 2: Gesture intent node
+source install/setup.bash
+ros2 launch r2d2_gesture gesture_intent.launch.py
+```
 
 ---
 

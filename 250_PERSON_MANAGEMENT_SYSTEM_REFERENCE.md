@@ -364,6 +364,31 @@ self.person_registry.update_gesture_model(person_id, str(model_file))
 
 ---
 
+### For Auto-Start Services
+
+Gesture models are automatically loaded by the camera-perception service on boot:
+
+**Service Configuration:**
+```bash
+# Model path in /etc/systemd/system/r2d2-camera-perception.service
+gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
+```
+
+**Update After New Training:**
+```bash
+# If you train a new person's gestures, update service file
+sudo nano /etc/systemd/system/r2d2-camera-perception.service
+
+# Change gesture_recognition_model_path to new person's model
+
+# Reload and restart
+sudo systemctl daemon-reload
+sudo systemctl restart r2d2-camera-perception.service
+sudo systemctl restart r2d2-gesture-intent.service
+```
+
+---
+
 ### For ROS 2 Nodes (Future)
 
 **Query Person Information:**

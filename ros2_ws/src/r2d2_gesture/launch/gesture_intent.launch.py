@@ -14,7 +14,7 @@ Parameters:
     cooldown_stop_seconds: float (default: 1.0)
     enabled: bool (default: true)
     auto_shutdown_enabled: bool (default: true)
-    auto_shutdown_timeout_seconds: float (default: 300.0 = 5 minutes)
+    auto_shutdown_timeout_seconds: float (default: 35.0 = 35 seconds)
     auto_restart_on_return: bool (default: false)
     audio_feedback_enabled: bool (default: true)
 """

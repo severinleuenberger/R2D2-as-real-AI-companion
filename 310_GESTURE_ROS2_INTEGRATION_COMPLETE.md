@@ -498,8 +498,54 @@ For detailed implementation and usage:
 
 ---
 
-**Document Version:** 1.1  
+## Production Deployment Status
+
+**✅ COMPLETE - AUTO-START CONFIGURED**
+
+### Systemd Services
+
+**r2d2-camera-perception.service:**
+- Face recognition: ✅ Enabled
+- Gesture recognition: ✅ Enabled (NEW)
+- Model path: Configured
+- Auto-start: ✅ Enabled
+
+**r2d2-gesture-intent.service:**
+- Created: ✅ Yes (NEW)
+- Auto-start: ✅ Enabled
+- Watchdog: 35 seconds
+- Audio feedback: ✅ Enabled
+
+### Service Files
+
+**Created:**
+- `/etc/systemd/system/r2d2-gesture-intent.service` (NEW)
+- `/home/severin/dev/r2d2/start_gesture_intent.sh` (NEW)
+- `/home/severin/dev/r2d2/r2d2-gesture-intent.service` (template)
+
+**Updated:**
+- `/etc/systemd/system/r2d2-camera-perception.service` (gesture params)
+- `/home/severin/dev/r2d2/r2d2-camera-perception.service` (template)
+
+### Verification Commands
+
+```bash
+# Check services
+sudo systemctl status r2d2-camera-perception.service
+sudo systemctl status r2d2-gesture-intent.service
+
+# View logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+
+# Test after reboot
+sudo reboot
+# Wait 60 seconds, test gestures
+```
+
+---
+
+**Document Version:** 1.2  
 **Date:** December 17, 2025  
-**Status:** PRODUCTION READY  
-**Total Work:** ~600 lines of ROS 2 code + testing + documentation
+**Status:** PRODUCTION READY - AUTO-START CONFIGURED  
+**Total Work:** ~600 lines of ROS 2 code + systemd services + testing + documentation
 

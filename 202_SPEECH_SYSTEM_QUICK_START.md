@@ -86,6 +86,38 @@ ros2 topic pub --once /r2d2/speech/assistant_prompt std_msgs/String \
 
 ---
 
+## Gesture Control (Auto-Start)
+
+The speech system can be controlled via hand gestures when gesture recognition is enabled.
+
+**Service Status:**
+```bash
+# Check gesture intent service
+sudo systemctl status r2d2-gesture-intent.service
+
+# View logs
+sudo journalctl -u r2d2-gesture-intent.service -f
+```
+
+**Gesture Triggers:**
+- 👆 **Index finger up** → Start speech session
+- ✊ **Fist** → Stop speech session
+- 🚶 **Walk away >35s** → Auto-shutdown (watchdog)
+
+**Audio Feedback:**
+- 🔊 Beep on speech start
+- 🔊 Beep on speech stop
+- 🔊 Beep on auto-shutdown
+
+**Requirements:**
+- Target person must be recognized (RED status)
+- Gestures trained for the person
+- Gesture intent service running (auto-starts on boot)
+
+**For training gestures, see:** [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md)
+
+---
+
 ## View Conversation History
 
 All conversations saved to SQLite database automatically.

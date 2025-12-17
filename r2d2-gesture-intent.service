@@ -1,0 +1,30 @@
+[Unit]
+Description=R2D2 Gesture Intent Service (Speech Control via Gestures)
+After=network.target r2d2-camera-perception.service
+Requires=r2d2-camera-perception.service
+Documentation=file:///home/severin/dev/r2d2/300_GESTURE_SYSTEM_OVERVIEW.md
+
+[Service]
+Type=exec
+User=severin
+WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Source ROS 2 setup and launch gesture intent node
+ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_gesture gesture_intent.launch.py enabled:=true cooldown_start_seconds:=5.0 cooldown_stop_seconds:=3.0 auto_shutdown_enabled:=true auto_shutdown_timeout_seconds:=35.0 auto_restart_on_return:=false audio_feedback_enabled:=true'
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-gesture-intent
+
+[Install]
+WantedBy=multi-user.target
+
