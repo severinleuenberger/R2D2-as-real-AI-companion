@@ -1088,6 +1088,7 @@ sudo systemctl status r2d2-powerbutton.service
 - `102_CAMERA_SETUP_DOCUMENTATION.md` - Camera hardware setup (prerequisite for 100_)
 - `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` - Audio hardware setup (prerequisite for 100_)
 - `200_SPEECH_SYSTEM_REFERENCE.md` - Phase 2 system reference (OpenAI Realtime API)
+- `204_SPEECH_CUSTOMIZATION_GUIDE.md` - Complete voice and personality customization guide (includes quick reference)
 - `QUICK_START.md` - Quick reference guide
 
 ---
@@ -1103,6 +1104,7 @@ sudo systemctl status r2d2-powerbutton.service
 - **Phase 2 Reference:** [`200_SPEECH_SYSTEM_REFERENCE.md`](200_SPEECH_SYSTEM_REFERENCE.md)
 - **Phase 2 Installation:** [`201_SPEECH_SYSTEM_INSTALLATION.md`](201_SPEECH_SYSTEM_INSTALLATION.md)
 - **Phase 2 Quick Start:** [`203_SPEECH_SYSTEM_QUICK_START.md`](203_SPEECH_SYSTEM_QUICK_START.md)
+- **Phase 2 Customization:** [`204_SPEECH_CUSTOMIZATION_GUIDE.md`](204_SPEECH_CUSTOMIZATION_GUIDE.md) - Complete guide with quick reference
 
 **Analysis & Planning:**
 - `ARCHITECTURE_ANALYSIS.md` - Comprehensive architecture analysis

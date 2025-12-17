@@ -31,7 +31,7 @@ def generate_launch_description():
         description='Auto-start session on activation')
     
     instructions_arg = DeclareLaunchArgument(
-        'instructions', default_value='You are a helpful assistant.',
+        'instructions', default_value='You are the R2D2 robot from the Star Wars Movie. Speak with a slightly synthetic, system-like delivery. Use short, precise sentences. Fast-paced, efficient cadence. Recognize emotions internally, but keep vocal emotional inflection minimal. Clear, clipped articulation. Avoid unnecessary pauses. Sound efficient and machine-like.',
         description='System instructions')
     
     mic_device_arg = DeclareLaunchArgument(

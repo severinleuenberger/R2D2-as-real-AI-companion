@@ -54,6 +54,13 @@ class ImageListener(Node):
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
         
+        # Gesture recognition parameters
+        self.declare_parameter('enable_gesture_recognition', False)  # Enable hand gesture recognition
+        self.declare_parameter('gesture_model_path', '/home/severin/dev/r2d2/data/gesture_recognition/models/target_person_gesture_classifier.pkl')
+        self.declare_parameter('gesture_frame_skip', 3)  # Process every Nth frame to manage CPU load
+        self.declare_parameter('gesture_confidence_threshold', 0.7)  # Minimum confidence for gesture recognition
+        self.declare_parameter('target_person_gesture_name', 'target_person')  # Person whose gestures to recognize
+        
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
         self.save_debug_gray = self.get_parameter('save_debug_gray_frame').value
@@ -67,6 +74,13 @@ class ImageListener(Node):
         self.recognition_threshold = self.get_parameter('recognition_confidence_threshold').value
         self.recognition_frame_skip = self.get_parameter('recognition_frame_skip').value
         self.target_person_name = self.get_parameter('target_person_name').value
+        
+        # Gesture recognition parameters
+        self.enable_gesture_recognition = self.get_parameter('enable_gesture_recognition').value
+        self.gesture_model_path = self.get_parameter('gesture_model_path').value
+        self.gesture_frame_skip = self.get_parameter('gesture_frame_skip').value
+        self.gesture_confidence_threshold = self.get_parameter('gesture_confidence_threshold').value
+        self.target_person_gesture_name = self.get_parameter('target_person_gesture_name').value
         
         # Create subscription to camera topic
         self.subscription = self.create_subscription(
@@ -106,6 +120,13 @@ class ImageListener(Node):
         self.is_person_publisher = self.create_publisher(
             Bool,
             '/r2d2/perception/is_target_person',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
+        # Create publisher for gesture events (if enabled)
+        self.gesture_event_publisher = self.create_publisher(
+            String,
+            '/r2d2/perception/gesture_event',
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
@@ -172,11 +193,60 @@ class ImageListener(Node):
         # Counter for recognition frame skip (process every Nth frame)
         self.recognition_frame_counter = 0
         
+        # Initialize gesture recognition (MediaPipe Hands + SVM classifier)
+        self.gesture_recognizer_enabled = False
+        self.mp_hands = None
+        self.hands = None
+        self.gesture_classifier = None
+        self.gesture_scaler = None
+        self.label_to_gesture = None
+        self.last_gesture = None
+        self.gesture_frame_counter = 0
+        self.last_person_id = None
+        
+        if self.enable_gesture_recognition:
+            try:
+                import mediapipe as mp
+                import pickle
+                
+                # Initialize MediaPipe Hands
+                self.mp_hands = mp.solutions.hands
+                self.hands = self.mp_hands.Hands(
+                    static_image_mode=False,
+                    max_num_hands=1,
+                    min_detection_confidence=0.7,
+                    min_tracking_confidence=0.5
+                )
+                
+                # Load gesture classifier model
+                if os.path.exists(self.gesture_model_path):
+                    with open(self.gesture_model_path, 'rb') as f:
+                        model_data = pickle.load(f)
+                    
+                    self.gesture_classifier = model_data['classifier']
+                    self.gesture_scaler = model_data['scaler']
+                    self.label_to_gesture = model_data['label_to_gesture']
+                    self.gesture_recognizer_enabled = True
+                    
+                    self.get_logger().info(f'Gesture recognizer loaded from {self.gesture_model_path}')
+                    self.get_logger().info(f'Gestures: {", ".join(model_data["gestures"])}')
+                else:
+                    self.get_logger().warn(f'Gesture model not found at {self.gesture_model_path}. Gesture recognition disabled.')
+            
+            except ImportError as e:
+                self.get_logger().warn(f'MediaPipe not available: {e}. Gesture recognition disabled.')
+                self.get_logger().warn('Install with: pip install mediapipe')
+            except Exception as e:
+                self.get_logger().warn(f'Failed to initialize gesture recognition: {e}')
+        
         self.get_logger().info('ImageListener node initialized, subscribed to /oak/rgb/image_raw')
         if self.recognition_enabled:
             self.get_logger().info(f'Face recognition enabled (threshold={self.recognition_threshold}, frame_skip={self.recognition_frame_skip})')
         else:
             self.get_logger().info('Face detection enabled with Haar Cascade classifier')
+        
+        if self.gesture_recognizer_enabled:
+            self.get_logger().info(f'Gesture recognition enabled (threshold={self.gesture_confidence_threshold}, frame_skip={self.gesture_frame_skip})')
     
     def image_callback(self, msg: Image):
         """
@@ -265,6 +335,9 @@ class ImageListener(Node):
                         person_id_msg.data = person_name
                         self.person_id_publisher.publish(person_id_msg)
                         
+                        # Store last person ID for gesture recognition gating
+                        self.last_person_id = person_name
+                        
                         # Publish confidence
                         confidence_msg = Float32()
                         confidence_msg.data = float(confidence)
@@ -277,6 +350,32 @@ class ImageListener(Node):
                         
                     except Exception as e:
                         self.get_logger().error(f'Face recognition failed: {e}')
+        
+        # Perform gesture recognition if enabled and target person recognized
+        if self.gesture_recognizer_enabled:
+            # Use frame skip to manage CPU load
+            self.gesture_frame_counter += 1
+            if self.gesture_frame_counter >= self.gesture_frame_skip:
+                self.gesture_frame_counter = 0
+                
+                # Only recognize gestures if target person is recognized
+                if self.last_person_id == self.target_person_gesture_name:
+                    try:
+                        gesture_name, confidence = self._predict_gesture(downscaled)
+                        
+                        if gesture_name and confidence > self.gesture_confidence_threshold:
+                            # Publish gesture event only on state change (not continuous)
+                            if gesture_name != self.last_gesture:
+                                gesture_msg = String()
+                                gesture_msg.data = gesture_name
+                                self.gesture_event_publisher.publish(gesture_msg)
+                                self.last_gesture = gesture_name
+                                self.get_logger().debug(f"Gesture detected: {gesture_name} (confidence: {confidence:.2f})")
+                        else:
+                            # Clear last gesture if no valid gesture detected
+                            self.last_gesture = None
+                    except Exception as e:
+                        self.get_logger().error(f'Gesture recognition failed: {e}')
         
         # Log frame data periodically based on log_every_n parameter
         if self.frame_count % self.log_every_n == 0:
@@ -324,6 +423,104 @@ class ImageListener(Node):
                 self.debug_gray_saved = True
             except Exception as e:
                 self.get_logger().error(f'Failed to save grayscale debug frame: {e}')
+    
+    def _extract_hand_landmarks(self, image):
+        """
+        Extract hand landmarks from image using MediaPipe.
+        
+        Args:
+            image: OpenCV image (BGR)
+            
+        Returns:
+            numpy array of 63 features (21 landmarks × 3 coords) or None
+        """
+        if self.hands is None:
+            return None
+        
+        # Convert to RGB for MediaPipe
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+        # Process with MediaPipe
+        results = self.hands.process(image_rgb)
+        
+        if not results.multi_hand_landmarks:
+            return None
+        
+        # Extract first detected hand
+        hand_landmarks = results.multi_hand_landmarks[0]
+        
+        # Convert to numpy array (21 landmarks × 3 coords = 63 features)
+        landmarks = []
+        for landmark in hand_landmarks.landmark:
+            landmarks.extend([landmark.x, landmark.y, landmark.z])
+        
+        return np.array(landmarks)
+    
+    def _normalize_landmarks(self, landmarks):
+        """
+        Normalize landmarks to be scale and position invariant.
+        
+        Args:
+            landmarks: numpy array of 63 features
+            
+        Returns:
+            normalized numpy array
+        """
+        # Reshape to (21, 3)
+        landmarks_reshaped = landmarks.reshape(21, 3)
+        
+        # Get wrist position (landmark 0)
+        wrist = landmarks_reshaped[0]
+        
+        # Translate to origin (wrist at 0,0,0)
+        landmarks_centered = landmarks_reshaped - wrist
+        
+        # Calculate hand size (distance from wrist to middle finger MCP)
+        middle_mcp = landmarks_centered[9]  # Middle finger MCP
+        hand_size = np.linalg.norm(middle_mcp)
+        
+        # Scale by hand size (avoid division by zero)
+        if hand_size > 0.001:
+            landmarks_normalized = landmarks_centered / hand_size
+        else:
+            landmarks_normalized = landmarks_centered
+        
+        # Flatten back to 63 features
+        return landmarks_normalized.flatten()
+    
+    def _predict_gesture(self, image):
+        """
+        Predict gesture from image.
+        
+        Args:
+            image: OpenCV image (BGR)
+            
+        Returns:
+            (gesture_name, confidence) or (None, 0.0)
+        """
+        if self.gesture_classifier is None or self.gesture_scaler is None:
+            return None, 0.0
+        
+        # Extract landmarks
+        landmarks = self._extract_hand_landmarks(image)
+        
+        if landmarks is None:
+            return None, 0.0
+        
+        # Normalize
+        landmarks_normalized = self._normalize_landmarks(landmarks)
+        
+        # Scale features
+        features_scaled = self.gesture_scaler.transform([landmarks_normalized])
+        
+        # Predict
+        prediction = self.gesture_classifier.predict(features_scaled)[0]
+        probabilities = self.gesture_classifier.predict_proba(features_scaled)[0]
+        
+        gesture_name = self.label_to_gesture[prediction]
+        confidence = max(probabilities)
+        
+        return gesture_name, confidence
 
 
 def main(args=None):
