@@ -134,7 +134,7 @@ Look for:
 
 Logs are automatically rotated by logrotate:
 - **Daily** or when files exceed **100MB**
-- Keeps **14 days** of logs
+- Keeps **3 days** of logs
 - Old logs are compressed
 
 ### Manual Cleanup
@@ -233,7 +233,7 @@ If disk space is a concern, you can:
 With 10-second intervals:
 - ~8,640 log entries per day
 - Estimated ~50-100MB per day (all logs combined)
-- With rotation: ~700MB-1.4GB total (14 days)
+- With rotation: ~150-300MB total (3 days)
 
 ## Common Freeze Causes to Look For
 

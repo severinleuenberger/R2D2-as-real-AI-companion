@@ -6,8 +6,8 @@
     daily
     size 100M
     
-    # Keep 14 days of logs
-    rotate 14
+    # Keep 3 days of logs
+    rotate 3
     
     # Compress old logs
     compress

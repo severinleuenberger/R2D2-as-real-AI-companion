@@ -9,13 +9,29 @@
 
 ## ⚠️ CRITICAL RULES (READ FIRST!)
 
-### Rule 1: ALWAYS USE `main` BRANCH
-- User only uses `main` branch
+### Rule 1: Branch Policy (DEFAULT + EXCEPTIONS)
+
+Default rule:
+- User normally works on `main` branch
 - `master` branch is **deleted** and must not be used
-- Any commits on `master` will be orphaned and lost
-- Before any `git push`: Run `git branch` and verify `* main`
+
+Exception: Feature-branch workflow (ONLY when explicitly instructed)
+- A `golden-*` branch may be used as a read-only stable baseline
+- All implementation work MUST happen on a `feat/*` branch created from the golden branch
+- The golden branch MUST NOT be modified directly
+- Agents may be instructed to NOT commit and NOT push
+
+Rule precedence:
+- Task-specific agent instructions OVERRIDE this default rule
+
 
 ### Rule 2: ALWAYS VERIFY BEFORE PUSHING
+
+NOTE:
+- This rule applies ONLY when pushing is explicitly allowed
+- In feature-branch or agent build workflows, pushing may be disabled
+
+
 ```bash
 git branch        # Must show: * main
 git log -n 1      # See the commit you're about to push
@@ -390,6 +406,7 @@ git push origin main    # Push
 - `001_ARCHITECTURE_OVERVIEW.md` - System design
 - `010_PROJECT_GOALS_AND_SETUP.md` - Project roadmap
 - `020-060_*.md` - Feature-specific setup and configuration
+- `050_FREEZE_MONITOR_SYSTEM.md` - System diagnostics and freeze monitoring
 - `QUICK_START.md` - Quick start for users
 
 ### When You're Done Working
@@ -403,6 +420,36 @@ git push origin main    # Push
 
 ---
 
+---
+
+## System Monitoring and Diagnostics
+
+### Freeze Monitor System
+**Status:** ✅ Active since December 16, 2025
+
+The Jetson experiences periodic freezes (every 30-60 minutes). A comprehensive monitoring system is now in place:
+
+- **Service:** `freeze-monitor.service` (systemd)
+- **Logs:** `/var/log/freeze_logs/` (5 separate log files)
+- **Interval:** Every 10 seconds
+- **Documentation:** `050_FREEZE_MONITOR_SYSTEM.md`
+
+**After a freeze:**
+```bash
+# Quick analysis
+tail -100 /var/log/freeze_logs/summary.log
+tail -50 /var/log/freeze_logs/hardware.log
+tail -50 /var/log/freeze_logs/kernel.log
+```
+
+**Service management:**
+```bash
+systemctl status freeze-monitor
+journalctl -u freeze-monitor -f
+```
+
+---
+
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 8, 2025
+**Last Updated:** December 16, 2025
