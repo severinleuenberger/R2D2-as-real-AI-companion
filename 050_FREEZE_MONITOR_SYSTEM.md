@@ -46,7 +46,7 @@ Comprehensive real-time monitoring system that logs hardware metrics, kernel mes
 4. **Log Rotation** - Automatic cleanup
    - Location: `/etc/logrotate.d/freeze-monitor`
    - Rotates daily or at 100MB
-   - Keeps 7 days of logs
+   - Keeps 14 days of logs
    - Compresses old logs
 
 ---
@@ -190,12 +190,12 @@ sudo systemctl enable freeze-monitor
 
 The monitoring system includes safeguards:
 - Automatic log rotation (daily or at 100MB per file)
-- 7-day retention (older logs deleted automatically)
+- 14-day retention (older logs deleted automatically)
 - Compression of rotated logs
 - Disk space warnings when < 1GB free
 
 **Expected Log Growth:** ~50-100MB per day (all logs combined)  
-**Total with rotation:** ~350-700MB (7 days of logs)
+**Total with rotation:** ~700MB-1.4GB (14 days of logs)
 
 ---
 
