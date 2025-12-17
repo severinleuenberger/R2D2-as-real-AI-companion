@@ -150,9 +150,10 @@ def find_hyperx_device() -> Optional[Tuple[int, dict]]:
 
 **Audio Specifications:**
 - **Input:** 48000 Hz stereo (HyperX native) → 24000 Hz mono (API requirement)
-- **Output:** 24000 Hz mono (API) → 24000 Hz playback (speaker)
+- **Output:** 24000 Hz mono (API) → 44100 Hz playback (speaker, auto-resampled)
 - **Format:** PCM16 (16-bit signed integers)
 - **Encoding:** Base64 for transmission
+- **Resampling:** Automatic device rate detection + streaming resampling (24kHz → 44.1kHz)
 
 ### 3. EventRouter
 
@@ -422,8 +423,9 @@ lsusb | grep -i hyperx
 **Specifications:**
 - **Amplifier:** PAM8403 (3W per channel)
 - **Connection:** I2S audio output
-- **Sample Rate:** 24000 Hz (matches API output)
+- **Sample Rate:** 44100 Hz (device native, API audio auto-resampled from 24kHz)
 - **Channels:** Mono (API output is mono)
+- **Resampling:** Automatic (24kHz API → 44.1kHz device via AudioResampler)
 
 **Configuration:**
 Configured in Phase 1 audio setup. No additional configuration needed for speech system.
