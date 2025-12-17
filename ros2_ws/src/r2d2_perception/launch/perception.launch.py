@@ -84,6 +84,31 @@ def generate_launch_description():
         description='Name of the person to recognize (should match training data)'
     )
     
+    # Declare launch arguments for gesture recognition
+    enable_gesture_arg = DeclareLaunchArgument(
+        'enable_gesture_recognition',
+        default_value='false',
+        description='Enable gesture recognition for intent triggers'
+    )
+    
+    gesture_model_arg = DeclareLaunchArgument(
+        'gesture_recognition_model_path',
+        default_value='/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl',
+        description='Path to trained gesture classifier model'
+    )
+    
+    gesture_threshold_arg = DeclareLaunchArgument(
+        'gesture_confidence_threshold',
+        default_value='0.7',
+        description='Confidence threshold for gesture recognition (0.0-1.0)'
+    )
+    
+    gesture_skip_arg = DeclareLaunchArgument(
+        'gesture_frame_skip',
+        default_value='5',
+        description='Process gesture recognition every N frames to manage CPU load'
+    )
+    
     # Create the image listener node with all parameters
     image_listener_node = Node(
         package='r2d2_perception',
@@ -100,6 +125,10 @@ def generate_launch_description():
             {'recognition_confidence_threshold': LaunchConfiguration('recognition_confidence_threshold')},
             {'recognition_frame_skip': LaunchConfiguration('recognition_frame_skip')},
             {'target_person_name': LaunchConfiguration('target_person_name')},
+            {'enable_gesture_recognition': LaunchConfiguration('enable_gesture_recognition')},
+            {'gesture_recognition_model_path': LaunchConfiguration('gesture_recognition_model_path')},
+            {'gesture_confidence_threshold': LaunchConfiguration('gesture_confidence_threshold')},
+            {'gesture_frame_skip': LaunchConfiguration('gesture_frame_skip')},
         ],
         output='screen'
     )
@@ -116,5 +145,9 @@ def generate_launch_description():
         recognition_threshold_arg,
         recognition_skip_arg,
         target_person_arg,
+        enable_gesture_arg,
+        gesture_model_arg,
+        gesture_threshold_arg,
+        gesture_skip_arg,
         image_listener_node,
     ])

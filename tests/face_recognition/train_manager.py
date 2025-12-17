@@ -39,6 +39,7 @@ import sys
 import os
 from pathlib import Path
 from datetime import datetime
+from person_registry import PersonRegistry
 
 
 class TrainingManager:
@@ -62,6 +63,9 @@ class TrainingManager:
         self.gesture_base_dir.mkdir(parents=True, exist_ok=True)
         self.gesture_models_dir = self.gesture_base_dir / 'models'
         self.gesture_models_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Person registry for central person management
+        self.person_registry = PersonRegistry()
     
     def clear_screen(self):
         """Clear terminal screen."""
@@ -260,11 +264,14 @@ class TrainingManager:
             print('  [12] List all gesture datasets and models')
             print('  [13] Delete person gestures (images + model)')
             print()
+            print('PERSON MANAGEMENT:')
+            print('  [14] Manage persons (launch person_manager.py)')
+            print()
             print('  [0] Exit')
             print('='*70)
             print()
             
-            choice = input('Enter choice (0-13): ').strip()
+            choice = input('Enter choice (0-14): ').strip()
             
             if choice == '1':
                 self.train_person()
@@ -292,6 +299,8 @@ class TrainingManager:
                 self.show_all_gesture_info()
             elif choice == '13':
                 self.delete_person_gestures()
+            elif choice == '14':
+                self.launch_person_manager()
             elif choice == '0':
                 self.show_header('Exit')
                 print('Thank you for using R2D2 Training Manager!\n')
@@ -384,6 +393,18 @@ class TrainingManager:
         proceed = input('Ready to test? (y/n): ').strip().lower()
         if proceed == 'y':
             self.run_module('_test_module', person_name)
+        
+        # Register person in person registry
+        try:
+            person = self.person_registry.get_person(person_name)
+            if not person:
+                person_id = self.person_registry.register_person(person_name)
+            else:
+                person_id = person['id']
+            self.person_registry.update_face_model(person_id, str(model_file))
+            print(f'\n✓ Registered in person registry')
+        except Exception as e:
+            print(f'\n⚠️  Warning: Could not register in person registry: {e}')
         
         print('\n' + '='*70)
         print('✅ TRAINING COMPLETE')
@@ -645,8 +666,40 @@ class TrainingManager:
             model_file.unlink()
             print(f'✓ Deleted model')
         
+        # Delete from person registry
+        try:
+            person = self.person_registry.get_person(person_name)
+            if person:
+                self.person_registry.delete_person(person['id'])
+                print(f'✓ Removed from person registry')
+        except Exception as e:
+            print(f'⚠️  Warning: Could not remove from person registry: {e}')
+        
         print(f'\n✅ Deleted: {person_name}')
         input('Press ENTER...')
+    
+    def launch_person_manager(self):
+        """Launch the person manager CLI."""
+        self.show_header('Person Manager')
+        
+        print('Launching person_manager.py...')
+        print()
+        
+        person_manager_path = self.script_dir / 'person_manager.py'
+        
+        if not person_manager_path.exists():
+            print(f'❌ Error: person_manager.py not found at {person_manager_path}')
+            input('Press ENTER to return...')
+            return
+        
+        # Run person manager
+        try:
+            subprocess.run(['python3', str(person_manager_path)])
+        except KeyboardInterrupt:
+            print('\n\n👋 Returned from person manager.')
+        except Exception as e:
+            print(f'\n❌ Error: {e}')
+            input('Press ENTER to return...')
     
     # ========== GESTURE RECOGNITION METHODS ==========
     
@@ -781,6 +834,18 @@ class TrainingManager:
         proceed = input('Ready to test? (y/n): ').strip().lower()
         if proceed == 'y':
             self.run_gesture_module('_gesture_test_module', person_name)
+        
+        # Register/update person in person registry
+        try:
+            person = self.person_registry.get_person(person_name)
+            if not person:
+                person_id = self.person_registry.register_person(person_name)
+            else:
+                person_id = person['id']
+            self.person_registry.update_gesture_model(person_id, str(model_file))
+            print(f'\n✓ Registered in person registry')
+        except Exception as e:
+            print(f'\n⚠️  Warning: Could not register in person registry: {e}')
         
         print('\n' + '='*70)
         print('✅ GESTURE TRAINING COMPLETE')

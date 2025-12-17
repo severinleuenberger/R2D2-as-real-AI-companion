@@ -57,6 +57,19 @@ The R2D2 project is designed to achieve the following functional capabilities:
   - Face recognition training interface
   - Star Wars themed UI (dark futuristic design)
   - Optimized for 1920x1200 single-page display
+- [x] **Gesture Recognition System:** Camera-based hand gesture control
+  - Person-specific gesture training (index finger up, fist)
+  - Gesture-triggered conversation start/stop
+  - Integrated with person recognition (gated by face detection)
+  - Audio feedback (R2D2 beeps on start/stop)
+  - Auto-shutdown watchdog (35s timeout when person absent)
+  - Safe training workflow with service management
+- [x] **Person Management System:** Centralized person entity registry
+  - SQLite-based person database
+  - Links face and gesture models to persons
+  - Extensible for Google account integration
+  - CLI and programmatic API
+  - Forward-compatible database schema
 
 ### Phase 2: Speech & AI (Next) ⏳
 - [ ] **Speech-to-Text:** Real-time audio input with wake-word detection ("Hey R2D2")
@@ -109,6 +122,9 @@ Comprehensive guides organized by audience and use case. **Start here:**
 | **Power Button Control** | [080_POWER_BUTTON_FINAL_DOCUMENTATION.md](080_POWER_BUTTON_FINAL_DOCUMENTATION.md) | Shutdown (Pin 32) + boot/wake (J42) control, tested ✅ |
 | **Web Dashboard** | [111_WEB_DASHBOARD_DOCUMENTATION.md](111_WEB_DASHBOARD_DOCUMENTATION.md) | Remote monitoring & control via Tailscale VPN |
 | **Web UI Architecture** | [110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md](110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md) | Complete web UI architecture & integration guide |
+| **Person Management** | [250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) | Person entity system, Google account integration roadmap |
+| **Gesture Recognition** | [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) | Complete gesture system: training, ROS 2 integration, watchdog |
+| **Gesture Training** | [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) | User guide for training person-specific gestures |
 | **Backup & Restore** | [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md) | Full-system backup for reproducible deployments |
 
 ---

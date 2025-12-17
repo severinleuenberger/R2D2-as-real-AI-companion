@@ -1,7 +1,7 @@
 # R2D2 Gesture System - Complete Overview
 
 **Date:** December 17, 2025  
-**Status:** ✅ Complete (Training System + ROS 2 Integration + Cost-Saving Watchdog)  
+**Status:** ✅ PRODUCTION READY  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
 **Purpose:** Camera-based hand gesture recognition for conversation triggering
 
@@ -17,7 +17,7 @@ The R2D2 gesture system provides camera-based hand gesture recognition to trigge
 - Context-aware gating (only active for recognized target person)
 - Event-based intent triggers (not continuous streaming)
 - Integrated with existing face recognition and speech systems
-- **Cost-saving watchdog:** Auto-stops speech service after 5 min of no person presence
+- **Cost-saving watchdog:** Auto-stops speech service after 35 seconds (configurable) of no person presence
 
 ---
 
@@ -57,9 +57,9 @@ r2d2_speech/speech_node.py (existing)
 | **Gesture Training** | ✅ Complete | `_gesture_train_module.py` |
 | **Gesture Testing** | ✅ Complete | `_gesture_test_module.py` |
 | **Training Manager** | ✅ Complete | `train_manager.py` (updated) |
-| **ROS 2 Perception Node** | ⏳ Pending | `image_listener.py` (to modify) |
-| **Gesture Intent Node** | ⏳ Pending | `gesture_intent_node.py` (to create) |
-| **Launch Integration** | ⏳ Pending | `r2d2_bringup` (to update) |
+| **ROS 2 Perception Node** | ✅ Complete | `image_listener.py` (modified) |
+| **Gesture Intent Node** | ✅ Complete | `gesture_intent_node.py` (created) |
+| **Launch Integration** | ✅ Complete | `r2d2_bringup` (updated) |
 
 ---
 
@@ -336,7 +336,7 @@ The `gesture_intent_node` includes an intelligent watchdog that monitors person 
 **Behavior:**
 1. **Person Present (RED):** Watchdog inactive, normal operation
 2. **Person Leaves (BLUE/GREEN):** Timer starts counting
-3. **After Timeout (default 5 minutes):** Speech service automatically stopped
+3. **After Timeout (default 35 seconds):** Speech service automatically stopped
 4. **Person Returns (optional):** Speech service can auto-restart
 
 #### Configuration
@@ -344,7 +344,7 @@ The `gesture_intent_node` includes an intelligent watchdog that monitors person 
 ```bash
 ros2 launch r2d2_gesture gesture_intent.launch.py \
     auto_shutdown_enabled:=true \
-    auto_shutdown_timeout_seconds:=300.0 \
+    auto_shutdown_timeout_seconds:=35.0 \
     auto_restart_on_return:=false
 ```
 
@@ -353,7 +353,7 @@ ros2 launch r2d2_gesture gesture_intent.launch.py \
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `auto_shutdown_enabled` | bool | true | Enable/disable watchdog |
-| `auto_shutdown_timeout_seconds` | float | 300.0 | Timeout in seconds (5 min) |
+| `auto_shutdown_timeout_seconds` | float | 35.0 | Timeout in seconds (35 sec) |
 | `auto_restart_on_return` | bool | false | Auto-restart when person returns |
 
 #### Recommended Settings
@@ -361,16 +361,16 @@ ros2 launch r2d2_gesture gesture_intent.launch.py \
 **Production (Cost-Optimized):**
 ```bash
 auto_shutdown_enabled:=true
-auto_shutdown_timeout_seconds:=300.0  # 5 minutes
+auto_shutdown_timeout_seconds:=35.0   # 35 seconds (default)
 auto_restart_on_return:=false         # Manual restart required
 ```
-- Saves API costs during breaks, lunch, overnight
+- Saves API costs during brief absences
 - Requires manual restart (gesture or service call)
 
 **Development (Convenience):**
 ```bash
 auto_shutdown_enabled:=true
-auto_shutdown_timeout_seconds:=60.0   # 1 minute (quick testing)
+auto_shutdown_timeout_seconds:=60.0   # 60 seconds (longer testing window)
 auto_restart_on_return:=true          # Auto-restart enabled
 ```
 - Fast testing cycles
@@ -419,7 +419,7 @@ ros2 node info /gesture_intent_node
 **Expected Log Messages:**
 ```
 [INFO] Watchdog: Person absent (status=blue), starting timer
-[WARN] ⏰ No person presence for 300s (timeout: 300s). Auto-stopping speech service to save API costs.
+[WARN] ⏰ No person presence for 35s (timeout: 35s). Auto-stopping speech service to save API costs.
 [INFO] ✅ stop_session: Session stopped
 [INFO] 👤 Person returned. Auto-restarting speech service.
 ```
@@ -434,8 +434,8 @@ stateDiagram-v2
     PersonPresent --> PersonPresent: RED status continues
     
     TimerRunning --> PersonPresent: RED status returns (reset)
-    TimerRunning --> TimerRunning: Under 5 min BLUE/GREEN
-    TimerRunning --> SpeechStopped: 5 min elapsed Auto-shutdown
+    TimerRunning --> TimerRunning: Under 35s BLUE/GREEN
+    TimerRunning --> SpeechStopped: 35s elapsed Auto-shutdown
     
     SpeechStopped --> PersonPresent: RED returns (auto-restart if enabled)
     SpeechStopped --> SpeechStopped: BLUE/GREEN continues
@@ -548,18 +548,18 @@ ros2 launch r2d2_bringup r2d2_gesture_intent.launch.py
 - [x] No hardcoded names
 - [x] Person-specific organization
 
-### ROS 2 Integration (PENDING)
+### ROS 2 Integration (COMPLETE)
 
-- [ ] Install MediaPipe on Jetson
-- [ ] Install scikit-learn on Jetson
-- [ ] Modify `image_listener.py` (add gesture recognition)
-- [ ] Create `r2d2_gesture` package
-- [ ] Create `gesture_intent_node.py`
-- [ ] Create launch files
-- [ ] Test end-to-end workflow
-- [ ] Verify gating logic
-- [ ] Verify performance metrics
-- [ ] Update documentation
+- [x] Install MediaPipe on Jetson
+- [x] Install scikit-learn on Jetson
+- [x] Modify `image_listener.py` (add gesture recognition)
+- [x] Create `r2d2_gesture` package
+- [x] Create `gesture_intent_node.py`
+- [x] Create launch files
+- [x] Test end-to-end workflow
+- [x] Verify gating logic
+- [x] Verify performance metrics
+- [x] Update documentation
 
 ---
 
@@ -679,6 +679,16 @@ ros2 launch r2d2_bringup r2d2_gesture_intent.launch.py
 - [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) - Overall system
 - [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) - Face recognition
 - [`200_SPEECH_SYSTEM_REFERENCE.md`](200_SPEECH_SYSTEM_REFERENCE.md) - Speech system
+- [`250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md`](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) - Person entity management
+
+### Implementation Details
+
+Detailed implementation summaries in `_ANALYSIS_AND_DOCUMENTATION/`:
+- `GESTURE_TRAINING_COMPLETE.md` - Training system implementation
+- `PERSON_ENTITY_MANAGEMENT_COMPLETE.md` - Person registry implementation
+- `AUDIO_FEEDBACK_IMPLEMENTATION.md` - R2D2 beep audio feedback
+- `WATCHDOG_FIX_SUMMARY.md` - Auto-shutdown watchdog (35s)
+- `GESTURE_IMPLEMENTATION_INDEX.md` - Full documentation index
 
 ### Planning Documents
 
@@ -687,8 +697,8 @@ ros2 launch r2d2_bringup r2d2_gesture_intent.launch.py
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** December 17, 2025  
-**Status:** Training system complete, ROS 2 integration pending  
-**Next Step:** Install MediaPipe and scikit-learn on Jetson, then modify perception node
+**Status:** PRODUCTION READY - All components operational  
+**Watchdog Timeout:** 35 seconds (default, configurable)
 

@@ -1,9 +1,13 @@
 # Gesture Training Guide - Person-Specific Gesture Recognition
 
 **Date:** December 17, 2025  
-**Status:** Complete and Integrated  
+**Status:** Production Ready  
 **System:** R2D2 Perception Pipeline  
 **Purpose:** Train person-specific gesture classifiers for conversation triggering
+
+**Related Documentation:**
+- [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) - Complete system architecture
+- [250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) - Person entity management
 
 ---
 
@@ -360,7 +364,81 @@ gesture_name = label_to_gesture[prediction]
 
 ---
 
-**Document Version:** 1.0  
+## Person Registry Integration
+
+### Automatic Registration
+
+Trained gestures are automatically integrated with the Person Registry system:
+
+**After Training:**
+- Person is automatically registered in SQLite database (`data/persons.db`)
+- Gesture model path is linked to person entity
+- Associated with existing face recognition models
+- Unified person entity for all recognition systems
+
+**Benefits:**
+- Centralized person management
+- Consistent person identification across systems
+- Extensible for future features (Google account, preferences)
+- Forward-compatible database schema
+
+### Person Management
+
+Access the Person Registry via:
+
+**Option 1: Training Manager**
+```bash
+cd ~/dev/r2d2/tests/face_recognition
+source ~/depthai_env/bin/activate
+python3 train_manager.py
+# Choose option [14] Manage persons
+```
+
+**Option 2: Direct CLI**
+```bash
+cd ~/dev/severin/dev/r2d2/tests/face_recognition
+source ~/depthai_env/bin/activate
+python3 person_manager.py
+```
+
+**Features:**
+- List all persons with their trained models
+- View person details (face model, gesture model, metadata)
+- Create/delete persons
+- Migrate existing models
+
+### For More Information
+
+See [250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) for complete Person Management System documentation, including:
+- Database schema and design
+- API reference
+- Integration guide
+- Future roadmap (Google account integration, cloud sync)
+
+---
+
+## Production Deployment
+
+After training gestures, the models are ready for deployment:
+
+1. **Models are stored in:** `data/gesture_recognition/models/{person_name}_gesture_classifier.pkl`
+2. **Registered in:** Person Registry database (`data/persons.db`)
+3. **Used by:** ROS 2 perception pipeline (`image_listener` node)
+4. **Controlled by:** Gesture intent node (speech service start/stop)
+
+**Launch with gestures enabled:**
+```bash
+ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+    enable_face_recognition:=true \
+    enable_gesture_recognition:=true \
+    gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/{person_name}_gesture_classifier.pkl
+```
+
+For deployment details, see [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md).
+
+---
+
+**Document Version:** 1.1  
 **Last Updated:** December 17, 2025  
-**Author:** R2D2 Perception Pipeline
+**Status:** Production Ready
 

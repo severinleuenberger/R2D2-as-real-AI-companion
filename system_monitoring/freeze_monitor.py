@@ -22,6 +22,9 @@ import re
 LOG_DIR = Path("/var/log/freeze_logs")
 LOG_INTERVAL = 10  # seconds between logs
 DISK_WARN_THRESHOLD_GB = 1  # warn if free space below this
+DISK_WARN_THRESHOLD_PERCENT = 92  # warn if disk usage above this percentage
+DISK_WARN_COOLDOWN_SECONDS = 3600  # 1 hour between audio warnings
+DISK_WARN_SOUND = "/usr/local/share/r2d2/sounds/disk_warning.mp3"
 
 # Log files
 HARDWARE_LOG = LOG_DIR / "hardware.log"
@@ -38,6 +41,7 @@ class FreezeMonitor:
         self.last_kernel_line = 0
         self.start_time = datetime.now()
         self.log_counter = 0
+        self.last_disk_warning = 0  # timestamp of last disk warning sound
         
     def get_timestamp(self):
         """Get ISO formatted timestamp"""
@@ -54,10 +58,27 @@ class FreezeMonitor:
                 lines = result.stdout.strip().split('\n')
                 if len(lines) >= 2:
                     parts = lines[1].split()
-                    if len(parts) >= 4:
+                    if len(parts) >= 5:
+                        # Get usage percentage (4th column, format: XX%)
+                        usage_str = parts[4].rstrip('%')
                         available = parts[3].rstrip('G')
                         try:
+                            usage_percent = int(usage_str)
                             available_gb = int(available)
+                            
+                            # Check percentage threshold for audio warning
+                            if usage_percent >= DISK_WARN_THRESHOLD_PERCENT:
+                                current_time = time.time()
+                                # Play sound only if cooldown period has passed
+                                if current_time - self.last_disk_warning > DISK_WARN_COOLDOWN_SECONDS:
+                                    self.log_to_file(
+                                        SUMMARY_LOG,
+                                        f"⚠️ DISK SPACE WARNING: {usage_percent}% used ({available_gb}GB free)!"
+                                    )
+                                    self.play_warning_sound()
+                                    self.last_disk_warning = current_time
+                            
+                            # Also check absolute GB threshold
                             if available_gb < DISK_WARN_THRESHOLD_GB:
                                 self.log_to_file(
                                     SUMMARY_LOG,
@@ -69,6 +90,28 @@ class FreezeMonitor:
             return True
         except Exception as e:
             return True  # Continue logging even if check fails
+    
+    def play_warning_sound(self):
+        """Play R2-D2 warning sound"""
+        try:
+            # Try multiple audio players in order of preference
+            for player_cmd in [
+                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', DISK_WARN_SOUND],
+                ['paplay', DISK_WARN_SOUND],
+                ['aplay', DISK_WARN_SOUND],
+            ]:
+                try:
+                    subprocess.Popen(
+                        player_cmd,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                    self.log_to_file(SUMMARY_LOG, f"🔊 Playing disk space warning sound")
+                    break
+                except FileNotFoundError:
+                    continue
+        except Exception as e:
+            self.log_to_file(SUMMARY_LOG, f"Failed to play warning sound: {e}")
     
     def log_to_file(self, filepath, message):
         """Append message to log file with timestamp"""

@@ -75,6 +75,10 @@ class SpeechNode(LifecycleNode):
         self.start_session_srv = None
         self.stop_session_srv = None
         
+        # Status tracking and periodic publishing
+        self.current_status = "inactive"  # Track current status for periodic publishing
+        self.status_timer = None  # Timer for periodic status updates
+        
         self.get_logger().info("Speech Node initialized")
     
     def on_configure(self, state: State) -> TransitionCallbackReturn:
@@ -138,7 +142,11 @@ class SpeechNode(LifecycleNode):
             else:
                 self.get_logger().info("Auto-start disabled")
             
-            self.status_publisher.publish_status("active")
+            self._publish_and_update_status("active")
+            
+            # Start periodic status publishing (every 5 seconds)
+            self.status_timer = self.create_timer(5.0, self._periodic_status_callback)
+            
             self.get_logger().info("Activation complete")
             return TransitionCallbackReturn.SUCCESS
             
@@ -151,12 +159,17 @@ class SpeechNode(LifecycleNode):
         self.get_logger().info("Deactivating...")
         
         try:
+            # Stop periodic status publishing
+            if self.status_timer:
+                self.status_timer.cancel()
+                self.status_timer = None
+            
             if self.client and self.client.connected:
                 self._run_in_asyncio_loop(self._stop_speech_system())
             self._stop_asyncio_loop()
             
             if self.status_publisher:
-                self.status_publisher.publish_status("inactive")
+                self._publish_and_update_status("inactive")
             
             self.get_logger().info("Deactivation complete")
             return TransitionCallbackReturn.SUCCESS
@@ -203,6 +216,17 @@ class SpeechNode(LifecycleNode):
             self.get_logger().error(f"Shutdown failed: {e}")
             return TransitionCallbackReturn.FAILURE
     
+    def _publish_and_update_status(self, status: str, session_id: Optional[str] = None):
+        """Update current status and publish it"""
+        self.current_status = status
+        if self.status_publisher:
+            self.status_publisher.publish_status(status, session_id)
+    
+    def _periodic_status_callback(self):
+        """Periodically publish current status for late-joining subscribers"""
+        if self.status_publisher:
+            self.status_publisher.publish_status(self.current_status, self.session_id)
+    
     async def _start_speech_system(self) -> bool:
         """Start the speech system"""
         try:
@@ -244,7 +268,7 @@ class SpeechNode(LifecycleNode):
             self.speech_task = asyncio.create_task(self._stream_audio_loop())
             
             self.get_logger().info("✓ Speech system running")
-            self.status_publisher.publish_status("connected", self.session_id)
+            self._publish_and_update_status("connected", self.session_id)
             return True
             
         except Exception as e:
@@ -280,7 +304,7 @@ class SpeechNode(LifecycleNode):
             if self.client and self.client.connected:
                 await self.client.disconnect()
             
-            self.status_publisher.publish_status("disconnected")
+            self._publish_and_update_status("disconnected")
             self.get_logger().info("Stopped")
             
         except Exception as e:

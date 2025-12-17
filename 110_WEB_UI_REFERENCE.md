@@ -798,3 +798,4 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 **Platform:** NVIDIA Jetson AGX Orin 64GB with ROS 2 Humble  
 **Access:** Via Tailscale VPN
 
+

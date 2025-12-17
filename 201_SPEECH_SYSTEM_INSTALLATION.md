@@ -766,3 +766,4 @@ If you encounter issues not covered in troubleshooting:
 **Status:** Complete and tested  
 **Hardware:** HyperX QuadCast S USB + PAM8403 Speaker
 
+

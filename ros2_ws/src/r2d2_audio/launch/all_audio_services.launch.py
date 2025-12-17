@@ -55,6 +55,16 @@ def generate_launch_description():
             default_value='false',
             description='Simulate GPIO if no hardware available'
         ),
+        DeclareLaunchArgument(
+            'led_mode',
+            default_value='white',
+            description='LED mode: white (single LED on/off) or rgb (separate color control)'
+        ),
+        DeclareLaunchArgument(
+            'led_pin_white',
+            default_value='17',
+            description='GPIO pin for white LED (default: 17 = Physical Pin 22)'
+        ),
         
         # Core Audio Notification Node
         Node(
@@ -84,9 +94,11 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 {
-                    'led_pin_red': 17,
-                    'led_pin_green': 27,
-                    'led_pin_blue': 22,
+                    'led_mode': LaunchConfiguration('led_mode'),
+                    'led_pin_white': LaunchConfiguration('led_pin_white'),
+                    'led_pin_red': 17,      # Backward compatibility for RGB mode
+                    'led_pin_green': 27,    # Backward compatibility for RGB mode
+                    'led_pin_blue': 22,     # Backward compatibility for RGB mode
                     'brightness': 1.0,
                     'update_rate_hz': 10,
                     'enabled': LaunchConfiguration('enable_led'),

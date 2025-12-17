@@ -48,8 +48,8 @@ class CaptureModule:
         print('\n[Initializing] Camera startup...')
         self.pipeline = dai.Pipeline()
         self.cam = self.pipeline.createColorCamera()
-        self.cam.setBoardSocket(dai.CameraBoardSocket.RGB)
-        self.cam.setResolution(dai.ColorCameraProperties.SensorSize.THE_1080_P)
+        self.cam.setBoardSocket(dai.CameraBoardSocket.CAM_A)
+        self.cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         self.cam.setFps(30)
         
         self.out = self.pipeline.createXLinkOut()

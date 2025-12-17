@@ -132,19 +132,30 @@ r2d2_audio package
 
 ### 4. Status LED Node (status_led_node)
 
-**Purpose:** Visual feedback via GPIO RGB LED (optional)
+**Purpose:** Visual feedback via GPIO LED control (supports white LED and RGB modes)
 
-**GPIO Pins:**
-- RED: GPIO 17
-- GREEN: GPIO 27
-- BLUE: GPIO 22
+**White LED Mode (Current, Default):**
+- **GPIO Pin:** GPIO 17 (Physical Pin 22 on 40-pin header)
+- **Control:** Simple on/off
+- **Hardware:** White LED panel (16 SMD LEDs, 3V, 20-50mA)
+- **Wiring:**
+  - Red wire → Pin 1 or 17 (3.3V)
+  - Blue wire → Pin 22 (GPIO 17)
+  - Black wire → Pin 6 (GND)
 
-**LED Behavior:**
-| Status | Red | Green | Blue | Visual |
-|--------|-----|-------|------|--------|
-| RED (recognized) | ON | OFF | OFF | 🔴 Solid Red |
-| BLUE (lost) | OFF | OFF | ON | 🔵 Solid Blue |
-| GREEN (unknown) | OFF | ON | OFF | 🟢 Solid Green |
+**LED Behavior (White Mode):**
+| Status | GPIO 17 | Visual | Meaning |
+|--------|---------|--------|---------|
+| RED (recognized) | HIGH (ON) | 💡 LED ON | Person recognized |
+| BLUE (lost) | LOW (OFF) | ⚫ LED OFF | Person lost/idle |
+| GREEN (unknown) | LOW (OFF) | ⚫ LED OFF | Unknown person |
+
+**RGB LED Mode (Legacy, Optional):**
+- **GPIO Pins:** RED=17, GREEN=27, BLUE=22
+- **Control:** Separate color control
+- **Behavior:** RED=recognized, BLUE=lost, GREEN=unknown
+
+**For detailed wiring instructions, see:** [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
 
 ---
 
@@ -196,6 +207,16 @@ r2d2_audio package
 | `recognition_cooldown_after_loss_seconds` | Float | `5.0` | 3.0-10.0 | Quiet period after loss |
 | `recognition_audio_file` | String | `Voicy_R2-D2 - 2.mp3` | filename | Audio for "Hello!" |
 | `loss_audio_file` | String | `Voicy_R2-D2 - 5.mp3` | filename | Audio for "Lost you!" |
+
+**Status LED Parameters:**
+| Parameter | Type | Default | Options | Description |
+|-----------|------|---------|---------|-------------|
+| `led_mode` | String | `white` | `white`, `rgb` | LED control mode |
+| `led_pin_white` | Int | `17` | GPIO pin | White LED GPIO (Pin 22) |
+| `led_pin_red` | Int | `17` | GPIO pin | RGB red (legacy) |
+| `led_pin_green` | Int | `27` | GPIO pin | RGB green (legacy) |
+| `led_pin_blue` | Int | `22` | GPIO pin | RGB blue (legacy) |
+| `simulate_gpio` | Bool | `false` | true/false | Simulation mode |
 
 ---
 
@@ -281,14 +302,19 @@ pcm.speaker_out {
 }
 ```
 
-### RGB LED (Optional)
+### Status LED Hardware
 
-**GPIO Pins:**
-- RED: GPIO 17
-- GREEN: GPIO 27
-- BLUE: GPIO 22
+**White LED Panel (Current, Default):**
+- **Type:** Non-addressable white LED array (16 SMD LEDs)
+- **Voltage:** 3V DC
+- **Current:** 20-50mA total
+- **GPIO Control:** GPIO 17 (Physical Pin 22 on 40-pin header)
+- **Wiring:** See [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
 
-**Voltage:** 3.3V logic levels (Jetson GPIO)
+**RGB LED (Legacy, Optional):**
+- **GPIO Pins:** RED=17, GREEN=27, BLUE=22
+- **Voltage:** 3.3V logic levels (Jetson GPIO)
+- **Control Mode:** Set `led_mode:=rgb` in launch parameters
 
 ---
 
@@ -666,4 +692,5 @@ source ~/.bashrc
 **Status:** Complete and operational  
 **Hardware:** OAK-D Lite + PAM8403 Speaker + Optional RGB LED  
 **Platform:** NVIDIA Jetson AGX Orin 64GB with ROS 2 Humble
+
 

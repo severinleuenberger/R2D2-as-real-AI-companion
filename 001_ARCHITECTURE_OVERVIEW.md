@@ -124,7 +124,8 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 │  │     • Brightness computation                            │  │
 │  │     • Haar Cascade face detection                       │  │
 │  │     • LBPH face recognition (optional)                  │  │
-│  │     • Topic publishing (6 channels)                     │  │
+│  │     • Gesture recognition (MediaPipe + SVM)             │  │
+│  │     • Topic publishing (7 channels)                     │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  r2d2_camera (Python ROS 2 Nodes)                       │  │
@@ -158,14 +159,27 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 │  │  │  • 3-state machine (RED/BLUE/GREEN)                 │  │
 │  │  │  • MP3 audio alerts (recognition/loss)               │  │
 │  │  │  • Publishes /r2d2/audio/person_status (JSON)       │  │
-│  │  ├─ status_led_node: RGB LED control (GPIO)             │  │
+│  │  ├─ status_led_node: White LED control (GPIO)            │  │
 │  │  │  • Visual feedback for recognition state             │  │
-│  │  │  • RED=recognized, BLUE=lost, GREEN=unknown         │  │
-│  │  │  • GPIO pins 17, 27, 22                              │  │
+│  │  │  • ON=recognized, OFF=lost/unknown                   │  │
+│  │  │  • GPIO pin 17 (Physical Pin 22)                     │  │
+│  │  │  • Supports RGB mode for backward compatibility      │  │
 │  │  ├─ database_logger_node: Event logging                │  │
 │  │  │  • Tracks state transitions                          │  │
 │  │  │  • Future: SQLite database integration              │  │
 │  │  └─ audio_beep_node: Simple beep demo                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  r2d2_gesture (ROS 2 Package) [Gesture Recognition]    │  │
+│  │  └─ gesture_intent_node: Gesture-to-speech control      │  │
+│  │     • Subscribes to /r2d2/perception/gesture_event      │  │
+│  │     • Subscribes to /r2d2/audio/person_status           │  │
+│  │     • Subscribes to /r2d2/speech/session_status         │  │
+│  │     • Gating logic (person_status = RED)                │  │
+│  │     • Gesture triggers (start/stop speech)              │  │
+│  │     • Watchdog timer (35s auto-shutdown)                │  │
+│  │     • Audio feedback (R2D2 beeps)                       │  │
+│  │     • Service clients: start/stop_session               │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  web_dashboard (Web Interface) [NEW]                   │  │
@@ -240,14 +254,21 @@ r2d2_perception node
       ├─ Downscale + Grayscale
       ├─ Brightness calculation → /r2d2/perception/brightness (13 Hz)
       ├─ Face detection → /r2d2/perception/face_count (13 Hz)
-      └─ Face recognition (optional) → /r2d2/perception/person_id (6.5 Hz)
+      ├─ Face recognition (optional) → /r2d2/perception/person_id (6.5 Hz)
+      └─ Gesture recognition (when target person present) → /r2d2/perception/gesture_event (event-based)
       ↓
 r2d2_audio package
       ├─ audio_notification_node: State machine → /r2d2/audio/person_status (10 Hz)
       ├─ status_led_node: LED control (GPIO)
       └─ database_logger_node: Event logging
       ↓
-Downstream consumers (Phase 2-4)
+r2d2_gesture/gesture_intent_node (NEW)
+      ├─ Gesture event processing (gated by person_status = "red")
+      ├─ Watchdog timer (35s auto-shutdown when no person)
+      ├─ Audio feedback (R2D2 beeps on start/stop)
+      └─ Service calls to speech system (start/stop session)
+      ↓
+Downstream consumers (Phase 2: speech, Phase 3-4: navigation, memory)
 ```
 
 ### 2.2 Component Interaction Diagram
@@ -336,9 +357,9 @@ ROS 2 NODE LAYER:
 │  │ • /r2d2/audio/person_status         │
 │  │                                     │
 │  │ Controls:                           │
-│  │ • GPIO Pin 17 (RED LED)            │
-│  │ • GPIO Pin 27 (GREEN LED)          │
-│  │ • GPIO Pin 22 (BLUE LED)           │
+│  │ • GPIO Pin 17 (WHITE LED)          │
+│  │ • Physical Pin 22 on 40-pin header │
+│  │ • ON/OFF control for status        │
 │  └─────────────────────────────────────┘
 │           │
 │           ↓ [10 Hz status JSON]
@@ -396,6 +417,7 @@ PERCEPTION TOPICS:
 /r2d2/perception/person_id             std_msgs/String       6.5 Hz* Person name
 /r2d2/perception/face_confidence       std_msgs/Float32      6.5 Hz* Confidence score
 /r2d2/perception/is_target_person            std_msgs/Bool         6.5 Hz* Target person present?
+/r2d2/perception/gesture_event         std_msgs/String       Event** Gesture detected (index_finger_up, fist)
 
 AUDIO & STATUS TOPICS:
 /r2d2/audio/person_status              std_msgs/String       10 Hz  JSON status (RED/BLUE/GREEN)
@@ -408,6 +430,7 @@ SYSTEM TOPICS:
 /r2d2/heartbeat                        std_msgs/String       1 Hz   Health indicator (JSON with CPU/GPU/temp)
 
 * Only published if enable_face_recognition=true
+** Only published when target person is recognized (gated by person_status="red")
 ```
 
 ---
@@ -426,6 +449,7 @@ SYSTEM TOPICS:
 | **status_led_node** | r2d2_audio | GPIO control | 10 Hz | N/A | <0.1% | ✅ |
 | **database_logger_node** | r2d2_audio | Event logging | 10 Hz | N/A | <0.1% | ✅ |
 | **audio_beep_node** | r2d2_audio | Audio demo | N/A | Event | <0.1% | ✅ |
+| **gesture_intent_node** | r2d2_gesture | Gesture-to-speech control | Event | Service calls | <1% | ✅ |
 
 ### 3.2 Launch Sequence
 
@@ -634,6 +658,10 @@ AVAILABLE PARAMETERS:
   recognition_frame_skip         (int, default: 2)
   recognition_confidence_threshold (float, default: 70.0)
   face_recognition_model_path    (string, default: ~/dev/r2d2/data/...)
+  enable_gesture_recognition     (bool, default: false)
+  gesture_recognition_model_path (string, default: ~/dev/r2d2/data/gesture_recognition/models/...)
+  gesture_confidence_threshold   (float, default: 0.7)
+  gesture_frame_skip             (int, default: 5)
   log_every_n_frames            (int, default: 30)
   log_face_detections           (bool, default: false)
   save_debug_gray_frame         (bool, default: false)
@@ -651,6 +679,12 @@ EXAMPLES:
     enable_face_recognition:=true \
     log_every_n_frames:=10 \
     log_face_detections:=true
+  
+  # With gesture recognition enabled
+  ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+    enable_face_recognition:=true \
+    enable_gesture_recognition:=true \
+    gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
 ```
 
 ### 6.2 Launch Parameters (Audio Notification System)
@@ -708,6 +742,58 @@ EXAMPLES:
 
 **For complete parameter documentation, see:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) (Section: Configuration & Tuning)
 
+### 6.2.5 Launch Parameters (Gesture Intent System)
+
+**Gesture Intent Node Parameters:**
+
+```
+LAUNCH COMMAND:
+  ros2 launch r2d2_gesture gesture_intent.launch.py [ARGS]
+
+AVAILABLE PARAMETERS:
+  enabled                              (bool, default: true)
+    → Enable/disable gesture intent system
+  
+  cooldown_start_seconds               (float, default: 5.0)
+    → Cooldown after start gesture (prevents rapid re-triggering)
+  
+  cooldown_stop_seconds                (float, default: 3.0)
+    → Cooldown after stop gesture
+  
+  auto_shutdown_enabled                (bool, default: true)
+    → Enable automatic speech shutdown when no person present
+  
+  auto_shutdown_timeout_seconds        (float, default: 35.0)
+    → Seconds before auto-shutdown (default: 35 seconds)
+  
+  auto_restart_on_return               (bool, default: false)
+    → Auto-restart speech when person returns
+  
+  audio_feedback_enabled               (bool, default: true)
+    → Enable R2D2 beeps on session start/stop
+  
+  start_audio_file                     (string, default: "Voicy_R2-D2 - 16.mp3")
+    → MP3 file for start beep
+  
+  stop_audio_file                      (string, default: "Voicy_R2-D2 - 20.mp3")
+    → MP3 file for stop beep
+
+EXAMPLES:
+  # Default settings (35s watchdog, audio feedback enabled)
+  ros2 launch r2d2_gesture gesture_intent.launch.py
+  
+  # Longer watchdog timeout, auto-restart enabled
+  ros2 launch r2d2_gesture gesture_intent.launch.py \
+    auto_shutdown_timeout_seconds:=300.0 \
+    auto_restart_on_return:=true
+  
+  # Disable watchdog for always-on operation
+  ros2 launch r2d2_gesture gesture_intent.launch.py \
+    auto_shutdown_enabled:=false
+```
+
+**For complete gesture system documentation, see:** [`300_GESTURE_SYSTEM_OVERVIEW.md`](300_GESTURE_SYSTEM_OVERVIEW.md)
+
 ### 6.3 Complete Parameter Reference
 
 **All Launch Parameters Across All Packages:**
@@ -721,6 +807,10 @@ EXAMPLES:
 | | | `log_every_n_frames` | int | 30 | Logging frequency |
 | | | `log_face_detections` | bool | false | Verbose face detection logging |
 | | | `save_debug_gray_frame` | bool | false | Save one-time debug frame |
+| | | `enable_gesture_recognition` | bool | false | Enable gesture recognition |
+| | | `gesture_recognition_model_path` | string | ~/dev/r2d2/data/... | Path to gesture model PKL |
+| | | `gesture_confidence_threshold` | float | 0.7 | Gesture confidence threshold |
+| | | `gesture_frame_skip` | int | 5 | Process every Nth frame for gestures |
 | **r2d2_audio** | audio_notification_node | `target_person` | string | "target_person" | Person to recognize |
 | | | `audio_volume` | float | 0.05 | Global volume (0.0-1.0) |
 | | | `jitter_tolerance_seconds` | float | 5.0 | Brief gap tolerance |
@@ -730,13 +820,59 @@ EXAMPLES:
 | | | `recognition_audio_file` | string | "Voicy_R2-D2 - 2.mp3" | Recognition MP3 |
 | | | `loss_audio_file` | string | "Voicy_R2-D2 - 5.mp3" | Loss MP3 |
 | | | `enabled` | bool | true | Enable/disable system |
+| **r2d2_gesture** | gesture_intent_node | `enabled` | bool | true | Enable gesture intent system |
+| | | `cooldown_start_seconds` | float | 5.0 | Cooldown after start gesture |
+| | | `cooldown_stop_seconds` | float | 3.0 | Cooldown after stop gesture |
+| | | `auto_shutdown_enabled` | bool | true | Enable auto-shutdown watchdog |
+| | | `auto_shutdown_timeout_seconds` | float | 35.0 | Auto-shutdown timeout (35s) |
+| | | `auto_restart_on_return` | bool | false | Auto-restart when person returns |
+| | | `audio_feedback_enabled` | bool | true | Enable R2D2 beeps |
 
 **Parameter Tuning Guidelines:**
 
+**Face Recognition:**
 - **CPU Optimization:** Increase `recognition_frame_skip` (e.g., 3 or 4) to reduce CPU usage
 - **Accuracy vs Speed:** Lower `recognition_confidence_threshold` (e.g., 60.0) for more detections but more false positives
 - **Audio Responsiveness:** Lower `loss_confirmation_seconds` (e.g., 10.0) for faster loss alerts
 - **False Alarm Prevention:** Increase `jitter_tolerance_seconds` (e.g., 7.0) for noisy environments
+
+**Gesture Recognition:**
+- **CPU Optimization:** Increase `gesture_frame_skip` (e.g., 7 or 10) for lower CPU usage
+- **Accuracy:** Lower `gesture_confidence_threshold` (e.g., 0.6) for more sensitive detection
+- **Responsiveness:** Lower `cooldown_start_seconds` (e.g., 3.0) for faster gesture recognition
+- **Cost Optimization:** Adjust `auto_shutdown_timeout_seconds` (e.g., 60.0 for 1 min, 300.0 for 5 min)
+
+---
+
+## 6.4 Gesture Recognition System Overview
+
+The gesture recognition system enables camera-based hand gesture control for conversation triggering:
+
+**Architecture:**
+- **Training:** Person-specific gesture models (index finger up, fist)
+- **Recognition:** MediaPipe Hands + SVM classifier
+- **Integration:** Gated by person recognition (only works for target person)
+- **Control:** Start/stop speech service via gestures
+- **Watchdog:** Auto-shutdown after 35s no person presence (configurable)
+- **Feedback:** R2D2 beeps on session start/stop
+
+**Training Workflow:**
+1. Train face recognition for person (option 1 in `train_manager.py`)
+2. Train gestures for same person (option 8 in `train_manager.py`)
+3. Deploy models to perception pipeline
+4. Launch gesture intent node
+5. Use gestures to control speech service
+
+**Gating Logic:**
+- Gestures only recognized when person status = "RED" (target person detected)
+- Start gesture only works when speech service is inactive
+- Stop gesture only works when speech service is active
+- Cooldown periods prevent rapid re-triggering
+
+**For complete documentation, see:**
+- [`300_GESTURE_SYSTEM_OVERVIEW.md`](300_GESTURE_SYSTEM_OVERVIEW.md) - Complete system architecture
+- [`303_GESTURE_TRAINING_GUIDE.md`](303_GESTURE_TRAINING_GUIDE.md) - User training guide
+- [`250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md`](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) - Person entity management
 
 ---
 
@@ -774,6 +910,66 @@ The R2D2 system includes a power button control system for graceful shutdown and
 - **Hardware:** ReSpeaker 2-Mic HAT
 - **Status:** ⏳ Ordered, pending integration
 - **For setup documentation, see:** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
+
+### 7.3 Status LED Hardware
+
+**White LED Panel (Current):**
+- **Type:** Non-addressable white LED array (16 SMD LEDs)
+- **Voltage:** 3V DC
+- **Current:** 20-50mA total
+- **Control:** Simple on/off via GPIO 17 (Physical Pin 22 on 40-pin header)
+- **Connector:** 3 wires (Red=3.3V, Blue=GPIO17, Black=GND)
+- **Status:** ✅ Operational
+- **Wiring:**
+  - Red wire → Pin 1 or 17 (3.3V)
+  - Blue wire → Pin 22 (GPIO 17)
+  - Black wire → Pin 6 (GND)
+- **State Mapping:**
+  - RED state (recognized): LED ON
+  - BLUE state (lost): LED OFF
+  - GREEN state (unknown): LED OFF
+
+**RGB LED Panel (Future):**
+- **Type:** Addressable RGB LED strip (WS2812B, ~24-30 LEDs)
+- **Voltage:** 5V DC
+- **Control:** Single-wire serial protocol (data pin)
+- **Status:** ⏳ Reserved for future advanced patterns
+- **Connector:** 3 pins (+5V, GND, Data)
+
+**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
+
+### 7.4 Person Management System
+
+The R2D2 system includes a centralized person entity management system for linking face recognition, gesture recognition, and future Google account integration:
+
+**Core Components:**
+- **Person Registry:** SQLite database (`data/persons.db`)
+- **Person Manager CLI:** `tests/face_recognition/person_manager.py`
+- **Training Integration:** Auto-registration in `train_manager.py`
+- **Status:** ✅ Operational
+
+**Purpose:**
+- Manage persons as first-class entities
+- Link face recognition and gesture recognition models to persons
+- Prepare for Google account integration (Phase 2)
+- Provide extensible person metadata storage
+- Enable multi-user support
+
+**Database Schema:**
+- UUID-based person IDs
+- Links to face/gesture models
+- Forward-compatible with explicit SQL queries (no `SELECT *`)
+- Extensible JSON metadata field
+- Google account field (reserved for future use)
+
+**Features:**
+- Auto-registration during training
+- Manual person management via CLI
+- Model migration for existing data
+- CRUD operations for person entities
+- Extensible for future features (OAuth, preferences, cloud sync)
+
+**For complete details, see:** [`250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md`](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md)
 
 ---
 

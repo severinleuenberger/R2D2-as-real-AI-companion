@@ -354,3 +354,4 @@ sqlite3 ~/dev/r2d2/r2d2_speech/data/conversations.db "SELECT * FROM messages LIM
 
 🎉 **Ready to test!** Start with Terminal 1 (launch), Terminal 2 (monitor), then speak!
 
+

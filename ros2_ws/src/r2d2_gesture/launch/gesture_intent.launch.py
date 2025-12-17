@@ -16,6 +16,7 @@ Parameters:
     auto_shutdown_enabled: bool (default: true)
     auto_shutdown_timeout_seconds: float (default: 300.0 = 5 minutes)
     auto_restart_on_return: bool (default: false)
+    audio_feedback_enabled: bool (default: true)
 """
 
 from launch import LaunchDescription
@@ -54,14 +55,20 @@ def generate_launch_description():
     
     auto_shutdown_timeout_arg = DeclareLaunchArgument(
         'auto_shutdown_timeout_seconds',
-        default_value='300.0',
-        description='Seconds before auto-shutdown (default: 5 minutes)'
+        default_value='35.0',
+        description='Seconds before auto-shutdown (default: 35 seconds)'
     )
     
     auto_restart_arg = DeclareLaunchArgument(
         'auto_restart_on_return',
         default_value='false',
         description='Auto-restart speech when person returns'
+    )
+    
+    audio_feedback_arg = DeclareLaunchArgument(
+        'audio_feedback_enabled',
+        default_value='true',
+        description='Enable R2D2 beep sounds for start/stop feedback'
     )
     
     # Create gesture intent node
@@ -77,6 +84,7 @@ def generate_launch_description():
             'auto_shutdown_enabled': LaunchConfiguration('auto_shutdown_enabled'),
             'auto_shutdown_timeout_seconds': LaunchConfiguration('auto_shutdown_timeout_seconds'),
             'auto_restart_on_return': LaunchConfiguration('auto_restart_on_return'),
+            'audio_feedback_enabled': LaunchConfiguration('audio_feedback_enabled'),
         }]
     )
     
@@ -87,6 +95,7 @@ def generate_launch_description():
         auto_shutdown_enabled_arg,
         auto_shutdown_timeout_arg,
         auto_restart_arg,
+        audio_feedback_arg,
         gesture_intent_node,
     ])
 

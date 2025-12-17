@@ -37,15 +37,19 @@ class StatusLEDNode(Node):
         self.get_logger().info("Status LED Controller initializing...")
         
         # Declare parameters
-        self.declare_parameter('led_pin_red', 17)      # GPIO pin for red LED
-        self.declare_parameter('led_pin_green', 27)    # GPIO pin for green LED
-        self.declare_parameter('led_pin_blue', 22)     # GPIO pin for blue LED
+        self.declare_parameter('led_mode', 'white')    # 'white' or 'rgb' mode
+        self.declare_parameter('led_pin_white', 17)    # GPIO pin for white LED (Pin 22 on 40-pin header)
+        self.declare_parameter('led_pin_red', 17)      # GPIO pin for red LED (backward compatibility)
+        self.declare_parameter('led_pin_green', 27)    # GPIO pin for green LED (backward compatibility)
+        self.declare_parameter('led_pin_blue', 22)     # GPIO pin for blue LED (backward compatibility)
         self.declare_parameter('brightness', 1.0)      # 0.0-1.0
         self.declare_parameter('update_rate_hz', 10)
         self.declare_parameter('enabled', True)
         self.declare_parameter('simulate_gpio', not HAS_GPIO)  # Auto-detect simulation mode
         
         # Get parameters
+        self.led_mode = self.get_parameter('led_mode').value
+        self.led_pin_white = self.get_parameter('led_pin_white').value
         self.led_pins = {
             'red': self.get_parameter('led_pin_red').value,
             'green': self.get_parameter('led_pin_green').value,
@@ -76,15 +80,27 @@ class StatusLEDNode(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
-        self.get_logger().info(
-            f"Status LED Controller initialized:\n"
-            f"  Mode: {'GPIO Hardware' if (not self.simulate_gpio and HAS_GPIO) else 'Simulation'}\n"
-            f"  Red LED GPIO: {self.led_pins['red']}\n"
-            f"  Green LED GPIO: {self.led_pins['green']}\n"
-            f"  Blue LED GPIO: {self.led_pins['blue']}\n"
-            f"  Brightness: {self.brightness*100:.0f}%\n"
-            f"  Enabled: {self.get_parameter('enabled').value}"
-        )
+        if self.led_mode == 'white':
+            self.get_logger().info(
+                f"Status LED Controller initialized:\n"
+                f"  LED Mode: WHITE (single LED on/off control)\n"
+                f"  Hardware Mode: {'GPIO Hardware' if (not self.simulate_gpio and HAS_GPIO) else 'Simulation'}\n"
+                f"  White LED GPIO: {self.led_pin_white} (Physical Pin 22 on 40-pin header)\n"
+                f"  State Mapping: RED=ON, BLUE/GREEN=OFF\n"
+                f"  Brightness: {self.brightness*100:.0f}%\n"
+                f"  Enabled: {self.get_parameter('enabled').value}"
+            )
+        else:
+            self.get_logger().info(
+                f"Status LED Controller initialized:\n"
+                f"  LED Mode: RGB (separate color control)\n"
+                f"  Hardware Mode: {'GPIO Hardware' if (not self.simulate_gpio and HAS_GPIO) else 'Simulation'}\n"
+                f"  Red LED GPIO: {self.led_pins['red']}\n"
+                f"  Green LED GPIO: {self.led_pins['green']}\n"
+                f"  Blue LED GPIO: {self.led_pins['blue']}\n"
+                f"  Brightness: {self.brightness*100:.0f}%\n"
+                f"  Enabled: {self.get_parameter('enabled').value}"
+            )
     
     def _setup_gpio(self):
         """Initialize GPIO pins for LED control."""
@@ -93,10 +109,18 @@ class StatusLEDNode(Node):
         
         try:
             GPIO.setmode(GPIO.BCM)
-            for color, pin in self.led_pins.items():
-                GPIO.setup(pin, GPIO.OUT)
-                GPIO.output(pin, GPIO.LOW)  # Start off
-            self.get_logger().info("✅ GPIO pins initialized for LED control")
+            
+            if self.led_mode == 'white':
+                # White LED mode: only initialize the single white LED pin
+                GPIO.setup(self.led_pin_white, GPIO.OUT)
+                GPIO.output(self.led_pin_white, GPIO.LOW)  # Start off
+                self.get_logger().info(f"✅ GPIO pin {self.led_pin_white} initialized for white LED control")
+            else:
+                # RGB mode: initialize all three color pins
+                for color, pin in self.led_pins.items():
+                    GPIO.setup(pin, GPIO.OUT)
+                    GPIO.output(pin, GPIO.LOW)  # Start off
+                self.get_logger().info("✅ GPIO pins initialized for RGB LED control")
         except Exception as e:
             self.get_logger().error(f"Failed to setup GPIO: {e}")
             self.simulate_gpio = True
@@ -131,27 +155,58 @@ class StatusLEDNode(Node):
             self._all_off()
             return
         
-        if self.current_status == "red":
-            # RED: Target person recognized (ACTIVE ENGAGEMENT)
-            self._set_color('red')
-            if not self.simulate_gpio:
-                self.get_logger().debug("🔴 LED: RED (Person recognized)")
+        if self.led_mode == 'white':
+            # White LED mode: ON for RED state, OFF for BLUE/GREEN states
+            if self.current_status == "red":
+                # RED: Target person recognized (ACTIVE ENGAGEMENT) - LED ON
+                self._set_white_led(True)
+                if not self.simulate_gpio:
+                    self.get_logger().debug("💡 White LED: ON (Person recognized - RED state)")
+            else:
+                # BLUE/GREEN: No person or unknown person - LED OFF
+                self._set_white_led(False)
+                if not self.simulate_gpio:
+                    status_name = "BLUE (Idle)" if self.current_status == "blue" else "GREEN (Unknown)"
+                    self.get_logger().debug(f"⚫ White LED: OFF ({status_name} state)")
+        else:
+            # RGB mode: original behavior
+            if self.current_status == "red":
+                # RED: Target person recognized (ACTIVE ENGAGEMENT)
+                self._set_color('red')
+                if not self.simulate_gpio:
+                    self.get_logger().debug("🔴 LED: RED (Person recognized)")
+            
+            elif self.current_status == "blue":
+                # BLUE: No person recognized (IDLE/WAITING)
+                self._set_color('blue')
+                if not self.simulate_gpio:
+                    self.get_logger().debug("🔵 LED: BLUE (Idle, awaiting)")
+            
+            elif self.current_status == "green":
+                # GREEN: Unknown person detected (CAUTION)
+                self._set_color('green')
+                if not self.simulate_gpio:
+                    self.get_logger().debug("🟢 LED: GREEN (Unknown person)")
+    
+    def _set_white_led(self, state: bool):
+        """
+        Set white LED on or off.
         
-        elif self.current_status == "blue":
-            # BLUE: No person recognized (IDLE/WAITING)
-            self._set_color('blue')
-            if not self.simulate_gpio:
-                self.get_logger().debug("🔵 LED: BLUE (Idle, awaiting)")
+        Args:
+            state: True for ON (GPIO HIGH), False for OFF (GPIO LOW)
+        """
+        if self.simulate_gpio or not HAS_GPIO:
+            # Simulation mode - just log
+            return
         
-        elif self.current_status == "green":
-            # GREEN: Unknown person detected (CAUTION)
-            self._set_color('green')
-            if not self.simulate_gpio:
-                self.get_logger().debug("🟢 LED: GREEN (Unknown person)")
+        try:
+            GPIO.output(self.led_pin_white, GPIO.HIGH if state else GPIO.LOW)
+        except Exception as e:
+            self.get_logger().error(f"Error setting white LED: {e}")
     
     def _set_color(self, color: str):
         """
-        Set LED to specified color.
+        Set LED to specified color (RGB mode only).
         
         Args:
             color: "red", "green", or "blue"
@@ -177,8 +232,13 @@ class StatusLEDNode(Node):
             return
         
         try:
-            for pin in self.led_pins.values():
-                GPIO.output(pin, GPIO.LOW)
+            if self.led_mode == 'white':
+                # White LED mode: turn off single white LED
+                GPIO.output(self.led_pin_white, GPIO.LOW)
+            else:
+                # RGB mode: turn off all color LEDs
+                for pin in self.led_pins.values():
+                    GPIO.output(pin, GPIO.LOW)
         except Exception as e:
             self.get_logger().error(f"Error turning off LEDs: {e}")
     

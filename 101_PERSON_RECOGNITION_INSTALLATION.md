@@ -886,3 +886,4 @@ After successful installation:
 **Status:** Complete and tested  
 **Hardware:** OAK-D Lite + PAM8403 Speaker + Optional RGB LED
 
+

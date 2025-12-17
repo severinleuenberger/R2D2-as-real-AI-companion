@@ -562,3 +562,4 @@ r2d2-logs           # View service logs
 **Hardware:** OAK-D Lite Camera + PAM8403 Speaker  
 **Status:** Production-ready
 
+

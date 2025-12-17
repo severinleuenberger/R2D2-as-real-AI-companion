@@ -29,6 +29,8 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 import json
 import time
+import subprocess
+from pathlib import Path
 
 
 class GestureIntentNode(Node):
@@ -55,6 +57,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('auto_shutdown_enabled', True)
         self.declare_parameter('auto_shutdown_timeout_seconds', 300.0)  # 5 minutes
         self.declare_parameter('auto_restart_on_return', False)
+        self.declare_parameter('audio_feedback_enabled', True)
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value
@@ -63,6 +66,12 @@ class GestureIntentNode(Node):
         self.auto_shutdown_enabled = self.get_parameter('auto_shutdown_enabled').value
         self.auto_shutdown_timeout = self.get_parameter('auto_shutdown_timeout_seconds').value
         self.auto_restart_on_return = self.get_parameter('auto_restart_on_return').value
+        self.audio_feedback_enabled = self.get_parameter('audio_feedback_enabled').value
+        
+        # Audio feedback paths
+        audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
+        self.start_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 16.mp3'
+        self.stop_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 20.mp3'
         
         # State tracking
         self.person_status = None  # "red", "blue", or "green"
@@ -116,6 +125,7 @@ class GestureIntentNode(Node):
             f'timeout={self.auto_shutdown_timeout}s, '
             f'auto_restart={self.auto_restart_on_return}'
         )
+        self.get_logger().info(f'Audio feedback: {self.audio_feedback_enabled}')
     
     def person_status_callback(self, msg):
         """
@@ -128,14 +138,20 @@ class GestureIntentNode(Node):
             status_data = json.loads(msg.data)
             old_status = self.person_status
             self.person_status = status_data.get('status', None)
-            self.get_logger().debug(f'Person status updated: {self.person_status}')
+            
+            # Log status changes
+            if old_status != self.person_status:
+                self.get_logger().info(f'👤 Person status: {old_status} → {self.person_status}')
             
             # Watchdog: Handle RED status for auto-restart
             if self.auto_shutdown_enabled and self.person_status == "red":
                 # Person present - reset timer
+                was_tracking = self.last_red_status_time is not None
                 if self.auto_shutdown_triggered and self.auto_restart_on_return:
                     self.get_logger().info('👤 Person returned. Auto-restarting speech service.')
                     self._start_session()
+                elif was_tracking:
+                    self.get_logger().info('⏰ Watchdog: Person returned (RED), timer reset')
                 
                 self.last_red_status_time = None
                 self.auto_shutdown_triggered = False
@@ -151,8 +167,26 @@ class GestureIntentNode(Node):
         """
         try:
             status_data = json.loads(msg.data)
-            self.session_active = status_data.get('active', False)
-            self.get_logger().debug(f'Session active: {self.session_active}')
+            # Speech node publishes {"status": "active"|"inactive"|"connected"|"disconnected"}
+            # Convert to boolean for watchdog logic
+            status_str = status_data.get('status', '')
+            old_active = self.session_active
+            self.session_active = (status_str in ['active', 'connected'])
+            
+            # Play audio feedback on status changes
+            if old_active != self.session_active:
+                if self.session_active:
+                    # Session started (inactive → active or disconnected → connected)
+                    self.get_logger().info(f'🔊 Session started (status={status_str})')
+                    self._play_audio_feedback(self.start_beep_sound)
+                else:
+                    # Session stopped (active → inactive or connected → disconnected)
+                    self.get_logger().info(f'🔊 Session stopped (status={status_str})')
+                    self._play_audio_feedback(self.stop_beep_sound)
+                    
+                self.get_logger().info(f'Session active changed: {old_active} → {self.session_active} (status={status_str})')
+            else:
+                self.get_logger().debug(f'Session active: {self.session_active} (status={status_str})')
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse session status: {e}')
     
@@ -266,12 +300,21 @@ class GestureIntentNode(Node):
             if self.last_red_status_time is None:
                 # Start tracking absence time
                 self.last_red_status_time = self.get_clock().now()
-                self.get_logger().debug(
-                    f'Watchdog: Person absent (status={self.person_status}), starting timer'
+                self.get_logger().info(
+                    f'⏰ Watchdog: Person absent (status={self.person_status}), starting 5-minute timer'
                 )
             
             # Calculate time since last RED status
             time_since_red = (self.get_clock().now() - self.last_red_status_time).nanoseconds / 1e9
+            
+            # Log progress every minute if session is active
+            if self.session_active and int(time_since_red) % 60 == 0 and int(time_since_red) > 0:
+                remaining = self.auto_shutdown_timeout - time_since_red
+                if remaining > 0:
+                    self.get_logger().info(
+                        f'⏰ Watchdog: Person still absent ({int(time_since_red)}s / {int(self.auto_shutdown_timeout)}s). '
+                        f'Auto-shutdown in {int(remaining)}s...'
+                    )
             
             # Check if timeout exceeded
             if time_since_red > self.auto_shutdown_timeout:
@@ -290,10 +333,43 @@ class GestureIntentNode(Node):
                     )
                     self.auto_shutdown_triggered = True
     
+    def _play_audio_feedback(self, audio_file: Path):
+        """
+        Play audio feedback file asynchronously.
+        
+        Args:
+            audio_file: Path to audio file to play
+        """
+        if not self.audio_feedback_enabled:
+            return
+        
+        if not audio_file.exists():
+            self.get_logger().warn(f'Audio file not found: {audio_file}')
+            return
+        
+        try:
+            # Play audio in background (non-blocking)
+            subprocess.Popen(
+                ['ffplay', '-nodisp', '-autoexit', '-v', 'quiet', str(audio_file)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except FileNotFoundError:
+            # Try aplay as fallback
+            try:
+                subprocess.Popen(
+                    ['aplay', '-q', str(audio_file)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            except FileNotFoundError:
+                self.get_logger().warn('No audio player found (ffplay or aplay)')
+    
     def _start_session(self):
         """
         Helper method to start speech session.
         Used by both gesture triggers and auto-restart watchdog.
+        Audio feedback is handled by session_status_callback.
         """
         self._call_service(self.start_session_client, 'start_session')
     
@@ -301,6 +377,7 @@ class GestureIntentNode(Node):
         """
         Helper method to stop speech session.
         Used by both gesture triggers and auto-shutdown watchdog.
+        Audio feedback is handled by session_status_callback.
         """
         self._call_service(self.stop_session_client, 'stop_session')
 

@@ -65,6 +65,23 @@ else
 fi
 echo ""
 
+# Install sound file for disk space warnings
+echo "Installing R2-D2 warning sound..."
+SOUND_DIR="/usr/local/share/r2d2/sounds"
+if [ ! -d "$SOUND_DIR" ]; then
+    mkdir -p "$SOUND_DIR"
+    chmod 755 "$SOUND_DIR"
+    echo -e "${GREEN}✓ Created $SOUND_DIR${NC}"
+fi
+if [ -f "${SCRIPT_DIR}/sounds/disk_warning.mp3" ]; then
+    cp "${SCRIPT_DIR}/sounds/disk_warning.mp3" "$SOUND_DIR/"
+    chmod 644 "$SOUND_DIR/disk_warning.mp3"
+    echo -e "${GREEN}✓ R2-D2 warning sound installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Warning sound not found, audio warnings will be disabled${NC}"
+fi
+echo ""
+
 # Install systemd service
 echo "Installing systemd service..."
 cp "$SERVICE_FILE" /etc/systemd/system/freeze-monitor.service
@@ -146,6 +163,7 @@ echo "  • Start automatically on boot"
 echo "  • Log every 10 seconds to $LOG_DIR"
 echo "  • Rotate logs daily or at 100MB"
 echo "  • Keep 3 days of logs"
+echo "  • Play R2-D2 warning sound when disk usage ≥ 92%"
 echo ""
 echo "Useful commands:"
 echo "  View service status:    systemctl status freeze-monitor"
