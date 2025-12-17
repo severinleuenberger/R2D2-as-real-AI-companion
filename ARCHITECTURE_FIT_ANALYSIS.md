@@ -260,7 +260,7 @@ The architecture documentation improvements have **significantly improved** the 
 - ⚠️ **Documentation Gap:** Architecture doc doesn't reflect hybrid approach
 
 **Evidence:**
-- Document `200_SPEECH_ARCHITECTURE_RECOMMENDATION.md` proposes non-ROS approach
+- Document `200_SPEECH_SYSTEM_REFERENCE.md` describes OpenAI Realtime API implementation (ROS2 integrated)
 - Architecture doc `001_ARCHITECTURE_OVERVIEW.md` doesn't mention this
 
 **Verdict:** Good concept but needs better documentation and integration planning.

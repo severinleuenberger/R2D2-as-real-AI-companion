@@ -159,9 +159,10 @@ colcon build --packages-select r2d2_speech --symlink-install
 
 ## Full Documentation
 
-- **Implementation:** [208_SUBTASK_3_ROS2_INTEGRATION_COMPLETE.md](208_SUBTASK_3_ROS2_INTEGRATION_COMPLETE.md)
+- **Reference:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md)
+- **Installation:** [201_SPEECH_SYSTEM_INSTALLATION.md](201_SPEECH_SYSTEM_INSTALLATION.md)
+- **Quick Start:** [203_SPEECH_SYSTEM_QUICK_START.md](203_SPEECH_SYSTEM_QUICK_START.md)
 - **Testing Guide:** [ROS2_SPEECH_TESTING.md](ROS2_SPEECH_TESTING.md)
-- **Existing System:** Subtask 1 & 2 (see git history)
 
 ---
 

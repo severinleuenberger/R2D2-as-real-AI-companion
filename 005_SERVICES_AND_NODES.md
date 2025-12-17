@@ -428,9 +428,9 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 - Persistent chat history in SQLite database
 
 **Documentation References:**
-- `200_SPEECH_ARCHITECTURE_RECOMMENDATION.md` - Phase 2 architecture
-- `201_SPEECH_SWISS_GERMAN_PREMIUM.md` - Premium speech system
-- `202_INSTALLATION_GUIDE.md` - Installation instructions
+- `200_SPEECH_SYSTEM_REFERENCE.md` - System architecture and reference
+- `201_SPEECH_SYSTEM_INSTALLATION.md` - Installation instructions
+- `203_SPEECH_SYSTEM_QUICK_START.md` - Quick reference
 - `ROS2_SPEECH_TESTING.md` - Integration testing
 
 ---
@@ -914,7 +914,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 | `001_ARCHITECTURE_OVERVIEW.md` | All 9 nodes, system architecture |
 | `100_PERSON_RECOGNITION_AND_STATUS.md` | Perception, audio notification, LED, logger |
 | `111_WEB_DASHBOARD_DOCUMENTATION.md` | Web dashboard, rosbridge, camera stream |
-| `200_SPEECH_ARCHITECTURE_RECOMMENDATION.md` | Phase 2 speech system architecture |
+| `200_SPEECH_SYSTEM_REFERENCE.md` | Phase 2 speech system reference (OpenAI Realtime API) |
 | `012_VPN_SETUP_AND_REMOTE_ACCESS.md` | Tailscale VPN service |
 | `020_POWER_BUTTON_FINAL_DOCUMENTATION.md` | Power button service |
 | `102_CAMERA_SETUP_DOCUMENTATION.md` | Camera hardware and camera_node |
@@ -932,7 +932,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 | status_led_node | `100_PERSON_RECOGNITION_AND_STATUS.md` |
 | database_logger_node | `100_PERSON_RECOGNITION_AND_STATUS.md` |
 | audio_beep_node | `001_ARCHITECTURE_OVERVIEW.md` |
-| speech_node | `200_SPEECH_ARCHITECTURE_RECOMMENDATION.md` |
+| speech_node | `200_SPEECH_SYSTEM_REFERENCE.md` |
 | Web dashboard | `111_WEB_DASHBOARD_DOCUMENTATION.md` |
 | Tailscale VPN | `012_VPN_SETUP_AND_REMOTE_ACCESS.md` |
 
