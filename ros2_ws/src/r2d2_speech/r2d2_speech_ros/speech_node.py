@@ -383,14 +383,26 @@ class SpeechNode(LifecycleNode):
         """Service: start session"""
         self.get_logger().info("Service: start_session")
         try:
-            if self.client and self.client.connected:
+            # Check if audio system is actually running, not just if client is connected
+            audio_running = (self.audio_manager and 
+                           hasattr(self.audio_manager, 'is_running') and 
+                           self.audio_manager.is_running)
+            
+            if self.client and self.client.connected and audio_running:
+                # Session already fully running - publish status so subscribers know it's active
+                if self.status_publisher:
+                    self._publish_and_update_status("connected", self.session_id)
                 response.success = True
                 response.message = "Already running"
             else:
+                # Either not connected or audio not running - start the system
+                self.get_logger().info("Starting speech system (client connected: {}, audio running: {})".format(
+                    self.client.connected if self.client else False, audio_running))
                 success = self._run_in_asyncio_loop(self._start_speech_system())
                 response.success = success
                 response.message = "Started" if success else "Failed"
         except Exception as e:
+            self.get_logger().error(f"Start session error: {e}")
             response.success = False
             response.message = str(e)
         return response
@@ -404,6 +416,9 @@ class SpeechNode(LifecycleNode):
                 response.success = True
                 response.message = "Stopped"
             else:
+                # No active session - publish inactive status so subscribers know
+                if self.status_publisher:
+                    self._publish_and_update_status("inactive")
                 response.success = True
                 response.message = "No active session"
         except Exception as e:

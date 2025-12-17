@@ -366,16 +366,18 @@ class AudioPlayback:
             output_device: Output device name or index (None for default)
         """
         self.output_device = output_device
-        self.sample_rate = 24000  # Realtime API outputs 24kHz
+        self.input_sample_rate = 24000  # Realtime API outputs 24kHz
         self.channels = 1
         
         self.p = None
         self.stream = None
         self.is_running = False
+        self.actual_rate = None  # Will be set when stream opens
+        self.resampler = None  # Will be created if resampling needed
         
         logger.info(f"AudioPlayback initialized:")
         logger.info(f"  Device: {output_device or 'default'}")
-        logger.info(f"  Rate: {self.sample_rate} Hz")
+        logger.info(f"  Input rate: {self.input_sample_rate} Hz")
         logger.info(f"  Channels: {self.channels}")
     
     def start(self) -> None:
@@ -407,15 +409,56 @@ class AudioPlayback:
                             output_device_index = i
                             break
             
-            # Open stream
+            # Check if device supports the sample rate
+            device_info = None
+            if output_device_index is not None:
+                device_info = self.p.get_device_info_by_index(output_device_index)
+            else:
+                device_info = self.p.get_default_output_device_info()
+            
+            # Try to use device's default sample rate if 24kHz not supported
+            device_rate = int(device_info.get('defaultSampleRate', 44100))
+            actual_rate = self.input_sample_rate
+            
+            # If device doesn't support 24kHz, try 48kHz or device default
+            if device_rate != 24000:
+                # Try common rates: 48kHz, 44.1kHz, 16kHz
+                for test_rate in [48000, 44100, 16000]:
+                    try:
+                        test_stream = self.p.open(
+                            format=pyaudio.paInt16,
+                            channels=self.channels,
+                            rate=test_rate,
+                            output=True,
+                            output_device_index=output_device_index,
+                            frames_per_buffer=0
+                        )
+                        test_stream.close()
+                        actual_rate = test_rate
+                        logger.info(f"Device supports {test_rate} Hz, using that instead of 24kHz")
+                        break
+                    except:
+                        continue
+                else:
+                    # Fall back to device default
+                    actual_rate = device_rate
+                    logger.warning(f"Using device default rate {actual_rate} Hz (24kHz not supported)")
+            
+            # Open stream with determined rate
             self.stream = self.p.open(
                 format=pyaudio.paInt16,
                 channels=self.channels,
-                rate=self.sample_rate,
+                rate=actual_rate,
                 output=True,
                 output_device_index=output_device_index,
-                frames_per_buffer=2400  # 100ms at 24kHz
+                frames_per_buffer=int(actual_rate * 0.1)  # 100ms buffer
             )
+            
+            # Store actual rate and create resampler if needed
+            self.actual_rate = actual_rate
+            if actual_rate != self.input_sample_rate:
+                self.resampler = AudioResampler(self.input_sample_rate, actual_rate)
+                logger.info(f"Created resampler: {self.input_sample_rate} Hz → {actual_rate} Hz")
             
             self.stream.start_stream()
             self.is_running = True
@@ -439,6 +482,14 @@ class AudioPlayback:
         try:
             # Decode base64
             audio_bytes = base64.b64decode(base64_audio)
+            audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+            
+            # Resample if needed
+            if self.resampler:
+                audio_array = self.resampler.resample_chunk(audio_array)
+            
+            # Convert back to bytes
+            audio_bytes = audio_array.tobytes()
             
             # Write to stream
             self.stream.write(audio_bytes)

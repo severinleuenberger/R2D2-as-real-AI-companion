@@ -173,6 +173,9 @@ class GestureIntentNode(Node):
             old_active = self.session_active
             self.session_active = (status_str in ['active', 'connected'])
             
+            # Log all session status updates for debugging
+            self.get_logger().info(f'📡 Session status received: {status_str} (active={self.session_active}, was={old_active})')
+            
             # Play audio feedback on status changes
             if old_active != self.session_active:
                 if self.session_active:
@@ -203,10 +206,13 @@ class GestureIntentNode(Node):
         gesture_name = msg.data
         current_time = time.time()
         
+        # Log all gesture detections for debugging
+        self.get_logger().info(f'🎯 Gesture detected: {gesture_name} (person_status={self.person_status}, session_active={self.session_active})')
+        
         # Gate 1: Check person status (must be RED = target person recognized)
         if self.person_status != "red":
-            self.get_logger().debug(
-                f'Gesture ignored: person_status={self.person_status} (need "red")'
+            self.get_logger().warn(
+                f'❌ Gesture ignored: person_status={self.person_status} (need "red")'
             )
             return
         
@@ -216,12 +222,12 @@ class GestureIntentNode(Node):
         if gesture_name == "index_finger_up":
             # Start gesture: only if speech inactive and cooldown elapsed
             if self.session_active:
-                self.get_logger().debug('Start gesture ignored: session already active')
+                self.get_logger().warn('❌ Start gesture ignored: session already active')
                 return
             
             if time_since_last < self.cooldown_start:
-                self.get_logger().debug(
-                    f'Start gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_start}s)'
+                self.get_logger().warn(
+                    f'❌ Start gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_start}s)'
                 )
                 return
             
@@ -233,12 +239,12 @@ class GestureIntentNode(Node):
         elif gesture_name == "fist":
             # Stop gesture: only if speech active and cooldown elapsed
             if not self.session_active:
-                self.get_logger().debug('Stop gesture ignored: no active session')
+                self.get_logger().warn('❌ Stop gesture ignored: no active session')
                 return
             
             if time_since_last < self.cooldown_stop:
-                self.get_logger().debug(
-                    f'Stop gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_stop}s)'
+                self.get_logger().warn(
+                    f'❌ Stop gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_stop}s)'
                 )
                 return
             
@@ -246,6 +252,8 @@ class GestureIntentNode(Node):
             self.get_logger().info('✊ Fist detected → Stopping conversation')
             self._stop_session()
             self.last_trigger_time = current_time
+        else:
+            self.get_logger().debug(f'Unknown gesture: {gesture_name}')
     
     def _call_service(self, client, service_name):
         """

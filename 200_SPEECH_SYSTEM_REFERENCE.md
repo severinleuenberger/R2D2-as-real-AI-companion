@@ -524,9 +524,10 @@ When connecting, the client sends a session configuration:
 
 **Download (API → Speaker):**
 1. Receive `response.audio.delta` events
-2. Decode base64 PCM16
-3. Buffer audio chunks
-4. Play through speaker at 24kHz
+2. Decode base64 PCM16 (24kHz mono)
+3. Resample to device rate (44.1kHz) if needed
+4. Buffer audio chunks
+5. Play through speaker at device rate (44.1kHz)
 
 ### Error Handling
 
@@ -1035,8 +1036,19 @@ lsusb | grep -i hyperx
 # - Check dmesg for USB errors
 ```
 
-**3. No audio output**
+**3. No audio output / "Invalid sample rate" error**
 ```bash
+# Check service logs for sample rate errors
+journalctl -u r2d2-speech-node --since "10 minutes ago" | grep -i "sample rate\|Invalid"
+
+# Expected: "Device supports 44100 Hz, using that instead of 24kHz"
+# Expected: "Created resampler: 24000 Hz → 44100 Hz"
+
+# If you see "Invalid sample rate" errors:
+# - The fix is already implemented (auto-detection + resampling)
+# - Check that audio_stream.py has the resampling code
+# - Restart service: sudo systemctl restart r2d2-speech-node
+
 # Test speaker directly
 speaker-test -t wav -c 2
 
@@ -1044,6 +1056,26 @@ speaker-test -t wav -c 2
 cat /etc/asound.conf
 
 # Check PAM8403 setup (Phase 1 docs)
+```
+
+**Issue: "Failed to start audio playback: [Errno -9997] Invalid sample rate"**
+
+**Root Cause:** The default audio device (PAM8403 via ALSA) supports 44100 Hz, but the OpenAI Realtime API outputs audio at 24000 Hz. The original code attempted to open the playback stream at 24kHz, which the device doesn't support.
+
+**Solution (Implemented):** The `AudioPlayback` class now:
+1. Detects the device's supported sample rate (44100 Hz)
+2. Automatically resamples 24kHz API audio to 44.1kHz for playback
+3. Uses `AudioResampler` (scipy.signal.resample_poly) for streaming-safe resampling
+
+**Verification:**
+```bash
+# Check logs show resampling is working
+journalctl -u r2d2-speech-node | grep -E "resampler|Device supports|Audio playback started"
+
+# Should see:
+# "Device supports 44100 Hz, using that instead of 24kHz"
+# "Created resampler: 24000 Hz → 44100 Hz"
+# "✓ Audio playback started"
 ```
 
 **4. WebSocket connection fails**
