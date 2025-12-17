@@ -81,6 +81,51 @@ Then speak - assistant will respond as R2D2!
 
 ---
 
+## View Conversation History
+
+All conversations are automatically saved to a SQLite database.
+
+**Quick View:**
+```bash
+# Show recent messages
+~/dev/r2d2/view_conversations.sh recent
+
+# Show today's messages
+~/dev/r2d2/view_conversations.sh today
+
+# Show statistics
+~/dev/r2d2/view_conversations.sh stats
+
+# List all sessions
+~/dev/r2d2/view_conversations.sh sessions
+
+# Open interactive SQL shell
+~/dev/r2d2/view_conversations.sh sql
+```
+
+**Database Location:**
+```
+/home/severin/dev/r2d2/r2d2_speech/data/conversations.db
+```
+
+**Schema:**
+- `sessions` table: Session metadata (session_id, started_at, ended_at)
+- `messages` table: All conversations (role, text, created_at, session_id)
+
+**Manual SQL:**
+```bash
+sqlite3 /home/severin/dev/r2d2/r2d2_speech/data/conversations.db
+
+# Recent messages
+SELECT role, text FROM messages ORDER BY id DESC LIMIT 10;
+
+# Today's conversations
+SELECT role, text, created_at FROM messages 
+WHERE date(created_at) = date('now') ORDER BY created_at ASC;
+```
+
+---
+
 ## Troubleshooting
 
 ### Node won't start
