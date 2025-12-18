@@ -53,6 +53,8 @@ class ImageListener(Node):
         self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for target person (lower is better, set high to accept training variations)
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
+        self.declare_parameter('face_presence_threshold', 2.0)  # Seconds face must be detected before entering "stable presence" state
+        self.declare_parameter('face_absence_threshold', 5.0)  # Seconds face must be absent before entering "stable absence" state
         
         # Gesture recognition parameters
         self.declare_parameter('enable_gesture_recognition', False)  # Enable hand gesture recognition
@@ -74,6 +76,8 @@ class ImageListener(Node):
         self.recognition_threshold = self.get_parameter('recognition_confidence_threshold').value
         self.recognition_frame_skip = self.get_parameter('recognition_frame_skip').value
         self.target_person_name = self.get_parameter('target_person_name').value
+        self.face_presence_threshold = self.get_parameter('face_presence_threshold').value
+        self.face_absence_threshold = self.get_parameter('face_absence_threshold').value
         
         # Gesture recognition parameters
         self.enable_gesture_recognition = self.get_parameter('enable_gesture_recognition').value
@@ -193,6 +197,11 @@ class ImageListener(Node):
         # Counter for recognition frame skip (process every Nth frame)
         self.recognition_frame_counter = 0
         
+        # Hysteresis state machine for stable face detection
+        self.face_stable_state = False  # True = "stable presence", False = "stable absence"
+        self.face_transition_start_time = None  # When current transition started
+        self.last_raw_face_count = 0  # Last raw detection from Haar Cascade
+        
         # Initialize gesture recognition (MediaPipe Hands + SVM classifier)
         self.gesture_recognizer_enabled = False
         self.mp_hands = None
@@ -302,13 +311,46 @@ class ImageListener(Node):
             except Exception as e:
                 self.get_logger().error(f'Face detection failed: {e}')
         
-        # Publish face count
+        # Hysteresis state machine for stable face detection
+        # This filters out flickering detections by requiring sustained presence/absence
+        current_time = time.time()
+        raw_face_detected = (face_count > 0)
+        
+        # Check if raw detection changed from last frame
+        if raw_face_detected != (self.last_raw_face_count > 0):
+            # Transition started - reset timer
+            self.face_transition_start_time = current_time
+        
+        self.last_raw_face_count = face_count
+        
+        # Hysteresis logic: require sustained signal before changing stable state
+        if self.face_transition_start_time is not None:
+            time_in_transition = current_time - self.face_transition_start_time
+            
+            if self.face_stable_state is False and raw_face_detected:
+                # Currently in "stable absence", raw says "present"
+                # Wait for face_presence_threshold before transitioning to "stable presence"
+                if time_in_transition >= self.face_presence_threshold:
+                    self.face_stable_state = True
+                    self.face_transition_start_time = None
+                    self.get_logger().info(f'Face detection stable: PRESENCE confirmed after {time_in_transition:.1f}s')
+            
+            elif self.face_stable_state is True and not raw_face_detected:
+                # Currently in "stable presence", raw says "absent"
+                # Wait for face_absence_threshold before transitioning to "stable absence"
+                if time_in_transition >= self.face_absence_threshold:
+                    self.face_stable_state = False
+                    self.face_transition_start_time = None
+                    self.get_logger().info(f'Face detection stable: ABSENCE confirmed after {time_in_transition:.1f}s')
+        
+        # Publish stable face count (smoothed via hysteresis)
+        stable_face_count = 1 if self.face_stable_state else 0
         face_count_msg = Int32()
-        face_count_msg.data = face_count
+        face_count_msg.data = stable_face_count
         self.face_count_publisher.publish(face_count_msg)
         
-        # Perform face recognition if enabled and faces detected
-        if self.recognition_enabled and face_count > 0:
+        # Perform face recognition if enabled and face is in stable presence state
+        if self.recognition_enabled and self.face_stable_state and face_count > 0:
             # Use frame skip to manage CPU load (process every Nth frame)
             self.recognition_frame_counter += 1
             if self.recognition_frame_counter >= self.recognition_frame_skip:

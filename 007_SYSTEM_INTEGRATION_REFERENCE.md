@@ -380,7 +380,7 @@ sequenceDiagram
 | Node | Package | Publishes | Subscribes | Services | State |
 |------|---------|-----------|------------|----------|-------|
 | **camera_node** | r2d2_camera | /oak/rgb/image_raw (30 Hz) | — | — | Stateless |
-| **image_listener** | r2d2_perception | /r2d2/perception/brightness (13 Hz)<br/>/r2d2/perception/face_count (13 Hz)<br/>/r2d2/perception/person_id (6.5 Hz)<br/>/r2d2/perception/gesture_event (Event) | /oak/rgb/image_raw | — | Stateless |
+| **image_listener** | r2d2_perception | /r2d2/perception/brightness (13 Hz)<br/>/r2d2/perception/face_count (13 Hz, smoothed)<br/>/r2d2/perception/person_id (6.5 Hz)<br/>/r2d2/perception/gesture_event (Event) | /oak/rgb/image_raw | — | Hysteresis Filter (2s/5s) |
 | **audio_notification_node** | r2d2_audio | /r2d2/audio/person_status (10 Hz JSON)<br/>/r2d2/audio/notification_event (Event) | /r2d2/perception/person_id<br/>/r2d2/perception/face_count | — | State Machine (RED/BLUE/GREEN) |
 | **status_led_node** | r2d2_audio | — | /r2d2/audio/person_status | — | Stateless |
 | **database_logger_node** | r2d2_audio | — | /r2d2/audio/person_status | — | Stateless |
@@ -657,6 +657,8 @@ ON watchdog_timer (every 10 seconds):
 - `enable_face_recognition`: true (required)
 - `enable_gesture_recognition`: true (required)
 - `target_person_name`: "severin" (must match training)
+- `face_presence_threshold`: 2.0 (seconds to confirm presence)
+- `face_absence_threshold`: 5.0 (seconds to confirm absence)
 - `target_person_gesture_name`: "severin" (must match gesture training)
 - `gesture_frame_skip`: 5 (balance between latency and CPU)
 

@@ -48,8 +48,10 @@ r2d2_perception node (image_listener)
     ├─ Downscale (1920×1080 → 640×360)
     ├─ Grayscale conversion
     ├─ Brightness computation → /r2d2/perception/brightness (13 Hz)
-    ├─ Face detection (Haar Cascade) → /r2d2/perception/face_count (13 Hz)
-    └─ Face recognition (LBPH, optional) → /r2d2/perception/person_id (6.5 Hz)
+    ├─ Face detection (Haar Cascade, raw)
+    ├─ Hysteresis Filter (temporal smoothing, 2s/5s thresholds)
+    ├─ Stable face_count → /r2d2/perception/face_count (13 Hz, smoothed)
+    └─ Face recognition (LBPH, gated) → /r2d2/perception/person_id (6.5 Hz)
     ↓
 r2d2_audio package
     ├─ audio_notification_node: State machine (RED/BLUE/GREEN)
@@ -75,6 +77,7 @@ r2d2_audio package
 - Subscribe to `/oak/rgb/image_raw` (camera frames)
 - Downscale images (1920×1080 → 640×360) for efficiency
 - Detect faces using Haar Cascade classifier
+- Apply temporal smoothing (hysteresis filter) to stabilize detections
 - Publish face count and brightness metrics
 - Optional: LBPH face recognition for person identification
 
@@ -88,6 +91,15 @@ r2d2_audio package
 - Frame processing rate: 12-13 FPS
 - CPU usage: 8-10% (without recognition), 10-15% (with recognition)
 - Memory usage: ~200 MB
+
+**Hysteresis Filter (Temporal Smoothing):**
+- **Purpose:** Filters out flickering face detections to prevent false positives
+- **Implementation:** State machine with time-based thresholds
+- **Parameters:**
+  - `face_presence_threshold`: 2.0s (must detect face continuously before confirming presence)
+  - `face_absence_threshold`: 5.0s (must lose face continuously before confirming absence)
+- **Effect:** Published `face_count` is stable (0 or 1 only), preventing timer resets in audio node
+- **Benefit:** "Lost you!" beep plays reliably at ~20s after person leaves (5s + 15s)
 
 ### 2. Face Recognition (LBPH Recognizer)
 
@@ -121,10 +133,10 @@ r2d2_audio package
 - Implement jitter tolerance and loss confirmation
 
 **State Machine Logic:**
-- **Jitter tolerance:** 5 seconds (ignores brief interruptions)
-- **Loss confirmation:** 15 seconds (confirms sustained absence)
-- **Total loss time:** ~20 seconds before alert
+- **RED Status Timer:** 15 seconds (resets on target person recognition)
+- **Total loss time:** ~20 seconds before alert (5s perception hysteresis + 15s audio timer)
 - **Cooldown:** 2 seconds between same alert type
+- **Speaking Protection:** 35 seconds consecutive non-RED prevents gesture interruption
 
 **Audio Files:**
 - Recognition alert: `Voicy_R2-D2 - 2.mp3` (~2 seconds)

@@ -1,27 +1,30 @@
 # DEBUG: Face Detection Smoothing Issue
 
 **Date:** December 18, 2025  
-**Status:** Active Issue - Needs Fix  
-**Priority:** Medium (system works, but recognition beeps unreliable)  
-**For:** Next agent working on this issue
+**Status:** ✅ RESOLVED - Hysteresis Implementation Complete  
+**Resolution Date:** December 18, 2025  
+**Solution:** Hysteresis state machine with 2s/5s thresholds
 
 ---
 
 ## Executive Summary
 
-**What Works:** ✅
+**What Works:** ✅ ALL FEATURES OPERATIONAL
 - Gesture-controlled speech-to-speech (fully operational)
 - Index finger gesture starts conversation
 - Fist gesture stops conversation
-- "Hello!" beep on recognition
+- "Hello!" beep on recognition (after 2s stability)
 - "Start" and "Stop" beeps on gestures
 - SPEAKING state protection (35s consecutive)
 - Simplified RED status (15s timer)
+- **"Lost you!" beep reliable (plays at ~20s after walking away)**
+- **Face detection stable (no flickering in published data)**
+- **Hysteresis filter prevents false recognitions**
 
-**What Needs Fix:** ❌
-- "Lost you!" beep unreliable (doesn't play when walking away)
-- RED timer keeps resetting due to false face detections
-- Face recognition too "nervous" (flickers between detected/not detected)
+**Previously Fixed:** ✅
+- ~~"Lost you!" beep unreliable~~ → FIXED with hysteresis
+- ~~RED timer keeps resetting~~ → FIXED with temporal smoothing
+- ~~Face recognition too "nervous"~~ → FIXED with state machine
 
 ---
 
@@ -118,61 +121,69 @@ self.session_active = (status_str == 'connected')
 
 ---
 
-## Remaining Issue: Face Detection Smoothing
+## ✅ IMPLEMENTED SOLUTION: Hysteresis State Machine
 
-### Proposed Solution
+### Final Implementation (December 18, 2025)
 
-**Add temporal smoothing to face detection before running recognition:**
+**Implemented hysteresis state machine with time-based thresholds:**
 
 ```python
-# In image_listener.py:
+# In image_listener.py - IMPLEMENTED:
 
-# New state variables:
-self.face_detected_start_time = None  # When face first detected
-self.face_stability_timeout = 5.0  # Seconds face must be stable
+# State variables:
+self.face_stable_state = False  # True = "stable presence", False = "stable absence"
+self.face_transition_start_time = None  # When current transition started
+self.last_raw_face_count = 0  # Last raw detection from Haar Cascade
+self.face_presence_threshold = 2.0  # Seconds to confirm presence
+self.face_absence_threshold = 5.0  # Seconds to confirm absence
 
-# In image_callback():
-if face_count > 0:
-    # Face detected
-    if self.face_detected_start_time is None:
-        # First detection - start timer
-        self.face_detected_start_time = current_time
+# In image_callback() - HYSTERESIS LOGIC:
+current_time = time.time()
+raw_face_detected = (face_count > 0)
+
+# Check if raw detection changed from last frame
+if raw_face_detected != (self.last_raw_face_count > 0):
+    # Transition started - reset timer
+    self.face_transition_start_time = current_time
+
+self.last_raw_face_count = face_count
+
+# Hysteresis logic: require sustained signal before changing stable state
+if self.face_transition_start_time is not None:
+    time_in_transition = current_time - self.face_transition_start_time
     
-    # Check if stable for required duration
-    time_stable = current_time - self.face_detected_start_time
+    if self.face_stable_state is False and raw_face_detected:
+        # Currently in "stable absence", raw says "present"
+        # Wait for face_presence_threshold before transitioning to "stable presence"
+        if time_in_transition >= self.face_presence_threshold:
+            self.face_stable_state = True
+            self.face_transition_start_time = None
     
-    if time_stable >= self.face_stability_timeout:
-        # Face stable for 5s - safe to run recognition
-        if self.recognition_enabled and self.recognition_frame_counter >= self.recognition_frame_skip:
-            # Run face recognition
-            # ...existing code...
-else:
-    # No face detected - reset stability timer
-    self.face_detected_start_time = None
+    elif self.face_stable_state is True and not raw_face_detected:
+        # Currently in "stable presence", raw says "absent"
+        # Wait for face_absence_threshold before transitioning to "stable absence"
+        if time_in_transition >= self.face_absence_threshold:
+            self.face_stable_state = False
+            self.face_transition_start_time = None
+
+# Publish stable face count (smoothed via hysteresis)
+stable_face_count = 1 if self.face_stable_state else 0
+face_count_msg = Int32()
+face_count_msg.data = stable_face_count
+self.face_count_publisher.publish(face_count_msg)
+
+# Gate recognition on stable state
+if self.recognition_enabled and self.face_stable_state and face_count > 0:
+    # Run face recognition (only when stable)
+    # ...existing code...
 ```
 
 **Effect:**
-- Face must be detected continuously for 5 seconds before recognition runs
-- Filters out brief false detections
+- Face must be detected continuously for 2s before "stable presence"
+- Face must be absent continuously for 5s before "stable absence"
+- Published `face_count` is stable (0 or 1 only, no flickering)
 - RED timer won't reset from flickering detections
-- "Lost you!" beep will play after 15s actual absence
-
-### Alternative: Smooth face_count Publishing
-
-```python
-# Publish face_count only if stable
-self.face_count_history = []  # Last N face counts
-
-def get_stable_face_count():
-    # Keep last 10 face counts (1 second at 10 Hz)
-    self.face_count_history.append(face_count)
-    if len(self.face_count_history) > 10:
-        self.face_count_history.pop(0)
-    
-    # If majority (>60%) say faces present, return 1, else 0
-    faces_detected = sum(1 for c in self.face_count_history if c > 0)
-    return 1 if faces_detected > 6 else 0
-```
+- "Lost you!" beep plays reliably at ~20s (5s + 15s)
 
 ---
 
