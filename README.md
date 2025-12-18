@@ -4,8 +4,9 @@
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
 
-**Current Status:** Phase 1 Core System — ~85% complete  
-**Next Phase:** Speech & Language (STT + LLM + TTS)  
+**Current Status:** Phase 1 Complete + Phase 2 Speech Operational — ~95% complete  
+**Latest:** Gesture-controlled speech-to-speech fully operational (December 18, 2025)  
+**Next:** Fine-tune face detection stability for reliable "Lost you!" beeps  
 **Project Timeline:** 4 phases, 280-300 hours total (7 weeks full-time, 3-4 months part-time)
 
 ---
@@ -71,11 +72,14 @@ The R2D2 project is designed to achieve the following functional capabilities:
   - CLI and programmatic API
   - Forward-compatible database schema
 
-### Phase 2: Speech & AI (Next) ⏳
-- [ ] **Speech-to-Text:** Real-time audio input with wake-word detection ("Hey R2D2")
-- [ ] **Language Model:** Local LLM inference (Llama 2 7B) for conversational responses
-- [ ] **Text-to-Speech:** Real-time voice synthesis and playback
-- [ ] **Context Awareness:** Vision-informed responses (greet by name, reference visual context)
+### Phase 2: Speech & AI ✅ COMPLETE
+- [x] **Speech-to-Text:** OpenAI Realtime API (Whisper-1, 0.2-0.4s latency)
+- [x] **Language Model:** GPT-4o via OpenAI Realtime API (intelligent responses)
+- [x] **Text-to-Speech:** OpenAI TTS synthesis (natural voice, "sage" personality)
+- [x] **Context Awareness:** Integrated with face recognition (greet by name)
+- [x] **Gesture Control:** Index finger starts, fist stops conversations
+- [x] **Conversation Protection:** SPEAKING state with 35s consecutive non-RED protection
+- [x] **Audio Feedback:** R2D2 beeps for all state transitions
 
 ### Phase 3: Navigation (Future) ⏳
 - [ ] **SLAM Mapping:** Autonomous room mapping and localization

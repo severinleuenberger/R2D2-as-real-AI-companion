@@ -1,13 +1,14 @@
 # R2D2 System Architecture Overview
 **Date:** December 9, 2025 (Comprehensive Update)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Phase:** 1 - Perception, Face Recognition & Audio Notifications (Complete)
+**Phase:** 1 - Perception, Face Recognition & Audio Notifications (Complete)  
+**Latest Update:** December 18, 2025 - Gesture-controlled speech-to-speech operational
 
 ---
 
 ## Executive Summary
 
-The R2D2 system is a modular ROS 2-based pipeline that captures video from an OAK-D Lite camera, processes frames in real-time, detects human faces, recognizes specific individuals, and provides audio/visual feedback through a sophisticated state machine. The system prioritizes efficiency (15-25% CPU usage) and extensibility (easy to add new components).
+The R2D2 system is a modular ROS 2-based pipeline that captures video from an OAK-D Lite camera, processes frames in real-time, detects human faces, recognizes specific individuals, and provides gesture-controlled speech-to-speech conversations with audio/visual feedback through sophisticated state machines. The system prioritizes efficiency (15-25% CPU usage), conversation stability (SPEAKING state protection), and extensibility (easy to add new components).
 
 **Current Processing Chain:**
 ```
