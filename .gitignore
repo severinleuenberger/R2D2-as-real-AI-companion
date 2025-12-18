@@ -24,6 +24,12 @@ data/face_recognition/*/
 # Temporary files
 *.swp
 *.swo
+*.bak
+*.backup
+!vpn_config/*.backup  # Allow vpn_config backups (they're already handled by specific rule)
+
+# Log files
+log/**/*.log
 
 # VPN Configuration - SENSITIVE (never commit!)
 vpn_config/client_wg0.conf
