@@ -99,6 +99,7 @@ Comprehensive guides organized by audience and use case. **Start here:**
 1. **[Quick Start](#quick-start)** (below) — Run the system in 5 minutes
 2. **[010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md)** — Jetson setup, ROS 2 installation, workspace structure
 3. **[001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md)** — System design, software stack, data flow
+4. **[007_SYSTEM_INTEGRATION_REFERENCE.md](007_SYSTEM_INTEGRATION_REFERENCE.md)** — ⭐ How components integrate (NEW)
 
 ### For Daily Operators
 - **[QUICK_START.md](QUICK_START.md)** — Quick reference for common tasks

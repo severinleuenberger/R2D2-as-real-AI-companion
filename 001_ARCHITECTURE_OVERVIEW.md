@@ -1189,7 +1189,7 @@ class MyNewPhase2Node(Node):
         # Your logic here
 ```
 
-**For detailed integration guide, see:** `_ANALYSIS_AND_DOCUMENTATION/INTEGRATION_GUIDE.md`
+**For detailed integration guide, see:** [007_SYSTEM_INTEGRATION_REFERENCE.md](007_SYSTEM_INTEGRATION_REFERENCE.md)
 
 ### 9.2 Adding Phase 2 Components (Speech/Conversation)
 
