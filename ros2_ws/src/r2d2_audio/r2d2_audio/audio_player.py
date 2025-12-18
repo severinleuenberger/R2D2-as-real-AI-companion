@@ -63,18 +63,15 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
         if player == 'ffplay':
             # ffplay: -nodisp (no display), -autoexit (exit after playback)
             # Use -af "volume=X" for volume control (X is linear gain, 0.0-1.0)
-            # For ALSA device, use -ao alsa:device=DEVICE
+            # Note: ffplay uses system default audio device (ALSA device selection not supported)
             cmd = [
                 'ffplay',
                 '-nodisp',
                 '-autoexit',
                 '-loglevel', 'error',  # Reduce logging
                 '-af', f'volume={volume}',
+                str(audio_path)
             ]
-            # Add ALSA device if specified
-            if device:
-                cmd.extend(['-ao', f'alsa:device={device}'])
-            cmd.append(str(audio_path))
         elif player == 'mpv':
             # mpv: --no-video (no video), --really-quiet (minimal output), --volume=X (0-100)
             # For ALSA, use --audio-device=alsa/DEVICE
