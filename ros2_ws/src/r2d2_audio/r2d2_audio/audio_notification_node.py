@@ -472,7 +472,7 @@ class AudioNotificationNode(Node):
     
     def _play_audio_file(self, audio_file: Path, alert_type: str = "GENERIC"):
         """
-        Play an audio file using the audio player.
+        Play an audio file using ffplay directly (same as gesture_intent_node).
         
         Args:
             audio_file: Path to the audio file to play
@@ -482,29 +482,17 @@ class AudioNotificationNode(Node):
             self.get_logger().error(f"Audio file not found: {audio_file}")
             return
         
-        if not self.audio_player_path.exists():
-            self.get_logger().error(f"Audio player not found: {self.audio_player_path}")
-            return
-        
         try:
             self.get_logger().info(
                 f"🔊 Playing {alert_type} audio: {audio_file.name} (volume {self.audio_volume*100:.0f}%)"
             )
             
-            # Run audio player asynchronously (non-blocking)
-            cmd = [
-                'python3',
-                str(self.audio_player_path),
-                str(audio_file),
-                str(self.audio_volume),
-                str(self.alsa_device),
-            ]
-            
+            # Call ffplay directly (same method as gesture_intent_node)
             subprocess.Popen(
-                cmd,
+                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
+                 '-af', f'volume={self.audio_volume}', str(audio_file)],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
+                stderr=subprocess.DEVNULL
             )
             
         except Exception as e:
