@@ -268,6 +268,85 @@ class GestureIntentNode(Node):
         else:
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')
     
+    def _enter_speaking_state(self):
+        """Enter SPEAKING state when conversation starts."""
+        self.speaking_state = "speaking"
+        self.speaking_start_time = self.get_clock().now()
+        self.last_red_in_speaking_time = self.get_clock().now()
+        self.consecutive_nonred_start_time = None
+        
+        self.get_logger().info(
+            f'🗣️  Entered SPEAKING state (protection: {self.speaking_protection_timeout}s consecutive non-RED)'
+        )
+        self._start_session()
+    
+    def _exit_speaking_state(self, reason: str):
+        """Exit SPEAKING state when conversation ends."""
+        self.speaking_state = "idle"
+        self.speaking_start_time = None
+        self.consecutive_nonred_start_time = None
+        self.last_red_in_speaking_time = None
+        
+        self.get_logger().info(f'🔇 Exited SPEAKING state (reason: {reason})')
+        self._stop_session()
+    
+    def _update_speaking_protection(self, person_status: str):
+        """
+        Update SPEAKING state protection based on person_status changes.
+        
+        For speech-to-speech: Only RED vs non-RED matters.
+        BLUE (nobody) and GREEN (someone unknown) both treated as non-RED.
+        
+        Protection rule: Must be non-RED for 35 CONSECUTIVE seconds before auto-stop.
+        Timer resets every time RED is seen.
+        """
+        if self.speaking_state != "speaking":
+            return
+        
+        current_time = self.get_clock().now()
+        
+        if person_status == "red":
+            # Target person recognized - RESET protection timer
+            self.last_red_in_speaking_time = current_time
+            
+            if self.consecutive_nonred_start_time is not None:
+                time_was_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
+                self.get_logger().info(
+                    f'SPEAKING: Person returned to RED (was non-RED for {time_was_nonred:.1f}s, timer RESET)'
+                )
+            
+            self.consecutive_nonred_start_time = None  # RESET
+        
+        else:
+            # Person NOT RED (BLUE or GREEN - both count as non-RED for speech)
+            if self.consecutive_nonred_start_time is None:
+                # Start tracking consecutive non-RED period
+                self.consecutive_nonred_start_time = current_time
+                self.get_logger().info(
+                    f'SPEAKING: Person non-RED (status={person_status}), '
+                    f'starting {self.speaking_protection_timeout}s consecutive timer'
+                )
+            else:
+                # Already tracking - check if threshold exceeded
+                time_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
+                
+                # Log progress every 10 seconds
+                if int(time_nonred) % 10 == 0 and int(time_nonred) > 0:
+                    remaining = self.speaking_protection_timeout - time_nonred
+                    if remaining > 0:
+                        self.get_logger().info(
+                            f'SPEAKING: Non-RED for {int(time_nonred)}s / {int(self.speaking_protection_timeout)}s '
+                            f'(auto-stop in {int(remaining)}s if person doesn\'t return)'
+                        )
+                
+                if time_nonred > self.speaking_protection_timeout:
+                    # Protection threshold exceeded
+                    self.get_logger().warn(
+                        f'SPEAKING: Person absent for {time_nonred:.0f}s consecutive '
+                        f'(threshold: {self.speaking_protection_timeout}s). Auto-stopping conversation.'
+                    )
+                    self._exit_speaking_state(reason="absence_timeout")
+    
     def _call_service(self, client, service_name):
         """
         Call a service asynchronously.
