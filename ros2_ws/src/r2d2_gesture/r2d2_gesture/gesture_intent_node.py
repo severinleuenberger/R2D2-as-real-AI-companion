@@ -181,10 +181,11 @@ class GestureIntentNode(Node):
         try:
             status_data = json.loads(msg.data)
             # Speech node publishes {"status": "active"|"inactive"|"connected"|"disconnected"}
-            # Convert to boolean for watchdog logic
+            # "active" = lifecycle state (node ready, NOT conversation)
+            # "connected" = session state (conversation active with OpenAI)
             status_str = status_data.get('status', '')
             old_active = self.session_active
-            self.session_active = (status_str in ['active', 'connected'])
+            self.session_active = (status_str == 'connected')  # Only connected = conversation active
             
             # Log all session status updates for debugging
             self.get_logger().info(f'📡 Session status received: {status_str} (active={self.session_active}, was={old_active})')
