@@ -153,7 +153,13 @@ stateDiagram-v2
     end note
 ```
 
-### 2. Speech Session State Machine (speech_node lifecycle)
+### 2. Speech Session State Machine (speech_node)
+
+**IMPORTANT:** Speech node has TWO separate states:
+- **Lifecycle State:** "active"/"inactive" (node ready/not ready)
+- **Session State:** "connected"/"disconnected" (conversation active/not active)
+
+For gesture control, only "connected" means conversation is active.
 
 ```mermaid
 stateDiagram-v2
