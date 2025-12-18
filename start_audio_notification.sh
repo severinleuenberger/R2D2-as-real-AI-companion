@@ -31,9 +31,9 @@ export OPENBLAS_CORETYPE=ARMV8
 # Example overrides:
 #   ./start_audio_notification.sh "target_person:=alice" "audio_volume:=0.5"
 
-# Set default volume to 0.3 (30%) if not provided via command line
+# Set default volume to 0.5 (50%) if not provided via command line
 if [[ "$*" != *"audio_volume"* ]]; then
-    exec python3 -m r2d2_audio.audio_notification_node audio_volume:=0.3 "$@"
+    exec python3 -m r2d2_audio.audio_notification_node audio_volume:=0.5 "$@"
 else
     exec python3 -m r2d2_audio.audio_notification_node "$@"
 fi
