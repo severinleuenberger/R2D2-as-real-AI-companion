@@ -261,7 +261,7 @@ class AudioNotificationNode(Node):
                 # Play "Hello!" beep (with cooldown)
                 if self.last_recognition_beep_time is None or \
                    (current_time - self.last_recognition_beep_time) >= self.cooldown_seconds:
-                    self._play_audio_alert(self.recognition_audio)
+                    self._play_audio_file(self.recognition_audio, alert_type="RECOGNITION")
                     self.last_recognition_beep_time = current_time
                     self._publish_event(f"🎉 Recognized {self.target_person}!")
                 
@@ -368,7 +368,7 @@ class AudioNotificationNode(Node):
             # Play "Lost you!" beep (with cooldown)
             if self.last_loss_beep_time is None or \
                (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                self._play_audio_alert(self.loss_audio)
+                self._play_audio_file(self.loss_audio, alert_type="LOSS")
                 self.last_loss_beep_time = current_time
                 self._publish_event(f"❌ {self.target_person} lost (no recognition for {time_since_recognition:.1f}s)")
             
