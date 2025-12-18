@@ -8,38 +8,52 @@
 
 ## Current System Status
 
-**Disk:** 57GB total, currently ~47GB used (~87% capacity, 7.1GB free)  
+**Disk:** 57GB total, currently 48GB used (89% capacity, 6.2GB free)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB  
-**OS:** Ubuntu 22.04 Jammy
+**OS:** Ubuntu 22.04 Jammy  
+**Last Check:** December 17, 2025
 
 ---
 
-## What We've Done (December 17, 2025)
+## What Has Been Completed (December 17, 2025)
 
-### Phase 1: Cache Cleanup (Completed) ✅
+### Phase 1: Cache Cleanup (Partially Completed) ✅
 
-**Space Recovered:** ~142MB
+**Space Recovered:** ~1.0GB
 
-1. **Epiphany Browser Cache** - 106MB
-   - Location: `~/.cache/epiphany/`
-   - Action: Removed with `rm -rf ~/.cache/epiphany`
-   - Status: ✅ Deleted - regenerates automatically
-
-2. **Torch Hub Cache** - 34MB
-   - Location: `~/.cache/torch/hub/`
-   - Action: Removed with `rm -rf ~/.cache/torch/hub`
-   - Status: ✅ Deleted - models re-download when accessed
-
-3. **Pip Cache** - 2.3MB
+1. **Pip Cache** - ~270MB recovered
    - Location: `~/.cache/pip/`
+   - Before: 478MB
+   - After: 208MB
    - Action: Purged with `pip cache purge`
    - Status: ✅ Cleaned - packages re-download on install
+   - **Note:** Cache had grown significantly from documented 2.3MB
 
-4. **Old ROS Logs** - ~20MB
+2. **Archived Backups Removed** - 370MB recovered
+   - Location: `~/backups/`
+   - Action: Removed after verifying USB archive exists
+   - USB Archive: `/media/severin/DAEA-DEBB/r2d2_archive/backups/`
+   - Status: ✅ Removed - files safely archived on USB
+
+3. **Epiphany Browser Cache** - 106MB (from earlier cleanup)
+   - Location: `~/.cache/epiphany/`
+   - Status: ✅ Deleted - regenerates automatically
+
+4. **Torch Hub Cache** - 34MB (from earlier cleanup)
+   - Location: `~/.cache/torch/hub/`
+   - Status: ✅ Deleted - models re-download when accessed
+
+5. **Old ROS Logs** - ~20MB (from earlier cleanup)
    - Location: `~/.ros/log/`
-   - Action: Removed logs older than 7 days
-   - Command: `find ~/.ros/log -name "*.log" -mtime +7 -delete`
    - Status: ✅ Cleaned - kept last 7 days
+
+### Phase 3: Remove Piper TTS Models (Completed) ✅
+
+**Space Recovered:** 382MB
+
+- **Removed:** `~/.local/share/piper-tts/` (191MB) - empty directory
+- **Removed:** `~/.local/share/piper_tts/` (191MB) - confirmed TTS not used
+- **Status:** ✅ Both directories removed - TTS functionality not needed
 
 ### Git Repository Optimization (Completed) ✅
 
@@ -51,24 +65,405 @@
 **Result:** Repository optimized, all objects consolidated into pack files
 - **Repository size:** 361MB (optimized, no loose objects)
 
-### Archive to USB (Completed) ✅
-
-**USB Location:** `/media/severin/DAEA-DEBB/r2d2_archive/`
-
-1. **Backups Archived** - 371MB
-   - All files copied to USB: `r2d2_archive/backups/`
-   - Files: 
-     - `r2d2_backup_20251213_105223.tar.gz` (346MB)
-     - `r2d2_backup_20251209_083400.tar.gz` (25MB)
-     - `backup_log_20251207_090424.txt` (1.1KB)
-   - Status: ✅ Archived - originals still on disk (can be removed)
-
 ### Previously Removed (Before Documentation)
 
 - **HuggingFace Model Cache** - 2.9GB
   - Location: `~/.cache/huggingface/`
   - Model: faster-whisper-large-v2
   - Status: ✅ Removed - model re-downloads on first use if needed
+
+### Total Space Recovered So Far
+
+**~1.4GB recovered** (from 91% to 89% disk usage)
+
+---
+
+## Remaining Cleanup Opportunities (Ordered by Impact)
+
+### 🔥 Highest Impact - Safe Cleanup (Execute First)
+
+#### 1. Remove Old GNOME Snap Package - **~1.7GB** ⭐⭐⭐
+**Location:** `/snap/gnome-42-2204/` (1.2GB) + `/var/lib/snapd/snaps/gnome-42-2204_228.snap` (494MB)
+
+**Why it's safe:**
+- Old version replaced by `gnome-46-2404` (currently active)
+- Snap system keeps old revisions for rollback, but newer version is in use
+- Removing old revisions is standard practice
+
+**Commands:**
+```bash
+# Remove old snap revision
+sudo snap remove --revision=228 gnome-42-2204
+
+# Verify removal
+du -sh /snap/gnome-42-2204 /var/lib/snapd/snaps/gnome-42-2204*
+```
+
+**Risk:** ✅ **100% Safe** - Old version, newer version is active  
+**Impact:** ~1.7GB  
+**Priority:** **HIGHEST**
+
+#### 2. Clean APT Package Cache - **416MB** ⭐⭐
+**Location:** `/var/cache/apt/`
+
+**Why it's safe:**
+- APT caches downloaded .deb files
+- These are cached downloads, not installed packages
+- Packages re-download automatically on next install
+
+**Command:**
+```bash
+sudo apt clean
+```
+
+**Risk:** ✅ **100% Safe** - Standard Ubuntu maintenance  
+**Impact:** 416MB  
+**Priority:** **HIGH**
+
+#### 3. Clean APT Package Lists - **298MB** ⭐⭐
+**Location:** `/var/lib/apt/lists/` (298MB, 109 files)
+
+**Why it's safe:**
+- APT package repository metadata (package lists, Release files)
+- Completely regenerated with `apt update`
+- Standard Ubuntu maintenance practice
+
+**Commands:**
+```bash
+# Check current size
+sudo du -sh /var/lib/apt/lists
+
+# Clean package lists (regenerates on apt update)
+sudo rm -rf /var/lib/apt/lists/*
+sudo apt update  # Regenerates lists (optional, can wait until next update)
+```
+
+**Risk:** ✅ **100% Safe** - Standard Ubuntu maintenance  
+**Impact:** 298MB  
+**Priority:** **HIGH**
+
+#### 4. Clean VSCode Server GitHub Copilot Chat Index - **601MB** ⭐⭐
+**Location:** `~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/local-index.*.db`
+
+**Why it's safe:**
+- Local index database - cache that regenerates automatically
+- GitHub Copilot Chat rebuilds index when needed
+- Workspace-specific cache, not essential data
+
+**Commands:**
+```bash
+# Remove Copilot Chat index (regenerates on next use)
+rm -rf ~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/local-index.*.db
+
+# Or remove entire workspace storage if not needed (more aggressive)
+# rm -rf ~/.vscode-server/data/User/workspaceStorage/12411d55039e15d1327cb9da7bcdbe7d
+```
+
+**Risk:** ✅ **Safe** - Cache regenerates automatically  
+**Impact:** 601MB  
+**Priority:** **HIGH**
+
+#### 5. Remove Disabled Snap Revisions - **~297MB** ⭐
+**Locations:**
+- `/var/lib/snapd/snaps/firefox_7421.snap` (235MB) - disabled, newer version active
+- `/var/lib/snapd/snaps/core24_1226.snap` (62MB) - disabled, newer version active
+
+**Why it's safe:**
+- Disabled revisions, newer versions are active
+- Standard snap maintenance practice
+
+**Commands:**
+```bash
+# Remove disabled firefox revision
+sudo snap remove --revision=7421 firefox
+
+# Remove disabled core24 revision  
+sudo snap remove --revision=1226 core24
+
+# Verify
+snap list --all | grep disabled
+```
+
+**Risk:** ✅ **100% Safe** - Disabled revisions, newer versions active  
+**Impact:** ~297MB  
+**Priority:** **MEDIUM-HIGH**
+
+#### 6. Rotate System Logs - **~196MB** ⭐
+**Location:** `/var/log/` (263MB total)
+
+**Why it's safe:**
+- System logs grow over time
+- Rotation keeps recent logs, archives old ones
+- Standard Ubuntu maintenance
+
+**Commands:**
+```bash
+# Rotate logs (recommended)
+sudo logrotate -f /etc/logrotate.conf
+
+# Or truncate if rotation doesn't help
+sudo truncate -s 0 /var/log/syslog
+sudo truncate -s 0 /var/log/kern.log
+
+# Clean old journal logs
+sudo journalctl --vacuum-time=30d  # Keep last 30 days
+sudo journalctl --vacuum-size=100M  # Or limit to 100MB
+```
+
+**Risk:** ✅ **Safe** - Logs regenerate, old logs archived  
+**Impact:** ~196MB  
+**Priority:** **MEDIUM**
+
+#### 7. Clean Old ROS Logs - **~50-60MB** ⭐
+**Location:** `~/.ros/log/` (currently 75MB)
+
+**Why it's safe:**
+- ROS logs accumulate over time
+- Keep last 7 days for debugging
+
+**Command:**
+```bash
+find ~/.ros/log -name "*.log" -mtime +7 -delete
+```
+
+**Risk:** ✅ **Safe** - Keeps last 7 days  
+**Impact:** ~50-60MB  
+**Priority:** **MEDIUM**
+
+#### 8. Remove Old Crash Reports - **14MB** ⭐
+**Location:** `/var/crash/` (14MB)
+
+**What it is:**
+- Application crash dumps from December 12-13, 2025
+- Files: ROS2 crashes and Python crash
+- Used for debugging but not needed if issues are resolved
+
+**Commands:**
+```bash
+# List crash files
+ls -lh /var/crash/
+
+# Remove old crash reports
+sudo rm -f /var/crash/*.crash
+```
+
+**Risk:** ✅ **Safe** - Old crash dumps, not needed unless debugging  
+**Impact:** 14MB  
+**Priority:** **MEDIUM**
+
+#### 9. Vacuum System Journal Logs - **~20-30MB** ⭐
+**Location:** System journal (currently 40MB)
+
+**Why it's safe:**
+- systemd journal logs (system and application logs)
+- Can be reduced to keep only recent logs
+- Standard Ubuntu maintenance
+
+**Commands:**
+```bash
+# Check current journal size
+journalctl --disk-usage
+
+# Vacuum to keep last 30 days (or 100MB)
+sudo journalctl --vacuum-time=30d
+# OR
+sudo journalctl --vacuum-size=100M
+```
+
+**Risk:** ✅ **Safe** - Standard log rotation  
+**Impact:** ~20-30MB (reducing from 40MB to 10-20MB)  
+**Priority:** **MEDIUM**
+
+#### 10. Clean Old VSCode Server Logs - **~3MB** ⭐
+**Location:** `~/.vscode-server/data/logs/`
+
+**Why it's safe:**
+- Old logs from December 9-11, 2025
+- Not needed for current debugging
+
+**Command:**
+```bash
+# Remove logs older than 7 days
+find ~/.vscode-server/data/logs -type d -mtime +7 -exec rm -rf {} + 2>/dev/null
+```
+
+**Risk:** ✅ **Safe** - Old logs, not needed for debugging  
+**Impact:** ~3MB  
+**Priority:** **LOW**
+
+#### 11. Purge Removed Package Configs - **~1-5MB** ⭐
+**Location:** System-wide (6 packages with "rc" status)
+
+**What it is:**
+- Packages marked as "rc" (removed but config files remain)
+- Config files left behind after package removal
+- Packages: dctrl-tools, grub-common, libsane-hpaio, oem-config, oem-config-gtk, ssl-cert
+
+**Commands:**
+```bash
+# List removed packages with configs
+dpkg -l | grep "^rc"
+
+# Purge all removed package configs
+sudo apt-get purge -y $(dpkg -l | grep "^rc" | awk '{print $2}')
+```
+
+**Risk:** ✅ **Safe** - Already removed packages, just cleaning configs  
+**Impact:** ~1-5MB (minimal, but good housekeeping)  
+**Priority:** **LOW**
+
+### ⚠️ Medium Priority (Verify Before Removal)
+
+#### 12. OTA Update Packages - **343MB** ⚠️
+**Location:** `/opt/ota_package/`
+
+**Note:** These may be needed for future Jetson OTA updates. Verify if system updates are complete before removing.
+
+**Commands:**
+```bash
+# Check what's in there
+ls -lh /opt/ota_package/
+
+# If no longer needed (verify first!)
+sudo rm -rf /opt/ota_package/*
+```
+
+**Risk:** ⚠️ **Moderate** - May be needed for system updates  
+**Impact:** 343MB  
+**Priority:** **MEDIUM** (after verification)
+
+### 📦 Archive to USB (Then Remove from Disk)
+
+#### 13. Archive Documentation Photos - **15MB**
+**Locations:**
+- `~/dev/r2d2/docs/photos/` (15MB)
+- `~/dev/r2d2/_ANALYSIS_AND_DOCUMENTATION/` (424KB)
+
+**Action:** Archive to USB, then optionally remove from disk if no longer needed for reference
+
+**Commands:**
+```bash
+USB_ARCHIVE=/media/severin/DAEA-DEBB/r2d2_archive
+mkdir -p $USB_ARCHIVE/docs
+cp -r ~/dev/r2d2/docs/photos $USB_ARCHIVE/docs/
+cp -r ~/dev/r2d2/_ANALYSIS_AND_DOCUMENTATION $USB_ARCHIVE/analysis/
+
+# Then remove from disk (if archived)
+rm -rf ~/dev/r2d2/docs/photos/*
+```
+
+**Risk:** ✅ **Safe** - Documentation can be archived  
+**Impact:** 15MB  
+**Priority:** **LOW**
+
+#### 14. Clean Old Debug Images - **~1MB**
+**Locations:**
+- `~/dev/r2d2/tests/camera/*.jpg`
+- `~/dev/r2d2/debug_frame.jpg`
+- `~/dev/r2d2/oak_d_photo.jpg`
+
+**Action:** Archive or remove old test/debug images
+
+**Commands:**
+```bash
+# Archive first (optional)
+USB_ARCHIVE=/media/severin/DAEA-DEBB/r2d2_archive
+mkdir -p $USB_ARCHIVE/test_images
+cp ~/dev/r2d2/tests/camera/*.jpg $USB_ARCHIVE/test_images/
+cp ~/dev/r2d2/debug_frame.jpg ~/dev/r2d2/oak_d_photo.jpg $USB_ARCHIVE/test_images/
+
+# Then remove (if archived)
+rm ~/dev/r2d2/debug_frame.jpg ~/dev/r2d2/oak_d_photo.jpg
+find ~/dev/r2d2/tests/camera -name "*debug*.jpg" -o -name "*test*.jpg" -delete
+```
+
+**Risk:** ✅ **Safe** - Test images can be regenerated  
+**Impact:** ~1MB  
+**Priority:** **LOW**
+
+#### 15. Remove Duplicate Audio Files - **~36KB**
+**Location:** `~/Voicy_R2-D2 - {2,3,5}.mp3`
+
+**Note:** These already exist in project at `~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
+
+**Command:**
+```bash
+rm ~/Voicy_R2-D2*.mp3
+```
+
+**Risk:** ✅ **Safe** - Duplicates exist in project  
+**Impact:** 36KB  
+**Priority:** **LOW**
+
+---
+
+## Cleanup Summary by Impact
+
+### Immediate Safe Cleanup (Highest Priority)
+1. Remove old GNOME snap: **~1.7GB** ⭐⭐⭐
+2. Clean APT package cache: **416MB** ⭐⭐
+3. Clean APT package lists: **298MB** ⭐⭐
+4. Clean VSCode Copilot index: **601MB** ⭐⭐
+5. Remove disabled snap revisions: **~297MB** ⭐
+6. Rotate system logs: **~196MB** ⭐
+7. Clean old ROS logs: **~50-60MB** ⭐
+8. Remove crash reports: **14MB** ⭐
+9. Vacuum journal logs: **~20-30MB** ⭐
+10. Clean VSCode logs: **~3MB** ⭐
+11. Purge removed configs: **~1-5MB** ⭐
+
+**Total Immediate Safe Cleanup: ~3.7GB**
+
+### After Verification
+- Remove OTA packages (if not needed): **343MB**
+
+### Archive to USB (Then Remove)
+- Documentation photos: **15MB**
+- Test/debug images: **1MB**
+- Duplicate audio files: **36KB**
+
+### Grand Total Potential
+**~4.0GB additional space recovery possible**
+
+---
+
+## System Directories Analysis
+
+### Required Directories (DO NOT DELETE)
+
+- **`/opt/nvidia/`** - 2.4GB - NVIDIA drivers (required for Jetson)
+- **`/opt/ros/`** - 283MB - ROS installation (required)
+- **`/snap/`** - 5.9GB - Snap packages (required, normal size)
+- **`/usr/local/cuda-12.6/`** - 4.4GB - CUDA installation (required for Jetson)
+- **`~/.local/share/`** - Virtual environments and model files (required)
+- **`~/dev/r2d2/r2d2_speech_env/`** - 1.3GB - Python virtual environment (required)
+- **`~/depthai_env/`** - 1.5GB - Python virtual environment (required)
+- **`~/dev/r2d2/.git/`** - 361MB - Git repository (required)
+- **`~/.vscode-server/`** - 1.7GB - VSCode Server (required for remote development)
+- **`~/.cursor-server/`** - 433MB - Cursor Server (required for IDE)
+
+### Cache Directories (Can Clean Regularly)
+
+- **`/var/cache/apt/`** - 416MB - APT package cache (safe to clean)
+- **`/var/lib/apt/lists/`** - 298MB - APT package lists (safe to clean)
+- **`~/.cache/pip/`** - 208MB - Python pip cache (safe to clean, was 478MB)
+- **`~/.cache/torch/`** - Variable - PyTorch cache (safe to clean)
+- **`~/.cache/epiphany/`** - Variable - Browser cache (safe to clean)
+- **`~/.cache/huggingface/`** - Variable - Model cache (safe to clean, re-downloads)
+
+### Log Directories (Can Rotate/Clean)
+
+- **`/var/log/`** - 263MB - System logs (can rotate)
+- **`~/.ros/log/`** - 75MB - ROS logs (can clean old)
+- **Journal logs** - 40MB - systemd journal (can vacuum)
+- **`/var/crash/`** - 14MB - Crash reports (can remove old)
+
+### Snap Directories (Can Clean Old Revisions)
+
+- **`/snap/gnome-42-2204/`** - 1.2GB - Old GNOME snap (can remove, newer version active)
+- **`/var/lib/snapd/snaps/gnome-42-2204_228.snap`** - 494MB - Old revision
+- **`/var/lib/snapd/snaps/firefox_7421.snap`** - 235MB - Disabled revision
+- **`/var/lib/snapd/snaps/core24_1226.snap`** - 62MB - Disabled revision
 
 ---
 
@@ -94,7 +489,18 @@ sudo apt-get autoremove
 
 **Why:** APT caches downloaded .deb files. Safe to remove, re-downloads on next install.
 
-#### 2. Rotate System Logs (Recommended: Monthly)
+#### 2. Clean APT Package Lists (Recommended: Monthly)
+**Space Potential:** ~250-300MB
+
+```bash
+# Clean package lists
+sudo rm -rf /var/lib/apt/lists/*
+sudo apt update  # Regenerates lists
+```
+
+**Why:** Package lists are regenerated on `apt update`. Safe to clean.
+
+#### 3. Rotate System Logs (Recommended: Monthly)
 **Space Potential:** ~150-200MB
 
 ```bash
@@ -115,7 +521,7 @@ sudo journalctl --vacuum-size=100M  # Or limit to 100MB
 
 **Why:** System logs grow over time. Rotation keeps recent logs, archives old ones.
 
-#### 3. Clean User Caches (Recommended: Monthly)
+#### 4. Clean User Caches (Recommended: Monthly)
 **Space Potential:** ~100-200MB
 
 ```bash
@@ -131,7 +537,23 @@ pip cache purge
 find ~/.ros/log -name "*.log" -mtime +7 -delete
 ```
 
-#### 4. Git Repository Maintenance (Recommended: Quarterly)
+#### 5. Clean Old Snap Revisions (Recommended: Quarterly)
+**Space Potential:** Variable (can be 1GB+)
+
+```bash
+# List all snap revisions
+snap list --all
+
+# Remove old revisions (keep only active)
+sudo snap remove --revision=<OLD_REV> <SNAP_NAME>
+
+# Set system to keep fewer revisions
+sudo snap set system refresh.retain=2  # Keep only 2 revisions
+```
+
+**Why:** Snap keeps old revisions for rollback. Remove if not needed.
+
+#### 6. Git Repository Maintenance (Recommended: Quarterly)
 **Space Potential:** Variable (optimization, not necessarily space recovery)
 
 ```bash
@@ -142,193 +564,6 @@ git gc --prune=now
 ```
 
 **Why:** Keeps repository optimized, consolidates objects.
-
----
-
-## Remaining Cleanup Opportunities
-
-### High Priority (Safe, Significant Impact)
-
-#### 1. Remove Archived Backups from Disk (371MB) ⭐
-**Location:** `~/backups/`
-**Status:** Already archived to USB at `/media/severin/DAEA-DEBB/r2d2_archive/backups/`
-
-```bash
-# Verify USB archive exists and is complete
-ls -lh /media/severin/DAEA-DEBB/r2d2_archive/backups/
-
-# If verified, remove from disk
-rm -rf ~/backups/*
-```
-
-**Risk:** ✅ Safe - files are backed up on USB  
-**Impact:** 371MB
-
-#### 2. Clean APT Package Cache (416MB) ⭐
-**Location:** `/var/cache/apt/`
-
-```bash
-sudo apt clean
-```
-
-**Risk:** ✅ Safe - packages re-download on next install  
-**Impact:** 416MB
-
-#### 3. Rotate System Logs (196MB) ⭐
-**Location:** `/var/log/`
-
-```bash
-# Rotate logs (recommended)
-sudo logrotate -f /etc/logrotate.conf
-
-# Or truncate if rotation doesn't help
-sudo truncate -s 0 /var/log/syslog
-sudo truncate -s 0 /var/log/kern.log
-```
-
-**Risk:** ✅ Safe - logs regenerate, old logs archived  
-**Impact:** 196MB
-
-#### 4. Remove Duplicate Piper TTS Models (191MB) ⚠️
-**Locations:**
-- `~/.local/share/piper-tts/` (191MB)
-- `~/.local/share/piper_tts/` (191MB)
-
-**Action Required:** First verify which directory path is used in code, then remove duplicate
-
-```bash
-# Find which path is referenced
-grep -r "piper-tts\|piper_tts" ~/dev/r2d2/r2d2_speech --include="*.py"
-
-# Once verified, remove the unused directory
-# (Keep the one that's actually used)
-```
-
-**Risk:** ⚠️ Moderate - must verify which is used first  
-**Impact:** 191MB
-
-### Medium Priority (Verify Before Removal)
-
-#### 5. OTA Update Packages (343MB) ⚠️
-**Location:** `/opt/ota_package/`
-
-**Note:** These may be needed for future Jetson OTA updates. Verify if system updates are complete before removing.
-
-```bash
-# Check what's in there
-ls -lh /opt/ota_package/
-
-# If no longer needed (verify first!)
-sudo rm -rf /opt/ota_package/*
-```
-
-**Risk:** ⚠️ Moderate - may be needed for system updates  
-**Impact:** 343MB
-
-#### 6. Archive Documentation to USB (~15MB)
-**Locations:**
-- `~/dev/r2d2/docs/photos/` (15MB)
-- `~/dev/r2d2/_ANALYSIS_AND_DOCUMENTATION/` (340KB)
-
-**Action:** Archive to USB, then optionally remove from disk if no longer needed for reference
-
-```bash
-USB_ARCHIVE=/media/severin/DAEA-DEBB/r2d2_archive
-mkdir -p $USB_ARCHIVE/docs
-cp -r ~/dev/r2d2/docs/photos $USB_ARCHIVE/docs/
-cp -r ~/dev/r2d2/_ANALYSIS_AND_DOCUMENTATION $USB_ARCHIVE/analysis/
-```
-
-**Risk:** ✅ Safe - documentation can be archived  
-**Impact:** 15MB
-
-### Low Priority (Small Impact, But Easy)
-
-#### 7. Remove Duplicate Audio Files (~36KB)
-**Location:** `~/Voicy_R2-D2 - {2,3,5}.mp3`
-
-**Note:** These already exist in project at `~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
-
-```bash
-rm ~/Voicy_R2-D2*.mp3
-```
-
-**Risk:** ✅ Safe - duplicates exist in project  
-**Impact:** 36KB
-
-#### 8. Clean Old Debug Images (~1MB)
-**Locations:**
-- `~/dev/r2d2/tests/camera/*.jpg`
-- `~/dev/r2d2/debug_frame.jpg`
-- `~/dev/r2d2/oak_d_photo.jpg`
-
-**Action:** Archive or remove old test/debug images
-
-```bash
-# Archive first (optional)
-USB_ARCHIVE=/media/severin/DAEA-DEBB/r2d2_archive
-mkdir -p $USB_ARCHIVE/test_images
-cp ~/dev/r2d2/tests/camera/*.jpg $USB_ARCHIVE/test_images/
-cp ~/dev/r2d2/debug_frame.jpg ~/dev/r2d2/oak_d_photo.jpg $USB_ARCHIVE/test_images/
-
-# Then remove (if archived)
-rm ~/dev/r2d2/debug_frame.jpg ~/dev/r2d2/oak_d_photo.jpg
-find ~/dev/r2d2/tests/camera -name "*debug*.jpg" -o -name "*test*.jpg" -delete
-```
-
-**Risk:** ✅ Safe - test images can be regenerated  
-**Impact:** ~1MB
-
----
-
-## System Directories Analysis
-
-### Required Directories (DO NOT DELETE)
-
-- **`/opt/nvidia/`** - 2.4GB - NVIDIA drivers (required for Jetson)
-- **`/opt/ros/`** - 283MB - ROS installation (required)
-- **`/snap/`** - 5.9GB - Snap packages (required, normal size)
-- **`~/.local/share/`** - Virtual environments and model files (required)
-- **`~/dev/r2d2/r2d2_speech_env/`** - 1.3GB - Python virtual environment (required)
-- **`~/depthai_env/`** - 1.5GB - Python virtual environment (required)
-- **`~/dev/r2d2/.git/`** - 361MB - Git repository (required)
-
-### Cache Directories (Can Clean Regularly)
-
-- **`/var/cache/apt/`** - 416MB - APT package cache (safe to clean)
-- **`~/.cache/pip/`** - ~2MB - Python pip cache (safe to clean)
-- **`~/.cache/torch/`** - Variable - PyTorch cache (safe to clean)
-- **`~/.cache/epiphany/`** - Variable - Browser cache (safe to clean)
-- **`~/.cache/huggingface/`** - Variable - Model cache (safe to clean, re-downloads)
-
-### Log Directories (Can Rotate/Clean)
-
-- **`/var/log/`** - 202MB - System logs (can rotate)
-- **`~/.ros/log/`** - ~77MB - ROS logs (can clean old)
-- **Journal logs** - 24MB - systemd journal (can vacuum)
-
----
-
-## Cleanup Summary by Impact
-
-### Immediate Safe Cleanup (Available Now)
-- Remove archived backups from disk: **371MB**
-- Clean APT cache: **416MB**
-- Rotate system logs: **196MB**
-- **Total: ~983MB (~1GB)**
-
-### After Verification
-- Remove duplicate Piper TTS: **191MB**
-- Remove OTA packages (if not needed): **343MB**
-- **Total: ~534MB**
-
-### Archive to USB (Then Remove from Disk)
-- Documentation photos: **15MB**
-- Test/debug images: **1MB**
-- **Total: ~16MB**
-
-### Grand Total Potential
-**~1.5GB additional space recovery possible**
 
 ---
 
@@ -348,6 +583,11 @@ echo "Cleaning APT cache..."
 sudo apt clean
 echo ""
 
+# Clean APT package lists
+echo "Cleaning APT package lists..."
+sudo rm -rf /var/lib/apt/lists/*
+echo ""
+
 # Clean pip cache
 echo "Cleaning pip cache..."
 pip cache purge 2>/dev/null || echo "pip cache already clean"
@@ -361,6 +601,11 @@ echo ""
 # Clean browser caches
 echo "Cleaning browser caches..."
 rm -rf ~/.cache/epiphany 2>/dev/null
+echo ""
+
+# Vacuum journal logs
+echo "Vacuuming journal logs..."
+sudo journalctl --vacuum-time=30d
 echo ""
 
 # Show disk usage
@@ -377,11 +622,12 @@ df -h /home/severin | tail -1
 - Virtual environments are required - never delete
 - Git repository size is normal for active projects
 - Regular maintenance prevents disk space issues
+- Old snap revisions are kept for rollback capability, but removing them is safe if you don't need rollback
+- VSCode Server cache can be safely removed - extensions and settings remain intact
+- APT lists and cache are regenerated automatically on next update/install
 
 ---
 
 ## Last Updated
 
-December 17, 2025
-
-
+December 17, 2025 - Comprehensive analysis completed, all cleanup opportunities documented and ordered by impact.
