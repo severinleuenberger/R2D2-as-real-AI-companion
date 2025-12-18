@@ -74,16 +74,16 @@ graph TB
     end
     
     subgraph Topics [ROS2 Topics - Data Flow]
-        T1[/oak/rgb/image_raw<br/>sensor_msgs/Image 30Hz]
-        T2[/r2d2/perception/person_id<br/>String 6.5Hz]
-        T3[/r2d2/perception/gesture_event<br/>String Event]
-        T4[/r2d2/audio/person_status<br/>String JSON 10Hz]
-        T5[/r2d2/speech/session_status<br/>String JSON On-change]
+        T1["Topic: /oak/rgb/image_raw<br/>Type: sensor_msgs/Image<br/>Rate: 30Hz"]
+        T2["Topic: /r2d2/perception/person_id<br/>Type: String<br/>Rate: 6.5Hz"]
+        T3["Topic: /r2d2/perception/gesture_event<br/>Type: String<br/>Rate: Event"]
+        T4["Topic: /r2d2/audio/person_status<br/>Type: String JSON<br/>Rate: 10Hz"]
+        T5["Topic: /r2d2/speech/session_status<br/>Type: String JSON<br/>Rate: On-change"]
     end
     
     subgraph Services [ROS2 Services - Control Flow]
-        Svc1[/r2d2/speech/start_session<br/>Trigger]
-        Svc2[/r2d2/speech/stop_session<br/>Trigger]
+        Svc1["Service: /r2d2/speech/start_session<br/>Type: Trigger"]
+        Svc2["Service: /r2d2/speech/stop_session<br/>Type: Trigger"]
     end
     
     Camera --> CameraNode
