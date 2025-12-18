@@ -178,9 +178,14 @@ sudo systemctl enable freeze-monitor
 **Auto-start:** Enabled (starts on boot)
 
 **Baseline Metrics:**
-- Memory: 6% used (~1.9GB / 7.5GB)
+- Memory: 6-7% used (~1.9GB / 7.5GB)
 - CPU Load: 0.7-0.8 (1-minute average)
-- Temperature: 41-42°C (normal operating temp)
+- Temperature: 34-42°C (normal operating temp)
+- Disk Usage: 91% (as of Dec 18, 2025)
+
+**Audio Warning:**
+- R2-D2 sound plays when disk usage ≥ 92%
+- Throttled to once per hour to prevent spam
 
 ---
 

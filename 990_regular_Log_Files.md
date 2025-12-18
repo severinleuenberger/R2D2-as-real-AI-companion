@@ -25,11 +25,17 @@ The R2D2 system uses multiple logging mechanisms for different purposes. This do
 ### Log Files
 | File | Content | Check First |
 |------|---------|-------------|
-| `summary.log` | Quick overview with timestamps | ✅ Yes |
+| `summary.log` | Quick overview with timestamps, disk warnings | ✅ Yes |
 | `hardware.log` | Tegrastats, temperatures, power | After summary |
 | `kernel.log` | Kernel messages and errors | If hardware issues |
 | `system.log` | Memory, CPU, I/O, uptime | For resource issues |
 | `processes.log` | Top processes by CPU/memory | For runaway processes |
+
+### Audio Warnings
+- **Threshold:** ≥ 92% disk usage
+- **Sound:** R2-D2 warning (`/usr/local/share/r2d2/sounds/disk_warning.mp3`)
+- **Frequency:** Once per hour (throttled)
+- **Log Entry:** `⚠️ DISK SPACE WARNING: XX% used!` in summary.log
 
 ### Retention
 - **Rotation:** Daily or at 100MB per file
@@ -44,11 +50,12 @@ The R2D2 system uses multiple logging mechanisms for different purposes. This do
 tail -f /var/log/freeze_logs/summary.log
 ```
 
-**After a freeze (quick analysis):**
+**After a freeze or disk warning:**
 ```bash
-tail -100 /var/log/freeze_logs/summary.log
+tail -100 /var/log/freeze_logs/summary.log  # Check for warnings
 tail -50 /var/log/freeze_logs/hardware.log
 tail -50 /var/log/freeze_logs/kernel.log
+grep "DISK SPACE WARNING" /var/log/freeze_logs/summary.log  # Find all disk warnings
 ```
 
 **Check service status:**
