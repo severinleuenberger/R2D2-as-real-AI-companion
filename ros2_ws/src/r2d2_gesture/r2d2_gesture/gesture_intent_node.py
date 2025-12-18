@@ -58,6 +58,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('auto_shutdown_timeout_seconds', 300.0)  # 5 minutes
         self.declare_parameter('auto_restart_on_return', False)
         self.declare_parameter('audio_feedback_enabled', True)
+        self.declare_parameter('speaking_protection_seconds', 35.0)  # Consecutive non-RED during SPEAKING
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value
@@ -67,6 +68,7 @@ class GestureIntentNode(Node):
         self.auto_shutdown_timeout = self.get_parameter('auto_shutdown_timeout_seconds').value
         self.auto_restart_on_return = self.get_parameter('auto_restart_on_return').value
         self.audio_feedback_enabled = self.get_parameter('audio_feedback_enabled').value
+        self.speaking_protection_timeout = self.get_parameter('speaking_protection_seconds').value
         
         # Audio feedback paths
         audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
@@ -79,6 +81,12 @@ class GestureIntentNode(Node):
         self.last_trigger_time = 0.0
         self.last_red_status_time = None  # Watchdog: time when RED status last seen
         self.auto_shutdown_triggered = False  # Watchdog: flag to prevent repeated shutdowns
+        
+        # SPEAKING state tracking (conversation protection)
+        self.speaking_state = "idle"  # "idle" or "speaking"
+        self.speaking_start_time = None
+        self.consecutive_nonred_start_time = None
+        self.last_red_in_speaking_time = None
         
         # Create subscriptions
         self.gesture_sub = self.create_subscription(
@@ -126,6 +134,7 @@ class GestureIntentNode(Node):
             f'auto_restart={self.auto_restart_on_return}'
         )
         self.get_logger().info(f'Audio feedback: {self.audio_feedback_enabled}')
+        self.get_logger().info(f'SPEAKING protection: {self.speaking_protection_timeout}s consecutive non-RED')
     
     def person_status_callback(self, msg):
         """
@@ -142,6 +151,10 @@ class GestureIntentNode(Node):
             # Log status changes
             if old_status != self.person_status:
                 self.get_logger().info(f'👤 Person status: {old_status} → {self.person_status}')
+                
+                # Update SPEAKING state protection if conversation active
+                if self.speaking_state == "speaking":
+                    self._update_speaking_protection(self.person_status)
             
             # Watchdog: Handle RED status for auto-restart
             if self.auto_shutdown_enabled and self.person_status == "red":
@@ -231,9 +244,9 @@ class GestureIntentNode(Node):
                 )
                 return
             
-            # Trigger start session
+            # Trigger start session - Enter SPEAKING state
             self.get_logger().info('🤚 Index finger up detected → Starting conversation')
-            self._start_session()
+            self._enter_speaking_state()
             self.last_trigger_time = current_time
         
         elif gesture_name == "fist":
@@ -248,9 +261,9 @@ class GestureIntentNode(Node):
                 )
                 return
             
-            # Trigger stop session
+            # Trigger stop session - Exit SPEAKING state
             self.get_logger().info('✊ Fist detected → Stopping conversation')
-            self._stop_session()
+            self._exit_speaking_state(reason="user_fist_gesture")
             self.last_trigger_time = current_time
         else:
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')

@@ -86,8 +86,7 @@ class AudioNotificationNode(Node):
         self.declare_parameter('target_person', 'severin')
         self.declare_parameter('audio_volume', 0.05)       # 0.0-1.0 (audio file volume) - 5% volume (subtle)
         self.declare_parameter('alsa_device', 'hw:1,0')    # ALSA device for audio output (e.g., hw:1,0)
-        self.declare_parameter('jitter_tolerance_seconds', 5.0)  # Brief gap tolerance
-        self.declare_parameter('loss_confirmation_seconds', 15.0) # Loss confirmation window duration
+        self.declare_parameter('red_status_timeout_seconds', 15.0)  # Simple 15s timeout, resets on recognition
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
         self.declare_parameter('recognition_cooldown_after_loss_seconds', 5.0)  # Quiet period after loss alert
         self.declare_parameter('recognition_audio_file', 'Voicy_R2-D2 - 2.mp3')  # Recognition alert audio
@@ -98,21 +97,17 @@ class AudioNotificationNode(Node):
         self.target_person = self.get_parameter('target_person').value
         self.audio_volume = self.get_parameter('audio_volume').value
         self.alsa_device = self.get_parameter('alsa_device').value
-        self.jitter_tolerance = self.get_parameter('jitter_tolerance_seconds').value
-        self.loss_confirmation = self.get_parameter('loss_confirmation_seconds').value
+        self.red_status_timeout = self.get_parameter('red_status_timeout_seconds').value
         self.cooldown_seconds = self.get_parameter('cooldown_seconds').value
         self.recognition_cooldown_after_loss = self.get_parameter('recognition_cooldown_after_loss_seconds').value
         recognition_audio_filename = self.get_parameter('recognition_audio_file').value
         loss_audio_filename = self.get_parameter('loss_audio_file').value
         self.enabled = self.get_parameter('enabled').value
         
-        # Enhanced state tracking
-        self.is_currently_recognized = False  # True if logically "recognized" (tolerates brief gaps)
-        self.last_recognition_time: Optional[float] = None  # Last time saw target person
-        self.loss_jitter_exceeded_time: Optional[float] = None  # When jitter tolerance was first exceeded
+        # Simplified state tracking - 15s reset timer
+        self.last_recognition_time: Optional[float] = None  # Last time saw target person (resets 15s timer)
         self.last_recognition_beep_time: Optional[float] = None  # Cooldown for recognition beeps
-        self.last_loss_beep_time: Optional[float] = None  # Cooldown for loss beeps (after 15s confirmation)
-        self.loss_alert_time: Optional[float] = None  # When loss alert was triggered (for quiet period)
+        self.last_loss_beep_time: Optional[float] = None  # Cooldown for loss beeps
         
         # Status tracking (for LED, STT-LLM-TTS, database)
         self.current_status = "blue"  # "red" (recognized) | "blue" (lost) | "green" (unknown)
@@ -227,8 +222,7 @@ class AudioNotificationNode(Node):
             f"  Loss audio: {self.loss_audio.name}\n"
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  ALSA device: {self.alsa_device}\n"
-            f"  Jitter tolerance: {self.jitter_tolerance}s (brief gap tolerance)\n"
-            f"  Loss confirmation: {self.loss_confirmation}s (confirmation window after jitter)\n"
+            f"  RED status timeout: {self.red_status_timeout}s (simple timer, resets on recognition)\n"
             f"  Alert cooldown: {self.cooldown_seconds}s (min between alerts)\n"
             f"  Recognition cooldown after loss: {self.recognition_cooldown_after_loss}s (quiet period after loss alert)\n"
             f"  Enabled: {self.enabled}\n"
@@ -237,108 +231,57 @@ class AudioNotificationNode(Node):
     
     def person_callback(self, msg: String):
         """
-        Handle person_id messages from face recognition.
+        Handle person_id messages - SIMPLIFIED 15-second timeout logic.
         
-        Args:
-            msg: String message containing person name or "unknown"
+        Rule: If target_person recognized, reset 15s timer.
+        If timer expires (15s without recognition), switch to BLUE.
         """
         person_id = msg.data
         current_time = time.time()
         
-        # #region agent log
-        _debug_log('audio_notification_node.py:196', 'person_callback called', {
-            'person_id': person_id,
-            'current_time': current_time,
-            'is_currently_recognized': self.is_currently_recognized,
-            'last_recognition_time': self.last_recognition_time,
-            'current_status': self.current_status,
-            'current_person': self.current_person
-        }, 'A')
-        # #endregion
-        
         if not self.enabled:
             return
         
-        is_target_recognized = (person_id == self.target_person)
-        
-        if is_target_recognized:
-            # Target person detected
-            self.last_recognition_time = current_time
+        if person_id == self.target_person:
+            # Target person recognized - RESET 15s countdown timer
+            was_red = (self.current_status == "red")
+            self.last_recognition_time = current_time  # ← KEY: Reset timer
             
-            # Check if we're in the quiet period after a loss alert
-            in_quiet_period = False
-            if self.loss_alert_time is not None:
-                time_since_loss_alert = current_time - self.loss_alert_time
-                if time_since_loss_alert < self.recognition_cooldown_after_loss:
-                    in_quiet_period = True
-            
-            if not self.is_currently_recognized:
-                # Only transition to RECOGNIZED if NOT in quiet period
-                if not in_quiet_period:
-                    # Transition: LOST/UNKNOWN → RECOGNIZED (RED)
-                    self.is_currently_recognized = True
-                    self.loss_jitter_exceeded_time = None  # Reset loss timer on re-recognition
-                    self.current_status = "red"
-                    self.current_person = self.target_person
-                    self.status_changed_time = current_time
-                    self.unknown_person_detected = False
-                    self.last_known_state = self.target_person
-                    
-                    # Publish status FIRST (so LED lights up immediately)
-                    self._publish_status("red", self.target_person, confidence=0.95)
-                    
-                    # Then trigger beep
-                    self._trigger_recognition_alert()
-                    self._publish_event(f"🎉 Recognized {self.target_person}!")
-                    self.get_logger().info(f"✓ {self.target_person} recognized!")
-                else:
-                    # In quiet period - stay in BLUE state but update last_recognition_time
-                    # This way if person stays visible after quiet period, we'll transition to RED
-                    self.get_logger().debug(
-                        f"In quiet period ({self.recognition_cooldown_after_loss}s): "
-                        f"suppressing recognition alert for {self.target_person}"
-                    )
-            else:
-                # Already in RECOGNIZED state - just reset timer
-                self.last_recognition_time = current_time
-                # Publish status update (duration keeps updating)
+            if not was_red:
+                # Transition to RED
+                old_status = self.current_status
+                self.current_status = "red"
+                self.current_person = self.target_person
+                self.status_changed_time = current_time
+                self.unknown_person_detected = False
+                
+                # Publish status FIRST
                 self._publish_status("red", self.target_person, confidence=0.95)
+                
+                # Play "Hello!" beep (with cooldown)
+                if self.last_recognition_beep_time is None or \
+                   (current_time - self.last_recognition_beep_time) >= self.cooldown_seconds:
+                    self._play_audio_alert(self.recognition_audio)
+                    self.last_recognition_beep_time = current_time
+                    self._publish_event(f"🎉 Recognized {self.target_person}!")
+                
+                self.get_logger().info(f"✓ {self.target_person} recognized ({old_status} → RED)")
+            else:
+                # Already RED - just reset timer and update duration
+                self._publish_status("red", self.target_person, confidence=0.95)
+                self.get_logger().debug("RED: Timer reset (target_person seen)")
         
         elif person_id == "unknown":
-            # Unknown person detected (not the target)
-            # #region agent log
-            _debug_log('audio_notification_node.py:279', 'Unknown person detected', {
-                'was_recognized': self.is_currently_recognized,
-                'previous_status': self.current_status,
-                'last_recognition_time': self.last_recognition_time,
-                'time_since_recognition': current_time - (self.last_recognition_time or current_time) if self.last_recognition_time else None
-            }, 'B')
-            # #endregion
-            
-            # CRITICAL: If we were in RED state, we need to handle transition properly
-            # The timer will handle loss detection, but we should NOT reset is_currently_recognized here
-            # because we want the timer to detect when we've been away long enough
-            
-            if not self.unknown_person_detected:
-                self.unknown_person_detected = True
+            # Unknown person detected → GREEN status
+            if self.current_status != "green":
                 self.current_status = "green"
                 self.current_person = "unknown"
                 self.status_changed_time = current_time
-                
-                # Publish status
+                self.unknown_person_detected = True
                 self._publish_status("green", "unknown", confidence=0.70)
                 self.get_logger().info("🟢 Unknown person detected")
             else:
-                # Update duration while unknown person present
                 self._publish_status("green", "unknown", confidence=0.70)
-        else:
-            # #region agent log
-            _debug_log('audio_notification_node.py:324', 'Unexpected person_id value', {
-                'person_id': person_id,
-                'current_status': self.current_status,
-                'is_currently_recognized': self.is_currently_recognized
-            }, 'F')
-            # #endregion
     
     def face_count_callback(self, msg: Int32):
         """
@@ -353,7 +296,6 @@ class AudioNotificationNode(Node):
             'face_count': face_count,
             'current_status': self.current_status,
             'current_person': self.current_person,
-            'is_currently_recognized': self.is_currently_recognized,
             'unknown_person_detected': self.unknown_person_detected
         }, 'H')
         # #endregion
@@ -396,87 +338,43 @@ class AudioNotificationNode(Node):
     
     def check_loss_state(self):
         """
-        Timer callback: Check if person has been continuously lost for > loss_confirmation seconds.
+        Timer callback: SIMPLIFIED 15-second timeout check.
         
-        Timing logic:
-        1. Jitter tolerance window (0 to 5s absence): No action - brief gap tolerance
-        2. Loss confirmation window (5s to 20s absence): Monitoring for confirmed loss
-        3. At 20s+ continuous absence: Fire loss alert (with cooldown to prevent spam)
-        
-        Resets when person is re-recognized.
+        If in RED state and no target_person recognized for 15 seconds, switch to BLUE.
+        Runs every 500ms to check timeout.
         """
-        if not self.enabled or not self.is_currently_recognized:
-            # #region agent log
-            _debug_log('audio_notification_node.py:273', 'check_loss_state early return', {
-                'enabled': self.enabled,
-                'is_currently_recognized': self.is_currently_recognized
-            }, 'C')
-            # #endregion
+        if not self.enabled:
             return
         
+        if self.last_recognition_time is None:
+            return  # Never recognized yet, nothing to check
+        
+        if self.current_status != "red":
+            return  # Not in RED state, nothing to timeout
+        
         current_time = time.time()
-        time_since_last_recognition = current_time - (self.last_recognition_time or current_time)
+        time_since_recognition = current_time - self.last_recognition_time
         
-        # #region agent log
-        _debug_log('audio_notification_node.py:277', 'check_loss_state calculation', {
-            'current_time': current_time,
-            'last_recognition_time': self.last_recognition_time,
-            'time_since_last_recognition': time_since_last_recognition,
-            'jitter_tolerance': self.jitter_tolerance,
-            'loss_confirmation': self.loss_confirmation,
-            'loss_jitter_exceeded_time': self.loss_jitter_exceeded_time,
-            'current_status': self.current_status,
-            'current_person': self.current_person
-        }, 'D')
-        # #endregion
-        
-        # STEP 1: Check if jitter tolerance window has been exceeded (5 seconds)
-        if time_since_last_recognition > self.jitter_tolerance:
-            # Person has been absent for > 5 seconds
+        if time_since_recognition > self.red_status_timeout:  # 15 seconds
+            # Timer expired - switch to BLUE
+            self.current_status = "blue"
+            self.current_person = "no_person"
+            self.status_changed_time = current_time
+            self.unknown_person_detected = False
             
-            # Track when jitter tolerance was first exceeded
-            if self.loss_jitter_exceeded_time is None:
-                self.loss_jitter_exceeded_time = current_time
+            # Publish BLUE status
+            self._publish_status("blue", "no_person", confidence=0.0)
             
-            # STEP 2: Check if loss confirmation window has been met
-            # (15 seconds of continuous absence AFTER jitter tolerance exceeded)
-            time_in_loss_window = current_time - self.loss_jitter_exceeded_time
+            # Play "Lost you!" beep (with cooldown)
+            if self.last_loss_beep_time is None or \
+               (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
+                self._play_audio_alert(self.loss_audio)
+                self.last_loss_beep_time = current_time
+                self._publish_event(f"❌ {self.target_person} lost (no recognition for {time_since_recognition:.1f}s)")
             
-            if time_in_loss_window > self.loss_confirmation:
-                # Confirmed loss: Jitter exceeded + 15 seconds confirmed
-                # Check cooldown to prevent spam
-                if self.last_loss_beep_time is None or \
-                   (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                    # #region agent log
-                    _debug_log('audio_notification_node.py:294', 'Loss confirmed - transitioning to BLUE', {
-                        'time_since_last_recognition': time_since_last_recognition,
-                        'time_in_loss_window': time_in_loss_window,
-                        'previous_status': self.current_status,
-                        'previous_person': self.current_person
-                    }, 'E')
-                    # #endregion
-                    
-                    self.is_currently_recognized = False
-                    self.loss_jitter_exceeded_time = None  # Reset for next cycle
-                    self.unknown_person_detected = False
-                    
-                    # Record when loss alert fires (start of quiet period)
-                    self.loss_alert_time = current_time
-                    
-                    # UPDATE STATUS FIRST (so LED lights up immediately)
-                    self.current_status = "blue"
-                    self.current_person = "no_person"
-                    self.status_changed_time = current_time
-                    self._publish_status("blue", "no_person", confidence=0.0)
-                    
-                    # THEN trigger beep
-                    self._trigger_loss_alert()
-                    self.last_loss_beep_time = current_time  # Set loss alert cooldown
-                    self._publish_event(f"❌ {self.target_person} lost (confirmed after {time_since_last_recognition:.1f}s absence)")
-                    self.get_logger().info(
-                        f"✗ {self.target_person} lost (after {time_since_last_recognition:.1f}s absence, "
-                        f"{time_in_loss_window:.1f}s in loss window)"
-                    )
+            self.get_logger().info(
+                f"✗ {self.target_person} lost (timer expired: {time_since_recognition:.1f}s > {self.red_status_timeout}s)"
+            )
     
     def publish_current_status(self):
         """
@@ -532,7 +430,6 @@ class AudioNotificationNode(Node):
             'person_identity': person_identity,
             'confidence': confidence,
             'duration': duration,
-            'is_currently_recognized': self.is_currently_recognized,
             'last_recognition_time': self.last_recognition_time
         }, 'G')
         # #endregion

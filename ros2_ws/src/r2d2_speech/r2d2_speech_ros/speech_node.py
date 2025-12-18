@@ -50,7 +50,7 @@ class SpeechNode(LifecycleNode):
         self.declare_parameter('mic_sample_rate', 24000)
         self.declare_parameter('sink_device', 'default')
         self.declare_parameter('db_path', str(Path.home() / 'dev' / 'r2d2' / 'r2d2_speech' / 'data' / 'conversations.db'))
-        self.declare_parameter('auto_start', True)
+        self.declare_parameter('auto_start', False)  # Wait for gesture trigger
         self.declare_parameter('instructions', 'You are the R2D2 robot from the Star Wars Movie. Speak with a slightly synthetic, system-like delivery. Use short, precise sentences. Fast-paced, efficient cadence. Recognize emotions internally, but keep vocal emotional inflection minimal. Clear, clipped articulation. Avoid unnecessary pauses. Sound efficient and machine-like.')
         
         # State
