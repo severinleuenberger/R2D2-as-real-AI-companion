@@ -4,7 +4,7 @@
     # This file is shared by audio_notification_node and gesture_intent_node
     # for consistent volume control across all audio feedback
     
-    audio_volume: 0.30  # Global volume for all audio feedback (0.0-1.0)
+    audio_volume: 0.02  # Global volume for all audio feedback (0.0-1.0)
                         # 0.0 = silent
                         # 0.05 = 5% (current default - subtle)
                         # 0.3 = 30% (medium)

@@ -84,7 +84,7 @@ class AudioNotificationNode(Node):
         
         # Declare parameters
         self.declare_parameter('target_person', 'severin')
-        self.declare_parameter('audio_volume', 0.30)       # 0.0-1.0 (audio file volume) - 30% volume (from config/audio_params.yaml)
+        self.declare_parameter('audio_volume', 0.02)       # 0.0-1.0 (audio file volume) - 30% volume (from config/audio_params.yaml)
         self.declare_parameter('alsa_device', 'hw:1,0')    # ALSA device for audio output (e.g., hw:1,0)
         self.declare_parameter('red_status_timeout_seconds', 15.0)  # Simple 15s timeout, resets on recognition
         self.declare_parameter('cooldown_seconds', 2.0)   # Min between recognition alerts
