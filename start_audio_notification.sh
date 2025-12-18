@@ -19,21 +19,19 @@ export ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-0}
 # Critical for ARM64 (Jetson AGX Orin)
 export OPENBLAS_CORETYPE=ARMV8
 
-# Launch the audio notification node with optional parameters
+# Launch the audio notification node
+# Centralized config: config/audio_params.yaml (audio_volume: 0.30)
+# Both code default and config file set to 0.30 (30%) for consistency
 # Default parameters:
 #   target_person: severin
-#   audio_volume: 0.3 (30% - audible volume, was 0.05 = 5% too quiet)
+#   audio_volume: 0.30 (30% - set in code and config, can override via audio_volume:=X)
 #   jitter_tolerance_seconds: 5.0
 #   loss_confirmation_seconds: 15.0
 #   recognition_audio_file: Voicy_R2-D2 - 2.mp3
 #   loss_audio_file: Voicy_R2-D2 - 5.mp3
 #
 # Example overrides:
-#   ./start_audio_notification.sh "target_person:=alice" "audio_volume:=0.5"
+#   ./start_audio_notification.sh audio_volume:=0.5
 
-# Set default volume to 0.5 (50%) if not provided via command line
-if [[ "$*" != *"audio_volume"* ]]; then
-    exec python3 -m r2d2_audio.audio_notification_node audio_volume:=0.5 "$@"
-else
-    exec python3 -m r2d2_audio.audio_notification_node "$@"
-fi
+# Run node directly (uses code default 0.30, matches config file)
+exec python3 -m r2d2_audio.audio_notification_node "$@"

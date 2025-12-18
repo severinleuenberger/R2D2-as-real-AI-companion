@@ -58,6 +58,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('auto_shutdown_timeout_seconds', 300.0)  # 5 minutes
         self.declare_parameter('auto_restart_on_return', False)
         self.declare_parameter('audio_feedback_enabled', True)
+        self.declare_parameter('audio_volume', 0.30)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)
         self.declare_parameter('speaking_protection_seconds', 35.0)  # Consecutive non-RED during SPEAKING
         
         # Get parameters
@@ -68,6 +69,7 @@ class GestureIntentNode(Node):
         self.auto_shutdown_timeout = self.get_parameter('auto_shutdown_timeout_seconds').value
         self.auto_restart_on_return = self.get_parameter('auto_restart_on_return').value
         self.audio_feedback_enabled = self.get_parameter('audio_feedback_enabled').value
+        self.audio_volume = self.get_parameter('audio_volume').value
         self.speaking_protection_timeout = self.get_parameter('speaking_protection_seconds').value
         
         # Audio feedback paths
@@ -451,7 +453,8 @@ class GestureIntentNode(Node):
         try:
             # Play audio in background (non-blocking)
             subprocess.Popen(
-                ['ffplay', '-nodisp', '-autoexit', '-v', 'quiet', str(audio_file)],
+                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
+                 '-af', f'volume={self.audio_volume}', str(audio_file)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )

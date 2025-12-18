@@ -17,16 +17,22 @@ Parameters:
     auto_shutdown_timeout_seconds: float (default: 35.0 = 35 seconds)
     auto_restart_on_return: bool (default: false)
     audio_feedback_enabled: bool (default: true)
+    audio_volume: float (default: 0.30)
 """
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     """Generate launch description for gesture intent node."""
+    
+    # Load centralized audio config file (shared with audio_notification_node)
+    config_file = PathJoinSubstitution([
+        FindPackageShare('r2d2_audio'), 'config', 'audio_params.yaml'])
     
     # Declare launch arguments
     cooldown_start_arg = DeclareLaunchArgument(
@@ -71,21 +77,31 @@ def generate_launch_description():
         description='Enable R2D2 beep sounds for start/stop feedback'
     )
     
+    audio_volume_arg = DeclareLaunchArgument(
+        'audio_volume',
+        default_value='0.30',
+        description='Audio volume for gesture beeps (0.0-1.0) - default from config/audio_params.yaml'
+    )
+    
     # Create gesture intent node
     gesture_intent_node = Node(
         package='r2d2_gesture',
         executable='gesture_intent_node',
         name='gesture_intent_node',
         output='screen',
-        parameters=[{
-            'cooldown_start_seconds': LaunchConfiguration('cooldown_start_seconds'),
-            'cooldown_stop_seconds': LaunchConfiguration('cooldown_stop_seconds'),
-            'enabled': LaunchConfiguration('enabled'),
-            'auto_shutdown_enabled': LaunchConfiguration('auto_shutdown_enabled'),
-            'auto_shutdown_timeout_seconds': LaunchConfiguration('auto_shutdown_timeout_seconds'),
-            'auto_restart_on_return': LaunchConfiguration('auto_restart_on_return'),
-            'audio_feedback_enabled': LaunchConfiguration('audio_feedback_enabled'),
-        }]
+        parameters=[
+            config_file,  # Load centralized config (audio_volume)
+            {
+                'cooldown_start_seconds': LaunchConfiguration('cooldown_start_seconds'),
+                'cooldown_stop_seconds': LaunchConfiguration('cooldown_stop_seconds'),
+                'enabled': LaunchConfiguration('enabled'),
+                'auto_shutdown_enabled': LaunchConfiguration('auto_shutdown_enabled'),
+                'auto_shutdown_timeout_seconds': LaunchConfiguration('auto_shutdown_timeout_seconds'),
+                'auto_restart_on_return': LaunchConfiguration('auto_restart_on_return'),
+                'audio_feedback_enabled': LaunchConfiguration('audio_feedback_enabled'),
+                'audio_volume': LaunchConfiguration('audio_volume'),  # Can override config file
+            }
+        ]
     )
     
     return LaunchDescription([
@@ -96,6 +112,7 @@ def generate_launch_description():
         auto_shutdown_timeout_arg,
         auto_restart_arg,
         audio_feedback_arg,
+        audio_volume_arg,
         gesture_intent_node,
     ])
 

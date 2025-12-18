@@ -24,12 +24,17 @@ Usage:
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     """Generate launch description for enhanced audio notification node."""
+    
+    # Load centralized audio config file
+    config_file = PathJoinSubstitution([
+        FindPackageShare('r2d2_audio'), 'config', 'audio_params.yaml'])
     
     return LaunchDescription([
         # Target person
@@ -39,11 +44,11 @@ def generate_launch_description():
             description='Name of person to recognize (should match training data)'
         ),
         
-        # Audio volume
+        # Audio volume (NOTE: default comes from config/audio_params.yaml)
         DeclareLaunchArgument(
             'audio_volume',
-            default_value='0.05',
-            description='Audio volume 0.0-1.0 (0=silent, 0.05=very quiet, 0.5=medium, 1.0=max)'
+            default_value='0.30',
+            description='Audio volume 0.0-1.0 (0=silent, 0.05=very quiet, 0.30=medium, 1.0=max)'
         ),
         
         # ALSA device
@@ -87,14 +92,17 @@ def generate_launch_description():
             executable='audio_notification_node',
             name='audio_notification_node',
             output='screen',
-            parameters=[{
-                'target_person': LaunchConfiguration('target_person'),
-                'audio_volume': LaunchConfiguration('audio_volume'),
-                'alsa_device': LaunchConfiguration('alsa_device'),
-                'jitter_tolerance_seconds': LaunchConfiguration('jitter_tolerance_seconds'),
-                'loss_confirmation_seconds': LaunchConfiguration('loss_confirmation_seconds'),
-                'cooldown_seconds': LaunchConfiguration('cooldown_seconds'),
-                'enabled': LaunchConfiguration('enabled'),
-            }]
+            parameters=[
+                config_file,  # Load centralized config (audio_volume)
+                {
+                    'target_person': LaunchConfiguration('target_person'),
+                    'audio_volume': LaunchConfiguration('audio_volume'),  # Can override config file
+                    'alsa_device': LaunchConfiguration('alsa_device'),
+                    'jitter_tolerance_seconds': LaunchConfiguration('jitter_tolerance_seconds'),
+                    'loss_confirmation_seconds': LaunchConfiguration('loss_confirmation_seconds'),
+                    'cooldown_seconds': LaunchConfiguration('cooldown_seconds'),
+                    'enabled': LaunchConfiguration('enabled'),
+                }
+            ]
         ),
     ])
