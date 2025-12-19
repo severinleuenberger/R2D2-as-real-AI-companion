@@ -1,9 +1,8 @@
 # Internal Agent Notes for R2D2 Project
 
-**Purpose:** Quick reference guide for AI agents working on R2D2. This is FOR AGENTS, not for end users. Users read the 0XX-numbered docs; agents use THIS file to understand context, architecture, and how to work efficiently.
+**Purpose:** Quick reference guide for AI agents working on this R2D2 project. This is FOR AGENTS, not for end users. Users read the 0XX-numbered docs; agents use THIS file to understand context, architecture, and how to work efficiently.
 
-**Last Updated:** December 8, 2025  
-**Audience:** AI agents (Claude), developers who need quick context
+**Audience:** AI agents, developers who need quick context
 
 ---
 
@@ -179,161 +178,17 @@ ros2_ws/src/
 │
 ├── 000_INTERNAL_AGENT_NOTES.md            # This file
 ├── 001_ARCHITECTURE_OVERVIEW.md           # System design
-├── 010_PROJECT_GOALS_AND_SETUP.md         # Project roadmap
-├── 041_CAMERA_SETUP_DOCUMENTATION.md      # Camera setup
-├── 040_FACE_RECOGNITION_COMPLETE.md       # Perception pipeline & Face recognition
-├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio hardware
-├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio ROS2
-│
 ├── README.md                              # Main overview
-├── QUICK_START.md                         # Quick start guide
-├── AUDIO_QUICK_REFERENCE.md               # Audio reference
-│
 └── _ANALYSIS_AND_DOCUMENTATION/           # Analysis & reference
     └── (detailed diagnostic files)
 ```
 
 ---
 
-## Common Development Tasks
-
-### How to Modify Perception Pipeline
-1. Edit: `~/dev/r2d2/ros2_ws/src/r2d2_perception/image_listener.py`
-2. Build: `colcon build --packages-select r2d2_perception`
-3. Source: `source install/setup.bash`
-4. Test: `ros2 launch r2d2_bringup r2d2_camera_perception.launch.py`
-5. Verify: `ros2 topic echo /r2d2/perception/brightness -n 20`
-
-### How to Modify Audio Notifications
-1. Edit: `~/dev/r2d2/ros2_ws/src/r2d2_audio/audio_notification_node.py`
-2. Build: `colcon build --packages-select r2d2_audio`
-3. Restart: `sudo systemctl restart r2d2-audio-notification.service`
-4. Verify: `journalctl -u r2d2-audio-notification.service -f`
-5. Change parameters: `ros2 param set /audio_notification_node <param> <value>`
-
-### How to Add a New ROS 2 Package
-1. Create: `~/dev/r2d2/ros2_ws/src/r2d2_newpackage/`
-2. Add: `package.xml` and `setup.py`
-3. Add: Source files in `r2d2_newpackage/` subdirectory
-4. Build: `colcon build --packages-select r2d2_newpackage`
-5. Launch: Add to appropriate launch file or create new one
-
-### How to Update Audio Files
-1. Copy files: `cp new-audio.mp3 ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
-2. Update code: Edit `audio_notification_node.py` to reference new files
-3. Rebuild: `colcon build --packages-select r2d2_audio`
-4. Restart: `sudo systemctl restart r2d2-audio-notification.service`
-
-### How to Adjust Global Parameters
-**Audio Volume:**
-```bash
-# Temporary (while running)
-ros2 param set /audio_notification_node audio_volume 0.5
-
-# Permanent (edit service)
-sudo nano /etc/systemd/system/r2d2-audio-notification.service
-# Change ExecStart to: audio_volume:=0.5
-sudo systemctl daemon-reload && sudo systemctl restart r2d2-audio-notification.service
-```
-
-**Loss Confirmation Time:**
-```bash
-ros2 param set /audio_notification_node loss_confirmation_seconds 20.0
-```
-
----
-
-## Testing & Validation
-
-### How to Know When It Works
-| Feature | Test Command | Expected Result |
-|---------|--------------|-----------------|
-| Camera | `ros2 topic hz /oak/rgb/image_raw -w 5` | 28-30 Hz |
-| Brightness | `ros2 topic echo /r2d2/perception/brightness -n 5` | Values 0-255, ~13 Hz |
-| Audio Service | `sudo systemctl status r2d2-audio-notification.service` | `active (running)` |
-| Audio Test | `python3 ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/audio_player.py ~/audio.mp3 0.5` | Audio plays |
-| Face Recognition | `ros2 topic echo /r2d2/perception/person_id -n 5` | "severin" or "unknown" |
-
-### Performance Baselines
-| Metric | Good | Problem When |
-|--------|------|-------------|
-| Camera startup | <2 seconds | >5 seconds = check thermal |
-| FPS (perception) | 12-13 Hz | <10 Hz = check CPU |
-| Memory (node) | ~50-60 MB | >200 MB = memory leak |
-| Audio service | active (running) | failed/inactive |
-| Brightness jitter | ±2-3 points | >10 points = lighting change |
-
-### Validation Checklist Before Commit
-- [ ] Code builds: `colcon build --packages-select <pkg>` succeeds
-- [ ] Node runs: `ros2 launch ...` starts without errors
-- [ ] Topics publish: `ros2 topic list` shows expected topics
-- [ ] Data looks good: `ros2 topic echo <topic> -n 5` shows reasonable values
-- [ ] Service works: `sudo systemctl restart ...` succeeds
-- [ ] Logs clean: `journalctl -u ...` shows no errors
-- [ ] Parameters set: `ros2 param get /node <param>` shows correct value
-
----
-
-## Troubleshooting Guide
-
-### Topic Not Found / Not Publishing
-```
-Check: Is the publisher node running?
-  ros2 node list  # Look for publisher node
-  
-Start: Launch the publisher node first
-  ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
-  
-Wait: 1-2 seconds for topics to initialize
-  sleep 2 && ros2 topic list
-```
-
-### "Illegal instruction" Error
-```
-Cause: OpenBLAS on wrong ARM architecture
-
-Fix:
-  export OPENBLAS_CORETYPE=ARMV8
-  # Then retry the command
-  
-Permanent fix: Add to ~/.bashrc
-```
-
-### Build Cache Stale (CMakeError)
-```
-Signs: File not found, CMakeError, mysterious build failures
-
-Fix:
-  rm -rf build install log
-  colcon build --packages-select <package>
-```
-
-### ROS 2 Commands Hung/Not Responding
-```
-Quick fix:
-  pkill -9 -f ros2
-  sleep 2
-  # Retry your command
-```
-
-### Service Not Starting / Failed
-```
-Check: Service status and logs
-  sudo systemctl status r2d2-audio-notification.service
-  journalctl -u r2d2-audio-notification.service -n 20
-
-Common causes:
-  1. Python environment not sourced (check service file)
-  2. Audio file missing (check path in code)
-  3. Port already in use (check other running services)
-  4. Permission denied (check file ownership)
-```
-
----
-
 ## Documentation Standards
 
-### What Gets Documented (In 0XX Files)
+### What Gets Documented (In 0XX_ to 999_ Files)
+✅ All the important main Documentations!
 ✅ User-facing setup and configuration  
 ✅ How to run and test the system  
 ✅ What each parameter does  
@@ -402,13 +257,6 @@ git push origin main    # Push
 - Troubleshooting common issues
 - Documentation management rules
 
-### What to Read in 0XX Files
-- `001_ARCHITECTURE_OVERVIEW.md` - System design
-- `010_PROJECT_GOALS_AND_SETUP.md` - Project roadmap
-- `020-060_*.md` - Feature-specific setup and configuration
-- `050_FREEZE_MONITOR_SYSTEM.md` - System diagnostics and freeze monitoring
-- `QUICK_START.md` - Quick start for users
-
 ### When You're Done Working
 1. Test your changes thoroughly
 2. Validate with checklist above
@@ -417,8 +265,6 @@ git push origin main    # Push
 5. Commit with descriptive message
 6. Push to main branch
 7. Verify on GitHub
-
----
 
 ---
 
