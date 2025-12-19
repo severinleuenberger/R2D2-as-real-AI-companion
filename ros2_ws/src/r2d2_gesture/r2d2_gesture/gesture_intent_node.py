@@ -60,6 +60,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('audio_feedback_enabled', True)
         self.declare_parameter('audio_volume', 0.02)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)
         self.declare_parameter('vad_silence_timeout_seconds', 60.0)  # VAD-based silence timeout (Option 2: VAD-only)
+        self.declare_parameter('speaking_start_grace_seconds', 5.0)  # Grace period after starting conversation to ignore fist gestures
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value
@@ -71,6 +72,7 @@ class GestureIntentNode(Node):
         self.audio_feedback_enabled = self.get_parameter('audio_feedback_enabled').value
         self.audio_volume = self.get_parameter('audio_volume').value
         self.vad_silence_timeout = self.get_parameter('vad_silence_timeout_seconds').value
+        self.speaking_start_grace = self.get_parameter('speaking_start_grace_seconds').value
         
         # Audio feedback paths
         audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
@@ -146,6 +148,7 @@ class GestureIntentNode(Node):
         )
         self.get_logger().info(f'Audio feedback: {self.audio_feedback_enabled}')
         self.get_logger().info(f'VAD-Only Mode: {self.vad_silence_timeout}s silence timeout (Option 2)')
+        self.get_logger().info(f'Speaking grace period: {self.speaking_start_grace}s (ignores fist after start)')
     
     def person_status_callback(self, msg):
         """
@@ -302,6 +305,15 @@ class GestureIntentNode(Node):
                     f'❌ Stop gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_stop}s)'
                 )
                 return
+            
+            # Check speaking start grace period (prevent false positives when lowering hand after start)
+            if self.speaking_state == "speaking" and self.speaking_start_time:
+                time_since_start = (self.get_clock().now() - self.speaking_start_time).nanoseconds / 1e9
+                if time_since_start < self.speaking_start_grace:
+                    self.get_logger().info(
+                        f'✊ Fist ignored: speaking grace period ({time_since_start:.1f}s < {self.speaking_start_grace}s)'
+                    )
+                    return
             
             # Trigger stop session - Exit SPEAKING state
             self.get_logger().info('✊ Fist detected → Stopping conversation')

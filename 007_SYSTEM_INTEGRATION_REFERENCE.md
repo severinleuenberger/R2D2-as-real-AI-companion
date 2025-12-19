@@ -213,8 +213,9 @@ stateDiagram-v2
         Timeout: 60s consecutive silence
         Camera: NOT used for timeout
         Immune to face recognition flickers
-        Fist: Immediate override
+        Fist: Immediate override (with 5s grace)
         Timer: Only counts when user is silent
+        Grace Period: 5s after start (ignores fist)
     end note
 ```
 
@@ -270,6 +271,12 @@ Stop session after 60s silence
 - Adjustable via launch parameter
 - Recommended: 60s for natural conversations
 - Can increase for longer pauses (e.g., 120s for thoughtful discussions)
+
+**Speaking Start Grace Period:** `speaking_start_grace_seconds` (default: 5.0)
+- Prevents false positive fist detections immediately after starting conversation
+- Ignores fist gestures for N seconds after index_finger_up
+- Protects against hand transitional movements being misclassified as "fist"
+- Recommended: 5s (allows natural hand lowering after start gesture)
 
 ---
 

@@ -89,6 +89,12 @@ def generate_launch_description():
         description='VAD-based silence timeout (Option 2: VAD-only approach, default: 60 seconds)'
     )
     
+    speaking_start_grace_arg = DeclareLaunchArgument(
+        'speaking_start_grace_seconds',
+        default_value='5.0',
+        description='Grace period after starting conversation to ignore fist gestures (prevents false positives)'
+    )
+    
     # Create gesture intent node
     gesture_intent_node = Node(
         package='r2d2_gesture',
@@ -107,6 +113,7 @@ def generate_launch_description():
                 'audio_feedback_enabled': LaunchConfiguration('audio_feedback_enabled'),
                 'audio_volume': LaunchConfiguration('audio_volume'),  # Can override config file
                 'vad_silence_timeout_seconds': LaunchConfiguration('vad_silence_timeout_seconds'),
+                'speaking_start_grace_seconds': LaunchConfiguration('speaking_start_grace_seconds'),
             }
         ]
     )
@@ -121,6 +128,7 @@ def generate_launch_description():
         audio_feedback_arg,
         audio_volume_arg,
         vad_silence_timeout_arg,
+        speaking_start_grace_arg,
         gesture_intent_node,
     ])
 
