@@ -1,11 +1,11 @@
 # R2D2 Overall System Map
 ## Complete Architecture Documentation
 
-**Document ID:** 007_OVERALL_SYSTEM_MAP.md  
-**Date:** December 18, 2025  
-**Version:** 2.0 (Updated with simplified RED status and SPEAKING state concepts)  
-**Status:** Current system architecture with analysis-based improvements  
-**Purpose:** Authoritative system map for all developers and operators
+**Document ID:** 007_SYSTEM_INTEGRATION_REFERENCE.md  
+**Date:** December 19, 2025  
+**Version:** 2.1 (Consolidated service/node inventory, enhanced monitoring)  
+**Status:** Authoritative system reference - all service/node info consolidated here  
+**Purpose:** Complete system map for developers, operators, and debugging
 
 ---
 
@@ -467,9 +467,9 @@ sequenceDiagram
 | **gesture_intent_node** | r2d2_gesture | — | /r2d2/perception/gesture_event<br/>/r2d2/audio/person_status<br/>/r2d2/speech/session_status | Client: start_session<br/>Client: stop_session | State Machine (Gating + Watchdog) |
 | **speech_node** | r2d2_speech | /r2d2/speech/user_transcript (Event)<br/>/r2d2/speech/assistant_transcript (Event)<br/>/r2d2/speech/session_status (On-change JSON) | /r2d2/speech/commands<br/>/r2d2/speech/assistant_prompt | Provider: start_session<br/>Provider: stop_session | Lifecycle Node (Unconfigured → Inactive → Active) |
 
-### Layer 3B: Full Service/Node Inventory + “How to Observe It” (Operational View)
+### Layer 3B: Full Service/Node Inventory + "How to Observe It" (Operational View)
 
-This section integrates the complete service + node inventory (previously in `005_SERVICES_AND_NODES.md`) into the system map, and adds the **practical “how do I see it live?”** commands.
+This section provides a practical operational view of all services and nodes, showing what runs continuously, how things are started, and **how to monitor them in real-time**.
 
 #### What runs continuously vs on-demand
 
@@ -530,46 +530,87 @@ sudo journalctl -u r2d2-gesture-intent -f
 sudo journalctl -u r2d2-speech-node -f
 ```
 
-##### 2) Live topic state streams (what the robot “thinks”)
+##### 2) Live topic state streams (what the robot "thinks")
 
-**Recognition (who is present):**
+**A) Person Recognition Stream (who is present):**
 
 ```bash
+# Raw output (6.5 Hz when face detected)
 ros2 topic echo /r2d2/perception/person_id
+# Output: data: 'severin' or data: 'unknown' or data: 'no_person'
+
+# Human-readable with color coding:
+ros2 topic echo /r2d2/perception/person_id --no-arr | grep -oP "data: '\K[^']+" --line-buffered | while read id; do
+  case $id in
+    severin)   echo -e "\033[1;32m✅ severin recognized\033[0m" ;;
+    unknown)   echo -e "\033[1;33m❓ Unknown person detected\033[0m" ;;
+    no_person) echo -e "\033[1;90m👤 No person visible\033[0m" ;;
+    *)         echo "? $id" ;;
+  esac
+done
 ```
 
-**RED/BLUE/GREEN (gating + LED + watchdog):**
+**B) Person Status Stream (RED/BLUE/GREEN state machine):**
 
 ```bash
+# Raw JSON output (10 Hz, shows gating + LED + watchdog state)
 ros2 topic echo /r2d2/audio/person_status | grep --line-buffered -E '"status"|person_identity|audio_event'
-```
 
-**RED/BLUE/GREEN (color-coded, easier to read):**
-
-```bash
+# Color-coded status monitor (recommended):
 ros2 topic echo /r2d2/audio/person_status --no-arr | grep -oP '"status":\s*"\K\w+' --line-buffered | while read status; do
   case $status in
-    red)   echo -e "\033[1;31m🔴 RED - Target person detected\033[0m" ;;
-    blue)  echo -e "\033[1;34m🔵 BLUE - No person detected\033[0m" ;;
-    green) echo -e "\033[1;32m🟢 GREEN - Unknown person detected\033[0m" ;;
+    red)   echo -e "\033[1;31m🔴 RED - Target person detected (LED ON)\033[0m" ;;
+    blue)  echo -e "\033[1;34m🔵 BLUE - No person detected (LED OFF)\033[0m" ;;
+    green) echo -e "\033[1;32m🟢 GREEN - Unknown person detected (LED OFF)\033[0m" ;;
     *)     echo "⚪ $status" ;;
   esac
 done
 ```
 
-**Gestures (events):**
+**C) Gesture Events Stream (hand gestures):**
 
 ```bash
+# Raw output (event-based, only when gesture detected)
 ros2 topic echo /r2d2/perception/gesture_event
+# Output: data: 'index_finger_up' or data: 'fist'
+
+# Human-readable with gesture icons:
+ros2 topic echo /r2d2/perception/gesture_event --no-arr | grep -oP "data: '\K[^']+" --line-buffered | while read gesture; do
+  case $gesture in
+    index_finger_up) echo -e "\033[1;36m☝️  INDEX FINGER UP - Start conversation\033[0m" ;;
+    fist)            echo -e "\033[1;35m✊ FIST - Stop conversation\033[0m" ;;
+    *)               echo "👋 $gesture" ;;
+  esac
+done
 ```
 
-**Speech session state (connected/disconnected):**
+**D) Speech Session Status Stream (conversation state):**
 
 ```bash
+# Raw JSON output (on-change only)
 ros2 topic echo /r2d2/speech/session_status
+# Output: {"status": "connected"} or {"status": "disconnected"}
+
+# Human-readable with color coding:
+ros2 topic echo /r2d2/speech/session_status --no-arr | grep -oP '"status":\s*"\K\w+' --line-buffered | while read status; do
+  case $status in
+    connected)    echo -e "\033[1;32m🎤 CONNECTED - Conversation active\033[0m" ;;
+    disconnected) echo -e "\033[1;31m🔇 DISCONNECTED - Conversation ended\033[0m" ;;
+    *)            echo "? $status" ;;
+  esac
+done
 ```
 
-##### 3) “Single terminal” combined monitor (quick triage)
+**E) System Health (heartbeat):**
+
+```bash
+# Shows CPU%, memory, temperature every second
+ros2 topic echo /r2d2/heartbeat
+```
+
+##### 3) Combined Multi-Topic Monitors
+
+**Quick triage (all streams in one terminal):**
 
 ```bash
 ros2 topic echo /r2d2/audio/person_status &
@@ -579,41 +620,46 @@ ros2 topic echo /r2d2/speech/session_status &
 wait
 ```
 
-##### 4) Resource usage / “what is heavy?”
+**Full system dashboard (requires multiple terminals or tmux):**
 
 ```bash
-top -bn1 | grep -E "python|Cpu|MiB Mem" | head -25
+# Terminal 1: Person status (color-coded)
+ros2 topic echo /r2d2/audio/person_status --no-arr | grep -oP '"status":\s*"\K\w+' --line-buffered | while read s; do case $s in red) echo -e "\033[31m🔴 RED\033[0m";; blue) echo -e "\033[34m🔵 BLUE\033[0m";; green) echo -e "\033[32m🟢 GREEN\033[0m";; esac; done
+
+# Terminal 2: Gesture events
+ros2 topic echo /r2d2/perception/gesture_event
+
+# Terminal 3: Speech session
+ros2 topic echo /r2d2/speech/session_status
+
+# Terminal 4: Service logs
+sudo journalctl -u r2d2-gesture-intent -u r2d2-audio-notification -f | grep --line-buffered -E "recognized|SPEAKING|Session|gesture"
 ```
 
-#### Resource usage summary (baseline)
+##### 4) Resource monitoring
 
-| Component | CPU | RAM | Auto-Start | Always Running? |
-|-----------|-----|-----|-----------|----------------|
-| **Core Nodes (Always Running)** | | | | |
-| camera_node | 2-3% | 50 MB | ✅ Yes | ✅ Yes |
-| image_listener | 8-15% | 200 MB | ✅ Yes | ✅ Yes |
-| audio_notification_node | 2-4% | 50 MB | ✅ Yes | ✅ Yes |
-| status_led_node | <0.1% | 20 MB | ✅ Yes | ✅ Yes |
-| database_logger_node | <0.1% | 30 MB | ✅ Yes | ✅ Yes |
-| heartbeat_node | <0.5% | 10 MB | ✅ Yes | ✅ Yes |
-| gesture_intent_node | <1% | 50 MB | ✅ Yes | ✅ Yes |
-| **Core Subtotal** | **16-26%** | **~410 MB** | | |
-| | | | | |
-| **On-Demand Nodes** | | | | |
-| camera_stream_node | 2-5% | 50 MB | ❌ No | ❌ On-demand |
-| speech_node | 10-15% | 150 MB | ⚠️ Configurable | ⚠️ Optional/depends |
-| audio_beep_node (demo) | <0.1% | 10 MB | ❌ No | ❌ Demo only |
-| | | | | |
-| **Web Services (On-Demand)** | | | | |
-| FastAPI server | 3-5% | 100 MB | ❌ No | ❌ On-demand |
-| rosbridge_server | 2-3% | 50 MB | ❌ No | ❌ On-demand |
-| | | | | |
-| **System Services** | | | | |
-| tailscaled (VPN) | <1% | 30 MB | ✅ Yes | ✅ Yes |
-| r2d2-powerbutton | <0.1% | 10 MB | ⚠️ Optional | ⚠️ Optional |
-| | | | | |
-| **Total (Core Only)** | **~16-27%** | **~410 MB** | | |
-| **Total (All Active)** | **~26-40%** | **~610 MB** | | |
+```bash
+# Quick CPU/memory snapshot
+top -bn1 | grep -E "python|Cpu|MiB Mem" | head -25
+
+# Watch node processes specifically
+watch -n 2 'ps aux | grep -E "ros2|python.*r2d2" | grep -v grep'
+
+# Check topic publication rates
+ros2 topic hz /r2d2/perception/person_id      # Should be ~6.5 Hz
+ros2 topic hz /r2d2/audio/person_status       # Should be ~10 Hz
+```
+
+#### Resource usage summary (quick reference)
+
+| Category | CPU | RAM | Notes |
+|----------|-----|-----|-------|
+| **Core (always running)** | 16-26% | ~410 MB | 7 nodes via systemd |
+| **+ Speech active** | +10-15% | +150 MB | OpenAI Realtime API |
+| **+ Web dashboard** | +5-10% | +200 MB | FastAPI + rosbridge |
+| **Total (all active)** | ~26-40% | ~610 MB | Plenty of headroom |
+
+**For complete node-by-node breakdown, see [Appendix A.5](#a5-resource-usage-summary).**
 
 ### Layer 4: Topic Data Flow
 
@@ -1029,21 +1075,9 @@ ON watchdog_timer (every 10 seconds):
 
 ---
 
-## Appendix A: Complete Service and Node Inventory (Merged from former `005_SERVICES_AND_NODES.md`)
+## Appendix A: Complete Service and Node Inventory
 
-**This appendix is included to ensure no information is lost while deprecating/removing `005_SERVICES_AND_NODES.md`.**
-
-# R2D2 System - Complete Service and Node Inventory
-
-**Date:** December 17, 2025  
-**Purpose:** Comprehensive inventory of all services, nodes, and components in the R2D2 system  
-**Status:** Complete inventory for analysis and optimization
-
----
-
-## Executive Summary
-
-This document provides a complete inventory of all ROS 2 nodes, systemd services, web services, and system daemons in the R2D2 system. It serves as a reference for understanding system architecture, resource allocation, and optimization opportunities.
+This appendix provides the authoritative reference for all ROS 2 nodes, systemd services, web services, and system daemons. For quick operational commands, see **Layer 3B** above.
 
 **Total Components:**
 - **9 ROS 2 Nodes** (8 production + 1 demo)
@@ -1053,9 +1087,9 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-## 1. ROS 2 Nodes Inventory
+### A.1 ROS 2 Nodes Inventory
 
-### Node 1: camera_node
+#### Node 1: camera_node
 
 **Name:** `camera_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1090,7 +1124,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 2: image_listener
+#### Node 2: image_listener
 
 **Name:** `image_listener`  
 **Type:** ROS 2 Node (Python)  
@@ -1141,7 +1175,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 3: heartbeat_node
+#### Node 3: heartbeat_node
 
 **Name:** `heartbeat_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1186,7 +1220,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 4: camera_stream_node
+#### Node 4: camera_stream_node
 
 **Name:** `camera_stream_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1229,7 +1263,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 5: audio_notification_node
+#### Node 5: audio_notification_node
 
 **Name:** `audio_notification_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1284,7 +1318,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 6: status_led_node
+#### Node 6: status_led_node
 
 **Name:** `status_led_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1327,7 +1361,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 7: database_logger_node
+#### Node 7: database_logger_node
 
 **Name:** `database_logger_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1370,7 +1404,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 8: audio_beep_node
+#### Node 8: audio_beep_node
 
 **Name:** `audio_beep_node`  
 **Type:** ROS 2 Node (Python)  
@@ -1405,7 +1439,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Node 9: speech_node
+#### Node 9: speech_node
 
 **Name:** `speech_node`  
 **Type:** ROS 2 Lifecycle Node (Python)  
@@ -1470,9 +1504,9 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-## 2. Systemd Services Inventory
+### A.2 Systemd Services Inventory
 
-### Service 1: r2d2-camera-perception.service
+#### Service 1: r2d2-camera-perception.service
 
 **Name:** `r2d2-camera-perception.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1510,7 +1544,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 2: r2d2-audio-notification.service
+#### Service 2: r2d2-audio-notification.service
 
 **Name:** `r2d2-audio-notification.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1552,7 +1586,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 3: r2d2-heartbeat.service
+#### Service 3: r2d2-heartbeat.service
 
 **Name:** `r2d2-heartbeat.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1582,7 +1616,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 4: r2d2-camera-stream.service
+#### Service 4: r2d2-camera-stream.service
 
 **Name:** `r2d2-camera-stream.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1618,7 +1652,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 5: r2d2-powerbutton.service
+#### Service 5: r2d2-powerbutton.service
 
 **Name:** `r2d2-powerbutton.service`  
 **Type:** Systemd service (simple)  
@@ -1650,7 +1684,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 6: r2d2-rosbridge.service
+#### Service 6: r2d2-rosbridge.service
 
 **Name:** `r2d2-rosbridge.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1689,7 +1723,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 7: r2d2-web-dashboard.service
+#### Service 7: r2d2-web-dashboard.service
 
 **Name:** `r2d2-web-dashboard.service`  
 **Type:** Systemd service (oneshot + forking)  
@@ -1739,7 +1773,7 @@ This document provides a complete inventory of all ROS 2 nodes, systemd services
 
 ---
 
-### Service 8: r2d2-gesture-intent.service
+#### Service 8: r2d2-gesture-intent.service
 
 **Name:** `r2d2-gesture-intent.service`  
 **Type:** Systemd service (exec)  
@@ -1796,9 +1830,9 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-## 3. Web Services Inventory
+### A.3 Web Services Inventory
 
-### Web Service 1: FastAPI Web Server
+#### Web Service 1: FastAPI Web Server
 
 **Name:** FastAPI Web Server  
 **Type:** Python web application (FastAPI)  
@@ -1836,7 +1870,7 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-### Web Service 2: rosbridge_server
+#### Web Service 2: rosbridge_server
 
 **Name:** rosbridge WebSocket Server  
 **Type:** ROS 2 package (rosbridge_suite)  
@@ -1869,7 +1903,7 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-### Web Service 3: Camera Stream Service
+#### Web Service 3: Camera Stream Service
 
 **Name:** Camera MJPEG Stream  
 **Type:** ROS 2 node with HTTP server  
@@ -1902,9 +1936,9 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-## 4. System Services Inventory
+### A.4 System Services Inventory
 
-### System Service 1: tailscaled
+#### System Service 1: tailscaled
 
 **Name:** `tailscaled`  
 **Type:** System daemon  
@@ -1942,9 +1976,9 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-## 5. Summary Tables
+### A.5 Summary Tables {#a5-resource-usage-summary}
 
-### 5.1 Resource Usage Summary
+#### A.5.1 Resource Usage Summary
 
 | Component | CPU | RAM | Auto-Start | Always Running? |
 |-----------|-----|-----|-----------|----------------|
@@ -1974,7 +2008,7 @@ gesture_intent_node (gesture-intent service)
 | **Total (Core Only)** | **~16-27%** | **~410 MB** | | |
 | **Total (All Active)** | **~26-40%** | **~610 MB** | | |
 
-### 5.2 Service Categorization
+#### A.5.2 Service Categorization
 
 #### Always Running (Essential)
 - r2d2-camera-perception.service ✅
@@ -1999,9 +2033,9 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-## 6. Documentation Cross-Reference
+### A.6 Documentation Cross-Reference
 
-### By Document
+#### By Document
 
 | Document | Services/Nodes Documented |
 |----------|--------------------------|
@@ -2014,7 +2048,7 @@ gesture_intent_node (gesture-intent service)
 | `102_CAMERA_SETUP_DOCUMENTATION.md` | Camera hardware and camera_node |
 | `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` | Audio hardware setup |
 
-### By Service/Node
+#### By Service/Node
 
 | Service/Node | Primary Documentation |
 |--------------|----------------------|
@@ -2032,7 +2066,7 @@ gesture_intent_node (gesture-intent service)
 
 ---
 
-## 7. Next Steps
+### A.7 Next Steps
 
 This inventory document serves as the foundation for:
 
@@ -2050,13 +2084,10 @@ This inventory document serves as the foundation for:
 
 ---
 
-**Document Created:** December 17, 2025  
-**Status:** Complete inventory ready for analysis  
-**Next Review:** After optimization decisions
-
-
-**Document Version:** 1.0  
-**Date:** December 18, 2025  
-**Purpose:** Goal state architecture for debugging "works once then stops" issue  
-**Next Step:** Compare with as-built implementation to find gaps
-
+**Document Version:** 2.1  
+**Last Updated:** December 19, 2025  
+**Purpose:** Authoritative system reference for R2D2 gesture-controlled speech-to-speech system  
+**Change Log:**
+- v2.1 (Dec 19, 2025): Consolidated service/node inventory, enhanced monitoring commands with color-coded streams
+- v2.0 (Dec 18, 2025): Added simplified RED status and SPEAKING state concepts
+- v1.0 (Dec 17, 2025): Initial system map with complete inventory
