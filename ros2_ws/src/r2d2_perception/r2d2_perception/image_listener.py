@@ -53,7 +53,7 @@ class ImageListener(Node):
         self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for target person (lower is better, set high to accept training variations)
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
         self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
-        self.declare_parameter('face_presence_threshold', 2.0)  # Seconds face must be detected before entering "stable presence" state
+        self.declare_parameter('face_presence_threshold', 0.3)  # Seconds face must be detected before entering "stable presence" state (fast response)
         self.declare_parameter('face_absence_threshold', 5.0)  # Seconds face must be absent before entering "stable absence" state
         
         # Gesture recognition parameters
