@@ -243,10 +243,12 @@ class AudioNotificationNode(Node):
         """
         Handle person_id messages - RED IS PRIMARY STATE.
         
-        While RED: Only target_person recognition matters. All other detections are IGNORED.
+        MULTI-USER: Any recognized person (not "unknown") triggers RED status.
+        The face recognition model only returns a name if the person is trained/authorized.
+        While RED: All other detections are IGNORED (prevents flicker).
         After RED ends: Transitions to GREEN (face) or BLUE (no face) are handled by check_loss_state.
         
-        Rule: If target_person recognized, reset 15s timer. Stay in RED.
+        Rule: If ANY trained person recognized, reset 15s timer. Stay in RED.
         """
         person_id = msg.data
         current_time = time.time()
@@ -254,8 +256,10 @@ class AudioNotificationNode(Node):
         if not self.enabled:
             return
         
-        if person_id == self.target_person:
-            # Target person recognized - RESET 15s countdown timer
+        # MULTI-USER: Any recognized person (not "unknown", not empty) triggers RED
+        # The training itself is the authorization - if LBPH recognizes them, they're authorized
+        if person_id and person_id != "unknown":
+            # Trained person recognized - RESET 15s countdown timer
             was_red = (self.current_status == "red")
             self.last_recognition_time = current_time  # ← KEY: Reset timer
             
@@ -267,32 +271,32 @@ class AudioNotificationNode(Node):
                 # Transition to RED (from any state)
                 old_status = self.current_status
                 self.current_status = "red"
-                self.current_person = self.target_person
+                self.current_person = person_id  # Use actual person name
                 self.status_changed_time = current_time
                 self.unknown_person_detected = False
                 
                 # Publish status FIRST
-                self._publish_status("red", self.target_person, confidence=0.95)
+                self._publish_status("red", person_id, confidence=0.95)
                 
                 # Play "Hello!" beep (with cooldown)
                 if self.last_recognition_beep_time is None or \
                    (current_time - self.last_recognition_beep_time) >= self.cooldown_seconds:
                     self._play_audio_file(self.recognition_audio, alert_type="RECOGNITION")
                     self.last_recognition_beep_time = current_time
-                    self._publish_event(f"🎉 Recognized {self.target_person}!")
+                    self._publish_event(f"🎉 Recognized {person_id}!")
                 
-                self.get_logger().info(f"✓ {self.target_person} recognized ({old_status} → RED)")
+                self.get_logger().info(f"✓ {person_id} recognized ({old_status} → RED)")
             else:
                 # Already RED - just reset timer and update duration
-                self._publish_status("red", self.target_person, confidence=0.95)
-                self.get_logger().debug("RED: Timer reset (target_person seen)")
+                self._publish_status("red", self.current_person, confidence=0.95)
+                self.get_logger().debug(f"RED: Timer reset ({person_id} seen)")
         
         elif self.current_status == "red":
-            # WHILE IN RED STATE: IGNORE all non-target detections!
+            # WHILE IN RED STATE: IGNORE all non-recognized detections!
             # This prevents camera flickers from affecting the user's experience
-            self.get_logger().debug(f"RED: Ignoring '{person_id}' (only target_person matters)")
-            # Just keep publishing RED status
-            self._publish_status("red", self.target_person, confidence=0.95)
+            self.get_logger().debug(f"RED: Ignoring '{person_id}' (only recognized person matters)")
+            # Just keep publishing RED status with current person
+            self._publish_status("red", self.current_person, confidence=0.95)
         
         elif person_id == "unknown":
             # NOT in RED state - handle GREEN transition with smoothing
@@ -412,6 +416,9 @@ class AudioNotificationNode(Node):
         if time_since_recognition > self.red_status_timeout:  # 15 seconds
             # RED timer expired - decide: GREEN (face detected) or BLUE (no face)
             
+            # Store the person who was recognized before we change state
+            previous_person = self.current_person
+            
             # Check if we recently saw a face (last 1 second)
             face_recently_detected = (
                 self.last_face_count is not None and 
@@ -421,7 +428,7 @@ class AudioNotificationNode(Node):
             )
             
             if face_recently_detected:
-                # Face visible but not target person → GREEN
+                # Face visible but not recognized person → GREEN
                 self.current_status = "green"
                 self.current_person = "unknown"
                 self.status_changed_time = current_time
@@ -433,15 +440,15 @@ class AudioNotificationNode(Node):
                 
                 self._publish_status("green", "unknown", confidence=0.70)
                 
-                # Play "Lost you!" beep (target lost, but someone is there)
+                # Play "Lost you!" beep (authorized person lost, but someone is there)
                 if self.last_loss_beep_time is None or \
                    (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
                     self._play_audio_file(self.loss_audio, alert_type="LOSS")
                     self.last_loss_beep_time = current_time
-                    self._publish_event(f"❌ {self.target_person} lost (unknown person present)")
+                    self._publish_event(f"❌ {previous_person} lost (unknown person present)")
                 
                 self.get_logger().info(
-                    f"✗ {self.target_person} lost → GREEN (unknown person visible, timeout: {time_since_recognition:.1f}s)"
+                    f"✗ {previous_person} lost → GREEN (unknown person visible, timeout: {time_since_recognition:.1f}s)"
                 )
             else:
                 # No face visible → BLUE
@@ -461,10 +468,10 @@ class AudioNotificationNode(Node):
                    (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
                     self._play_audio_file(self.loss_audio, alert_type="LOSS")
                     self.last_loss_beep_time = current_time
-                    self._publish_event(f"❌ {self.target_person} lost (no person visible)")
+                    self._publish_event(f"❌ {previous_person} lost (no person visible)")
                 
                 self.get_logger().info(
-                    f"✗ {self.target_person} lost → BLUE (no person visible, timeout: {time_since_recognition:.1f}s)"
+                    f"✗ {previous_person} lost → BLUE (no person visible, timeout: {time_since_recognition:.1f}s)"
                 )
     
     def publish_current_status(self):

@@ -168,7 +168,7 @@ class GestureIntentNode(Node):
             # Log status changes
             if old_status != self.person_status:
                 self.get_logger().debug(f'👤 Person status: {old_status} → {self.person_status}')
-            
+                
             # Reset idle watchdog when person returns (for auto-restart feature)
             if self.person_status == "red":
                 if self.last_red_status_time is not None:
@@ -180,7 +180,7 @@ class GestureIntentNode(Node):
                 if self.auto_shutdown_triggered and self.auto_restart_on_return:
                     self.get_logger().info('👤 Person returned. Auto-restarting speech service.')
                     self._start_session()
-                    
+                
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse person status: {e}')
     
@@ -312,8 +312,8 @@ class GestureIntentNode(Node):
                 if time_since_start < self.speaking_start_grace:
                     self.get_logger().info(
                         f'✊ Fist ignored: speaking grace period ({time_since_start:.1f}s < {self.speaking_start_grace}s)'
-                    )
-                    return
+                )
+                return
             
             # Trigger stop session - Exit SPEAKING state
             self.get_logger().info('✊ Fist detected → Stopping conversation')

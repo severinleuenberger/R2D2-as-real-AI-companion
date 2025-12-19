@@ -11,6 +11,8 @@ Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/
 Environment="PYTHONUNBUFFERED=1"
 
 # Source ROS 2 setup and launch camera
+# MULTI-USER: No hardcoded target_person_name needed - any trained person is authorized
+# Just specify the model path (gesture model is person-specific, face model loaded separately)
 ExecStart=/bin/bash -c 'source install/setup.bash && ros2 launch r2d2_bringup r2d2_camera_perception.launch.py enable_face_recognition:=true enable_gesture_recognition:=true gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl'
 
 # Restart policy

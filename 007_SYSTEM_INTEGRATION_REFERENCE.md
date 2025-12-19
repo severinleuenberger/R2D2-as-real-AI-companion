@@ -118,21 +118,26 @@ graph TB
 **RED is the PRIMARY state.** While in RED, all other face detections are IGNORED.
 After RED ends, GREEN/BLUE transitions use smoothing (hysteresis) to prevent flicker.
 
+**MULTI-USER AUTHORIZATION:** Any trained person automatically gets RED status. The LBPH face
+recognition model only returns a name if the person was trained - the training itself is the
+authorization. No hardcoded names are required. When switching users, only the face model path
+needs to change; no code changes are needed.
+
 ```mermaid
 stateDiagram-v2
     [*] --> BLUE: Initial state
     
-    BLUE --> RED: target_person detected
+    BLUE --> RED: ANY trained person detected
     BLUE --> GREEN: unknown face for 2s
     
-    RED --> RED: target_person recognized<br/>Timer resets to 15s
+    RED --> RED: trained person recognized<br/>Timer resets to 15s
     RED --> PostRED: 15s timeout expires
     
     state PostRED <<choice>>
     PostRED --> GREEN: Face visible
     PostRED --> BLUE: No face visible
     
-    GREEN --> RED: target_person detected
+    GREEN --> RED: ANY trained person detected
     GREEN --> BLUE: no face for 3s
     GREEN --> GREEN: unknown face continues
     
@@ -142,8 +147,9 @@ stateDiagram-v2
         Beep: "Hello!" on entry
         Status: "red"
         Timer: 15s resets on recognition
-        IGNORES: all non-target detections
+        IGNORES: all non-recognized detections
         Immune: to camera flickers
+        MULTI-USER: Any trained person triggers RED
     end note
     
     note right of BLUE

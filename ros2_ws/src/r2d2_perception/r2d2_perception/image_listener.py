@@ -393,15 +393,16 @@ class ImageListener(Node):
                     except Exception as e:
                         self.get_logger().error(f'Face recognition failed: {e}')
         
-        # Perform gesture recognition if enabled and target person recognized
+        # Perform gesture recognition if enabled and ANY authorized person recognized
         if self.gesture_recognizer_enabled:
             # Use frame skip to manage CPU load
             self.gesture_frame_counter += 1
             if self.gesture_frame_counter >= self.gesture_frame_skip:
                 self.gesture_frame_counter = 0
                 
-                # Only recognize gestures if target person is recognized
-                if self.last_person_id == self.target_person_gesture_name:
+                # MULTI-USER: Any recognized person (not "unknown", not empty) can use gestures
+                # The training itself is the authorization - if LBPH recognizes them, they're authorized
+                if self.last_person_id and self.last_person_id != "unknown":
                     try:
                         gesture_name, confidence = self._predict_gesture(downscaled)
                         

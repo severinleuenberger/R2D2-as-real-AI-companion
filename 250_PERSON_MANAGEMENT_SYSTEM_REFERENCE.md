@@ -366,11 +366,16 @@ self.person_registry.update_gesture_model(person_id, str(model_file))
 
 ### For Auto-Start Services
 
-Gesture models are automatically loaded by the camera-perception service on boot:
+Gesture models are automatically loaded by the camera-perception service on boot.
+
+**MULTI-USER AUTHORIZATION:** Any trained person automatically gets RED status and can use gestures.
+The LBPH face recognition model only returns a name if the person was successfully trained - the
+training itself is the authorization. No hardcoded `target_person_name` is needed in the service file.
 
 **Service Configuration:**
 ```bash
 # Model path in /etc/systemd/system/r2d2-camera-perception.service
+# Note: Only the model path is specified - no hardcoded target_person_name required!
 gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
 ```
 
@@ -380,6 +385,7 @@ gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/
 sudo nano /etc/systemd/system/r2d2-camera-perception.service
 
 # Change gesture_recognition_model_path to new person's model
+# (No need to change target_person_name - any trained person is authorized)
 
 # Reload and restart
 sudo systemctl daemon-reload

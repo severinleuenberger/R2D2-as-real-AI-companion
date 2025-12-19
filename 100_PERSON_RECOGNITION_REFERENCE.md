@@ -133,8 +133,9 @@ r2d2_audio package
 - Implement jitter tolerance and loss confirmation
 
 **State Machine Logic (RED-Primary Design):**
-- **RED is Primary:** While target person is recognized, ALL other face detections are IGNORED
-- **RED Status Timer:** 15 seconds (resets on each target person recognition)
+- **MULTI-USER:** Any trained person automatically triggers RED status. The training itself is the authorization - if LBPH recognizes someone, they are authorized. No hardcoded names needed.
+- **RED is Primary:** While ANY trained person is recognized, ALL other face detections are IGNORED
+- **RED Status Timer:** 15 seconds (resets on each trained person recognition)
 - **Post-RED Transition:** When RED times out → GREEN (face visible) or BLUE (no face)
 - **GREEN Entry Delay:** 2 seconds of stable face detection before BLUE→GREEN
 - **BLUE Entry Delay:** 3 seconds of no face before GREEN→BLUE (hysteresis)
