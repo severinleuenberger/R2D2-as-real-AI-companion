@@ -525,6 +525,19 @@ ros2 topic echo /r2d2/perception/person_id
 ros2 topic echo /r2d2/audio/person_status | grep --line-buffered -E '"status"|person_identity|audio_event'
 ```
 
+**RED/BLUE/GREEN (color-coded, easier to read):**
+
+```bash
+ros2 topic echo /r2d2/audio/person_status --no-arr | grep -oP '"status":\s*"\K\w+' --line-buffered | while read status; do
+  case $status in
+    red)   echo -e "\033[1;31m🔴 RED - Target person detected\033[0m" ;;
+    blue)  echo -e "\033[1;34m🔵 BLUE - No person detected\033[0m" ;;
+    green) echo -e "\033[1;32m🟢 GREEN - Unknown person detected\033[0m" ;;
+    *)     echo "⚪ $status" ;;
+  esac
+done
+```
+
 **Gestures (events):**
 
 ```bash
