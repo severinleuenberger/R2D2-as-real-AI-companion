@@ -1,6 +1,6 @@
 # Disk Space Cleanup Documentation
 
-**Date:** December 17, 2025  
+**Date:** December 19, 2025  
 **Status:** Ongoing maintenance documentation  
 **Purpose:** Track disk space cleanup activities, regular maintenance tasks, and remaining opportunities
 
@@ -8,10 +8,66 @@
 
 ## Current System Status
 
-**Disk:** 57GB total, currently 48GB used (89% capacity, 6.2GB free)  
+**Disk:** 57GB total, currently 46GB used (85% capacity, 8.2GB free)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB  
 **OS:** Ubuntu 22.04 Jammy  
-**Last Check:** December 17, 2025
+**Last Check:** December 19, 2025
+
+---
+
+## What Has Been Completed (December 19, 2025)
+
+### Phase 5: Desktop Application Removal ✅
+
+**Space Recovered:** ~500MB
+
+1. **LibreOffice Suite** - ~310MB recovered ✅
+   - Action: `sudo apt remove --purge -y libreoffice*`
+   - Status: ✅ Removed - not needed on headless AI system
+
+2. **Thunderbird Email Client** - ~244MB recovered ✅
+   - Action: `sudo apt remove --purge -y thunderbird`
+   - Status: ✅ Removed - not needed on headless AI system
+
+3. **APT Autoremove** - orphaned dependencies cleaned
+   - Action: `sudo apt autoremove -y`
+   - Status: ✅ Completed
+
+### Phase 4: Major Cache and Source Cleanup ✅
+
+**Space Recovered:** ~1.8GB (from 91% to 88% disk usage)
+
+1. **Cursor debug.log** - 927MB recovered ✅
+   - Location: `~/.cursor/debug.log`
+   - Before: 927MB
+   - After: 0 bytes
+   - Action: Truncated with `truncate -s 0`
+   - Status: ✅ Cleaned - debug log regenerates as needed
+
+2. **VSCode Copilot Chat Index** - 601MB recovered ✅
+   - Location: `~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/`
+   - Before: 601MB
+   - After: Removed
+   - Action: `rm -rf ~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/local-index.*.db`
+   - Status: ✅ Cleaned - index regenerates automatically
+
+3. **depthai-python source repository** - 259MB recovered ✅
+   - Location: `~/depthai-python/`
+   - Before: 259MB
+   - After: Removed
+   - Action: `rm -rf ~/depthai-python`
+   - Status: ✅ Removed - depthai is installed in venv, source not needed
+   - Note: Confirmed depthai package exists in `~/depthai_env/` and `~/.local/`
+
+4. **Pip cache** - Already clean
+   - Location: `~/.cache/pip/`
+   - Status: ✅ Already purged (0 files to remove)
+
+### Previously Pending (Now Completed)
+
+- ✅ APT package cache cleaned
+- ✅ APT package lists cleaned  
+- ✅ Firefox snap rev 7421 removed
 
 ---
 
@@ -74,11 +130,17 @@
 
 ### Total Space Recovered So Far
 
-**~1.4GB recovered** (from 91% to 89% disk usage)
+**~6GB recovered** (from 91% to 85% disk usage, 5.2GB → 8.2GB free)
 
 ---
 
 ## Remaining Cleanup Opportunities (Ordered by Impact)
+
+### ✅ Recently Completed (December 19, 2025)
+
+- ~~Cursor debug.log~~ - **927MB** ✅ Truncated
+- ~~VSCode Copilot Chat Index~~ - **601MB** ✅ Removed
+- ~~depthai-python source repo~~ - **259MB** ✅ Removed
 
 ### 🔥 Highest Impact - Safe Cleanup (Execute First)
 
@@ -142,26 +204,10 @@ sudo apt update  # Regenerates lists (optional, can wait until next update)
 **Impact:** 298MB  
 **Priority:** **HIGH**
 
-#### 4. Clean VSCode Server GitHub Copilot Chat Index - **601MB** ⭐⭐
+#### 4. ~~Clean VSCode Server GitHub Copilot Chat Index~~ - **601MB** ✅ COMPLETED
 **Location:** `~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/local-index.*.db`
 
-**Why it's safe:**
-- Local index database - cache that regenerates automatically
-- GitHub Copilot Chat rebuilds index when needed
-- Workspace-specific cache, not essential data
-
-**Commands:**
-```bash
-# Remove Copilot Chat index (regenerates on next use)
-rm -rf ~/.vscode-server/data/User/workspaceStorage/*/GitHub.copilot-chat/local-index.*.db
-
-# Or remove entire workspace storage if not needed (more aggressive)
-# rm -rf ~/.vscode-server/data/User/workspaceStorage/12411d55039e15d1327cb9da7bcdbe7d
-```
-
-**Risk:** ✅ **Safe** - Cache regenerates automatically  
-**Impact:** 601MB  
-**Priority:** **HIGH**
+**Status:** ✅ **Completed December 19, 2025** - 601MB recovered
 
 #### 5. Remove Disabled Snap Revisions - **~297MB** ⭐
 **Locations:**
@@ -628,6 +674,64 @@ df -h /home/severin | tail -1
 
 ---
 
+## Additional Cleanup Opportunities Discovered (December 19, 2025)
+
+### Tier 2: Safe for Headless/Robot System
+
+#### Docker (Unused) - **~370MB**
+- Docker is installed but `/var/lib/docker` is only 4KB (empty)
+- Packages: docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin
+- **Command:** `sudo apt remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y`
+- **Risk:** ✅ Safe if not using Docker
+
+#### fonts-noto-cjk - **91MB**
+- CJK (Chinese/Japanese/Korean) fonts - not needed for robot
+- **Command:** `sudo apt remove fonts-noto-cjk -y`
+- **Risk:** ✅ Safe - only affects CJK text rendering
+
+#### Java OpenJDK 11 - **~250MB**
+- Located at `/usr/lib/jvm` (244MB)
+- No runtime dependencies found
+- **Command:** `sudo apt remove openjdk-11-jdk-headless openjdk-11-jre-headless -y`
+- **Risk:** ⚠️ Verify no apps depend on Java first
+
+#### Desktop Apps (Unnecessary on Robot) - OPTIONAL
+- ~~**Thunderbird:** ~244MB~~ ✅ REMOVED
+- ~~**LibreOffice:** ~310MB~~ ✅ REMOVED
+- **Games (aisleriot, gnome-mahjongg, gnome-mines, gnome-sudoku):** ~15MB - `sudo apt remove aisleriot gnome-mahjongg gnome-mines gnome-sudoku -y`
+- **Media (shotwell, rhythmbox, totem, cheese, eog):** ~15MB - `sudo apt remove shotwell rhythmbox totem cheese eog -y`
+- **GNOME utilities (gnome-calculator, gnome-calendar, gnome-characters, gnome-font-viewer, gnome-logs, gnome-screenshot, seahorse, baobab):** ~10MB
+- **Other (remmina, transmission-gtk, deja-dup, gedit, evince, simple-scan, file-roller, yelp, gnome-user-docs):** ~20MB
+- **Firefox snap:** ~235MB - `sudo snap remove firefox`
+
+### Tier 3: Development Tools (If Not Needed)
+
+#### Nsight Tools - **~2.2GB**
+- Nsight Compute: 919MB (`/opt/nvidia/nsight-compute`)
+- Nsight Systems: 818MB (`/opt/nvidia/nsight-systems`)
+- Nsight Graphics: 492MB (`/opt/nvidia/nsight-graphics-for-embeddedlinux`)
+- **Note:** Only remove if not actively profiling/debugging GPU applications
+
+#### Development Headers - **~300MB**
+- `/usr/include/boost`: 162MB
+- `libboost1.74-dev`: 138MB
+- **Note:** Only remove if not compiling C++ code
+
+### Summary of All Potential Savings
+
+| Category | Completed | Optional (Remaining) |
+|----------|-----------|----------------------|
+| Caches/Logs | ~2.7GB ✅ | - |
+| Desktop Apps | ~0.5GB ✅ | ~0.3GB |
+| Docker | - | ~0.4GB |
+| Dev Tools | - | ~2.5GB |
+| Snaps | ~0.3GB ✅ | ~1.7GB |
+
+**Total recovered:** ~6GB (from 91% to 85%)  
+**Total potential additional savings:** ~5GB (optional)
+
+---
+
 ## Last Updated
 
-December 17, 2025 - Comprehensive analysis completed, all cleanup opportunities documented and ordered by impact.
+December 19, 2025 - Phase 4 & 5 cleanup completed (~6GB recovered total). System now at 85% disk usage (8.2GB free). LibreOffice and Thunderbird removed. Additional optional cleanup opportunities documented. Backup created at `/media/severin/DAEA-DEBB/temp_backup/`.
