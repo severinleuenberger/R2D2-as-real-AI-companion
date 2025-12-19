@@ -196,8 +196,8 @@ stateDiagram-v2
     IDLE --> IDLE: Monitoring person_status<br/>Gestures: start enabled if RED
     IDLE --> SPEAKING: index_finger_up + RED<br/>Enter SPEAKING state
     
-    SPEAKING --> SPEAKING: VAD: speech detected<br/>Reset 60s Silence Timer
-    SPEAKING --> SPEAKING: VAD: silence<br/>Count silence time (< 60s)
+    SPEAKING --> SPEAKING: VAD: speech detected<br/>Pause Silence Timer
+    SPEAKING --> SPEAKING: VAD: silence<br/>Start 60s Timer from NOW
     SPEAKING --> IDLE: Fist gesture<br/>Immediate Stop (User Command)
     SPEAKING --> IDLE: VAD silence ≥ 60s<br/>Silence Timeout
     
@@ -210,11 +210,11 @@ stateDiagram-v2
     
     note right of SPEAKING
         VAD-Only Protection (Option 2)
-        Timeout: 60s silence from OpenAI VAD
+        Timeout: 60s consecutive silence
         Camera: NOT used for timeout
         Immune to face recognition flickers
         Fist: Immediate override
-        Timer: Resets on every speech activity
+        Timer: Only counts when user is silent
     end note
 ```
 
@@ -230,12 +230,12 @@ stateDiagram-v2
 
 **During Active Conversation (SPEAKING state):**
 1. **Speech Detected** (`input_audio_buffer.speech_started` from OpenAI)
-   - Resets 60-second silence timer
-   - Conversation continues regardless of camera status
+   - **Pauses** the silence timer (no timeout while speaking)
+   - User can talk for any duration without being cut off
    - Immune to face recognition flickers (RED ↔ GREEN transitions)
 
 2. **Silence Detected** (`input_audio_buffer.speech_stopped` from OpenAI)
-   - Starts silence timer
+   - **Starts** the 60-second silence timer from NOW
    - If silence exceeds 60 seconds → Stop session
    - If speech resumes → Reset timer
 

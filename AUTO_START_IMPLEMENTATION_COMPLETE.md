@@ -37,7 +37,7 @@ The R2D2 gesture system has been fully configured for auto-start on system boot.
 
 **Architecture & Services:**
 1. `001_ARCHITECTURE_OVERVIEW.md` - Added auto-start section (6.5)
-2. `005_SERVICES_AND_NODES.md` - Added Service 8, updated resource tables
+2. `007_SYSTEM_INTEGRATION_REFERENCE.md` - Service/node inventory consolidated (includes former `005_SERVICES_AND_NODES.md` as Appendix A)
 
 **Person Recognition:**
 3. `100_PERSON_RECOGNITION_REFERENCE.md` - Added auto-start services section

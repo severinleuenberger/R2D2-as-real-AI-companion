@@ -923,7 +923,7 @@ r2d2-speech-stop
 
 ## Related Documentation
 
-- **Service Inventory:** [`005_SERVICES_AND_NODES.md`](005_SERVICES_AND_NODES.md)
+- **Service Inventory:** [`007_SYSTEM_INTEGRATION_REFERENCE.md`](007_SYSTEM_INTEGRATION_REFERENCE.md) (see **Layer 3B** + **Appendix A**)
 - **Architecture Overview:** [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md)
 - **Speech System:** [`200_SPEECH_SYSTEM_REFERENCE.md`](200_SPEECH_SYSTEM_REFERENCE.md)
 - **Web Dashboard:** [`111_WEB_DASHBOARD_DOCUMENTATION.md`](111_WEB_DASHBOARD_DOCUMENTATION.md)

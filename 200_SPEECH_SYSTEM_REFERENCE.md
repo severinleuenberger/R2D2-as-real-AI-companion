@@ -1113,7 +1113,7 @@ ros2 topic hz /r2d2/speech/user_transcript
 
 ### Related R2D2 Documentation
 - `001_ARCHITECTURE_OVERVIEW.md`: Overall system architecture
-- `005_SERVICES_AND_NODES.md`: ROS2 nodes inventory
+- `007_SYSTEM_INTEGRATION_REFERENCE.md`: System integration reference (includes full service/node inventory in **Appendix A**)
 - `201_SPEECH_SYSTEM_INSTALLATION.md`: Installation guide
 - `203_SPEECH_SYSTEM_QUICK_START.md`: Quick reference
 - `ROS2_SPEECH_TESTING.md`: Testing procedures

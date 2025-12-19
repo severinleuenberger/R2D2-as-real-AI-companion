@@ -223,6 +223,9 @@ class GestureIntentNode(Node):
         
         Option 2: VAD-Only Approach - Uses OpenAI's built-in VAD instead of camera.
         
+        The silence timer only starts when speech_stopped is received.
+        While user is speaking, no timeout is counted.
+        
         Args:
             msg: String message containing JSON VAD data
         """
@@ -232,14 +235,15 @@ class GestureIntentNode(Node):
             self.vad_state = vad_data.get('state', 'silent')  # "speaking" or "silent"
             
             if self.vad_state == "speaking":
-                # User is actively speaking - reset silence timer
-                self.last_vad_activity_time = self.get_clock().now()
+                # User is actively speaking - STOP counting silence
+                self.last_vad_activity_time = None  # No timer while speaking
                 if old_state != "speaking":
-                    self.get_logger().info('🎤 VAD: User speaking (conversation active)')
+                    self.get_logger().info('🎤 VAD: User speaking (silence timer paused)')
             else:
-                # User stopped speaking - silence timer continues
-                if old_state != "silent":
-                    self.get_logger().info('🔇 VAD: User silent (checking timeout)')
+                # User stopped speaking - START counting silence from NOW
+                if old_state == "speaking":
+                    self.last_vad_activity_time = self.get_clock().now()
+                    self.get_logger().info('🔇 VAD: User silent (60s silence timer started)')
                     
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse VAD data: {e}')
@@ -310,7 +314,7 @@ class GestureIntentNode(Node):
         """Enter SPEAKING state when conversation starts (Option 2: VAD-only)."""
         self.speaking_state = "speaking"
         self.speaking_start_time = self.get_clock().now()
-        self.last_vad_activity_time = self.get_clock().now()
+        self.last_vad_activity_time = None  # No silence timer until speech_stopped received
         self.vad_state = "speaking"  # Assume speaking when session starts
         
         self.get_logger().info(
@@ -379,8 +383,13 @@ class GestureIntentNode(Node):
         current_time = self.get_clock().now()
         
         # ===== SPEAKING STATE: VAD-BASED PROTECTION =====
-        # Check if in SPEAKING state and VAD silence timeout exceeded
+        # Only count silence when VAD says user is actually silent
         if self.speaking_state == "speaking":
+            # If user is currently speaking, do nothing - no timeout while talking
+            if self.vad_state == "speaking":
+                return  # User is talking, don't count any time
+            
+            # User is silent - check if timeout exceeded
             if self.last_vad_activity_time is not None:
                 time_silent = (current_time - self.last_vad_activity_time).nanoseconds / 1e9
                 
