@@ -479,44 +479,48 @@ camera_node started    image_listener started
 
 ### 4.1 Person Recognition State Machine
 
-The `r2d2_audio` package implements a sophisticated 3-state recognition system:
+The `r2d2_audio` package implements a 3-state recognition system with **RED as the primary state**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              PERSON RECOGNITION STATE MACHINE                │
+│      PERSON RECOGNITION STATE MACHINE (RED-PRIMARY)          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  🔴 RED STATE (Recognized)                                   │
+│  🔴 RED STATE (PRIMARY - Target Recognized)                  │
 │     • Target person is currently visible                     │
-│     • Audio: "Hello!" MP3 plays on transition               │
-│     • LED: Solid RED (GPIO pin 17)                          │
+│     • Audio: "Hello!" MP3 plays on entry                    │
+│     • LED: Solid WHITE (GPIO pin 17)                        │
 │     • Status: Active engagement                             │
-│     • Transitions: → BLUE (after loss confirmation)          │
-│                    → GREEN (if unknown person appears)      │
+│     • Timer: 15s resets on each recognition                 │
+│     • IGNORES: All non-target face detections!              │
+│     • Immune: To camera flickers while active               │
+│     • Transitions: → GREEN/BLUE after 15s timeout           │
 │                                                              │
-│  🔵 BLUE STATE (Lost/Idle)                                   │
-│     • No target person visible                              │
-│     • Audio: "Oh, I lost you!" MP3 plays on transition     │
-│     • LED: Solid BLUE (GPIO pin 22)                         │
+│  🔵 BLUE STATE (No Person)                                   │
+│     • No face visible                                        │
+│     • Audio: "Oh, I lost you!" MP3 plays on entry          │
+│     • LED: OFF                                               │
 │     • Status: Idle, waiting for recognition                  │
-│     • Timing: 5s jitter tolerance + 15s confirmation        │
-│     • Transitions: → RED (when target person detected)      │
-│                    → GREEN (if unknown person appears)       │
+│     • Entry Delay: 3s smoothing (from GREEN)                │
+│     • Transitions: → RED (target person detected)           │
+│                    → GREEN (face detected for 2s)           │
 │                                                              │
 │  🟢 GREEN STATE (Unknown Person)                            │
 │     • Face detected but not the target person               │
 │     • Audio: Silent (no alerts)                             │
-│     • LED: Solid GREEN (GPIO pin 27)                        │
-│     • Status: Caution mode                                   │
-│     • Transitions: → RED (if target person appears)         │
-│                    → BLUE (if unknown person leaves)        │
+│     • LED: OFF                                               │
+│     • Status: Unknown person present                         │
+│     • Entry Delay: 2s smoothing (from BLUE)                 │
+│     • Transitions: → RED (target person detected)           │
+│                    → BLUE (no face for 3s)                  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **State Machine Features:**
-- **Jitter Tolerance:** 5-second window for brief interruptions (prevents false loss alerts)
-- **Loss Confirmation:** 15-second confirmation window after jitter (total ~20s to loss alert)
+- **RED is Primary:** While target person recognized, all other detections are IGNORED
+- **15s Timeout:** RED → GREEN/BLUE after 15 seconds without target person
+- **Smoothing (Hysteresis):** GREEN/BLUE transitions use delays (2s/3s) to prevent flicker
 - **Cooldown Periods:** 2s between recognition alerts, 5s quiet period after loss alert
 - **Status Publishing:** JSON messages at 10 Hz for LED, database, and future dialogue system
 

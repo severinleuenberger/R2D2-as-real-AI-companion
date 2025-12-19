@@ -132,9 +132,12 @@ r2d2_audio package
 - Publish status JSON for LED and other consumers
 - Implement jitter tolerance and loss confirmation
 
-**State Machine Logic:**
-- **RED Status Timer:** 15 seconds (resets on target person recognition)
-- **Total loss time:** ~20 seconds before alert (5s perception hysteresis + 15s audio timer)
+**State Machine Logic (RED-Primary Design):**
+- **RED is Primary:** While target person is recognized, ALL other face detections are IGNORED
+- **RED Status Timer:** 15 seconds (resets on each target person recognition)
+- **Post-RED Transition:** When RED times out → GREEN (face visible) or BLUE (no face)
+- **GREEN Entry Delay:** 2 seconds of stable face detection before BLUE→GREEN
+- **BLUE Entry Delay:** 3 seconds of no face before GREEN→BLUE (hysteresis)
 - **Cooldown:** 2 seconds between same alert type
 - **Speaking Protection:** 35 seconds consecutive non-RED prevents gesture interruption
 

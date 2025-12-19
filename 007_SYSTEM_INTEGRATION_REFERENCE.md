@@ -115,43 +115,56 @@ graph TB
 
 ### 1. Person Recognition State Machine (audio_notification_node)
 
+**RED is the PRIMARY state.** While in RED, all other face detections are IGNORED.
+After RED ends, GREEN/BLUE transitions use smoothing (hysteresis) to prevent flicker.
+
 ```mermaid
 stateDiagram-v2
     [*] --> BLUE: Initial state
     
     BLUE --> RED: target_person detected
-    BLUE --> GREEN: unknown person detected
+    BLUE --> GREEN: unknown face for 2s
     
-    RED --> RED: person recognized<br/>(timer resets to 15s)
-    RED --> BLUE: no recognition 15s<br/>(timer expires)
-    RED --> GREEN: unknown person appears
+    RED --> RED: target_person recognized<br/>Timer resets to 15s
+    RED --> PostRED: 15s timeout expires
     
-    GREEN --> RED: target_person appears
-    GREEN --> BLUE: all faces leave
-    GREEN --> GREEN: unknown continues
+    state PostRED <<choice>>
+    PostRED --> GREEN: Face visible
+    PostRED --> BLUE: No face visible
+    
+    GREEN --> RED: target_person detected
+    GREEN --> BLUE: no face for 3s
+    GREEN --> GREEN: unknown face continues
     
     note right of RED
+        PRIMARY STATE
         LED: ON (GPIO 17)
         Beep: "Hello!" on entry
         Status: "red"
         Timer: 15s resets on recognition
-        Publishes: 10 Hz
+        IGNORES: all non-target detections
+        Immune: to camera flickers
     end note
     
     note right of BLUE
         LED: OFF
         Beep: "Lost you!" on entry
         Status: "blue"
-        Publishes: 10 Hz
+        Entry delay: 3s from GREEN
     end note
     
     note right of GREEN
         LED: OFF
         Beep: Silent
         Status: "green"
-        Publishes: 10 Hz
+        Entry delay: 2s from BLUE
     end note
 ```
+
+**Key Design Principles:**
+1. **RED is primary:** While target person is recognized, nothing else matters
+2. **Smoothing after RED:** GREEN/BLUE use hysteresis delays (2s/3s) to prevent flicker
+3. **Post-RED decision:** When RED times out, system checks if face is visible (GREEN) or not (BLUE)
 
 ### 2. Speech Session State Machine (speech_node)
 
@@ -874,7 +887,10 @@ ON watchdog_timer (every 10 seconds):
 **audio_notification_node:**
 - `target_person`: "severin" (must match perception target)
 - `audio_volume`: 0.3 (30% volume for alerts)
-- `red_status_timeout_seconds`: 15.0 (simple timer, resets on recognition)
+- `red_status_timeout_seconds`: 15.0 (RED timer, resets on recognition)
+- `green_entry_delay`: 2.0 (seconds of face before BLUE→GREEN)
+- `blue_entry_delay`: 3.0 (seconds of no face before GREEN→BLUE)
+- RED is primary state (ignores non-target while active)
 
 **gesture_intent_node:**
 - `cooldown_start_seconds`: 5.0 (prevent rapid start triggers)
