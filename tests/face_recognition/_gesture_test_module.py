@@ -194,7 +194,7 @@ class GestureTestingModule:
         
         last_print_time = start_time
         
-        print('Real-time gesture detection:')
+        print('Real-time gesture detection (streaming):')
         print('='*70)
         
         while True:
@@ -210,6 +210,10 @@ class GestureTestingModule:
             
             current_time = time.time()
             
+            # Get timestamp in HH:MM:SS format
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            
             if gesture_name is not None:
                 hands_detected += 1
                 
@@ -217,12 +221,26 @@ class GestureTestingModule:
                     gestures_detected += 1
                     gesture_counts[gesture_name] += 1
                     
-                    # Print update every 0.5 seconds
-                    if current_time - last_print_time >= 0.5:
-                        print(f'  [{current_time - start_time:5.1f}s] Detected: {gesture_name.replace("_", " ").upper()} (confidence: {confidence:.2f})')
+                    # Print EVERY detection with color coding
+                    if gesture_name == "index_finger_up":
+                        print(f'[{timestamp}] \033[1;32m👆 INDEX FINGER UP\033[0m (confidence: {confidence:.2f})')
+                    elif gesture_name == "fist":
+                        print(f'[{timestamp}] \033[1;31m✊ FIST\033[0m (confidence: {confidence:.2f})')
+                    else:
+                        print(f'[{timestamp}] {gesture_name.upper()} (confidence: {confidence:.2f})')
+                    
+                    last_print_time = current_time
+                else:
+                    # Show low confidence detections too
+                    if current_time - last_print_time >= 1.0:
+                        print(f'[{timestamp}] ⚠️  {gesture_name.replace("_", " ")} (LOW confidence: {confidence:.2f} < {self.confidence_threshold})')
                         last_print_time = current_time
             else:
                 gesture_counts['no_hand'] += 1
+                # Print "no hand" occasionally to show system is working
+                if current_time - last_print_time >= 2.0:
+                    print(f'[{timestamp}] \033[1;90m⚪ No hand detected\033[0m')
+                    last_print_time = current_time
             
             elapsed = current_time - start_time
             
