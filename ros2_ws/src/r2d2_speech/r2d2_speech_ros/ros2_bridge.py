@@ -77,6 +77,43 @@ class ROS2StatusPublisher:
         logger.info(f"Published status: {status}")
 
 
+class ROS2VADPublisher:
+    """Publishes Voice Activity Detection events to ROS2"""
+    
+    def __init__(self, ros2_node):
+        self.node = ros2_node
+        self.vad_pub = ros2_node.create_publisher(
+            String, '/r2d2/speech/voice_activity', 10)
+        self.current_state = "silent"  # Track current state to avoid duplicate publishes
+        logger.info("ROS2VADPublisher initialized")
+    
+    def publish_speech_started(self) -> None:
+        """Publish when user starts speaking"""
+        if self.current_state != "speaking":
+            self.current_state = "speaking"
+            vad_data = {
+                "state": "speaking",
+                "timestamp": self.node.get_clock().now().to_msg().sec
+            }
+            msg = String()
+            msg.data = json.dumps(vad_data)
+            self.vad_pub.publish(msg)
+            logger.info("VAD: User started speaking")
+    
+    def publish_speech_stopped(self) -> None:
+        """Publish when user stops speaking"""
+        if self.current_state != "silent":
+            self.current_state = "silent"
+            vad_data = {
+                "state": "silent",
+                "timestamp": self.node.get_clock().now().to_msg().sec
+            }
+            msg = String()
+            msg.data = json.dumps(vad_data)
+            self.vad_pub.publish(msg)
+            logger.info("VAD: User stopped speaking")
+
+
 def ros2_params_to_config(node) -> dict:
     """Convert ROS2 parameters to existing config format"""
     config = {

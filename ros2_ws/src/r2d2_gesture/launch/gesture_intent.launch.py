@@ -83,6 +83,12 @@ def generate_launch_description():
         description='Audio volume for gesture beeps (0.0-1.0) - default from config/audio_params.yaml'
     )
     
+    vad_silence_timeout_arg = DeclareLaunchArgument(
+        'vad_silence_timeout_seconds',
+        default_value='60.0',
+        description='VAD-based silence timeout (Option 2: VAD-only approach, default: 60 seconds)'
+    )
+    
     # Create gesture intent node
     gesture_intent_node = Node(
         package='r2d2_gesture',
@@ -100,6 +106,7 @@ def generate_launch_description():
                 'auto_restart_on_return': LaunchConfiguration('auto_restart_on_return'),
                 'audio_feedback_enabled': LaunchConfiguration('audio_feedback_enabled'),
                 'audio_volume': LaunchConfiguration('audio_volume'),  # Can override config file
+                'vad_silence_timeout_seconds': LaunchConfiguration('vad_silence_timeout_seconds'),
             }
         ]
     )
@@ -113,6 +120,7 @@ def generate_launch_description():
         auto_restart_arg,
         audio_feedback_arg,
         audio_volume_arg,
+        vad_silence_timeout_arg,
         gesture_intent_node,
     ])
 

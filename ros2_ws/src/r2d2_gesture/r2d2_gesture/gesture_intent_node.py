@@ -59,7 +59,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('auto_restart_on_return', False)
         self.declare_parameter('audio_feedback_enabled', True)
         self.declare_parameter('audio_volume', 0.02)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)
-        self.declare_parameter('speaking_protection_seconds', 35.0)  # Consecutive non-RED during SPEAKING
+        self.declare_parameter('vad_silence_timeout_seconds', 60.0)  # VAD-based silence timeout (Option 2: VAD-only)
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value
@@ -70,7 +70,7 @@ class GestureIntentNode(Node):
         self.auto_restart_on_return = self.get_parameter('auto_restart_on_return').value
         self.audio_feedback_enabled = self.get_parameter('audio_feedback_enabled').value
         self.audio_volume = self.get_parameter('audio_volume').value
-        self.speaking_protection_timeout = self.get_parameter('speaking_protection_seconds').value
+        self.vad_silence_timeout = self.get_parameter('vad_silence_timeout_seconds').value
         
         # Audio feedback paths
         audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
@@ -87,8 +87,10 @@ class GestureIntentNode(Node):
         # SPEAKING state tracking (conversation protection)
         self.speaking_state = "idle"  # "idle" or "speaking"
         self.speaking_start_time = None
-        self.consecutive_nonred_start_time = None
-        self.last_red_in_speaking_time = None
+        
+        # VAD-based activity tracking (Option 2: VAD-only approach)
+        self.vad_state = "silent"  # "speaking" or "silent" from OpenAI VAD
+        self.last_vad_activity_time = None  # Last time user was speaking (from VAD)
         
         # Create subscriptions
         self.gesture_sub = self.create_subscription(
@@ -112,6 +114,13 @@ class GestureIntentNode(Node):
             10
         )
         
+        self.vad_sub = self.create_subscription(
+            String,
+            '/r2d2/speech/voice_activity',
+            self.vad_callback,
+            10
+        )
+        
         # Create service clients
         self.start_session_client = self.create_client(
             Trigger,
@@ -132,15 +141,18 @@ class GestureIntentNode(Node):
         self.get_logger().info(f'Enabled: {self.enabled}')
         self.get_logger().info(
             f'Auto-shutdown: enabled={self.auto_shutdown_enabled}, '
-            f'timeout={self.auto_shutdown_timeout}s, '
+            f'idle_timeout={self.auto_shutdown_timeout}s, '
             f'auto_restart={self.auto_restart_on_return}'
         )
         self.get_logger().info(f'Audio feedback: {self.audio_feedback_enabled}')
-        self.get_logger().info(f'SPEAKING protection: {self.speaking_protection_timeout}s consecutive non-RED')
+        self.get_logger().info(f'VAD-Only Mode: {self.vad_silence_timeout}s silence timeout (Option 2)')
     
     def person_status_callback(self, msg):
         """
         Handle person status updates from audio notification node.
+        
+        Option 2: VAD-Only - Camera status only used for initial gesture gating.
+        During active sessions, VAD determines when to stop (not camera).
         
         Args:
             msg: String message containing JSON status data
@@ -152,25 +164,10 @@ class GestureIntentNode(Node):
             
             # Log status changes
             if old_status != self.person_status:
-                self.get_logger().info(f'👤 Person status: {old_status} → {self.person_status}')
+                self.get_logger().debug(f'👤 Person status: {old_status} → {self.person_status}')
             
-            # CRITICAL: Immediate stop on BLUE during active session
-            if self.speaking_state == "speaking" and self.person_status == "blue":
-                self.get_logger().warn(
-                    '🔴 Person confirmed absent (BLUE status). Stopping session immediately.'
-                )
-                self._exit_speaking_state(reason="confirmed_absence_blue")
-                return
-            
-            # Update timers based on status
+            # Reset idle watchdog when person returns (for auto-restart feature)
             if self.person_status == "red":
-                # Target person recognized - reset all timers
-                if self.speaking_state == "speaking":
-                    self.last_red_in_speaking_time = self.get_clock().now()
-                    self.consecutive_nonred_start_time = None
-                    self.get_logger().debug('SPEAKING: RED detected, grace timer reset')
-                
-                # Reset idle watchdog
                 if self.last_red_status_time is not None:
                     self.get_logger().debug('Idle watchdog: RED detected, timer reset')
                 self.last_red_status_time = None
@@ -180,14 +177,7 @@ class GestureIntentNode(Node):
                 if self.auto_shutdown_triggered and self.auto_restart_on_return:
                     self.get_logger().info('👤 Person returned. Auto-restarting speech service.')
                     self._start_session()
-            
-            elif self.person_status == "green":
-                # Unknown person - start grace period if in speaking state
-                if self.speaking_state == "speaking" and self.consecutive_nonred_start_time is None:
-                    self.consecutive_nonred_start_time = self.get_clock().now()
-                    self.get_logger().info(
-                        f'SPEAKING: GREEN (unknown) detected, starting {self.speaking_protection_timeout}s grace period'
-                    )
+                    
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse person status: {e}')
     
@@ -226,6 +216,33 @@ class GestureIntentNode(Node):
                 self.get_logger().debug(f'Session active: {self.session_active} (status={status_str})')
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse session status: {e}')
+    
+    def vad_callback(self, msg):
+        """
+        Handle Voice Activity Detection updates from OpenAI speech system.
+        
+        Option 2: VAD-Only Approach - Uses OpenAI's built-in VAD instead of camera.
+        
+        Args:
+            msg: String message containing JSON VAD data
+        """
+        try:
+            vad_data = json.loads(msg.data)
+            old_state = self.vad_state
+            self.vad_state = vad_data.get('state', 'silent')  # "speaking" or "silent"
+            
+            if self.vad_state == "speaking":
+                # User is actively speaking - reset silence timer
+                self.last_vad_activity_time = self.get_clock().now()
+                if old_state != "speaking":
+                    self.get_logger().info('🎤 VAD: User speaking (conversation active)')
+            else:
+                # User stopped speaking - silence timer continues
+                if old_state != "silent":
+                    self.get_logger().info('🔇 VAD: User silent (checking timeout)')
+                    
+        except json.JSONDecodeError as e:
+            self.get_logger().warn(f'Failed to parse VAD data: {e}')
     
     def gesture_callback(self, msg):
         """
@@ -290,23 +307,23 @@ class GestureIntentNode(Node):
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')
     
     def _enter_speaking_state(self):
-        """Enter SPEAKING state when conversation starts."""
+        """Enter SPEAKING state when conversation starts (Option 2: VAD-only)."""
         self.speaking_state = "speaking"
         self.speaking_start_time = self.get_clock().now()
-        self.last_red_in_speaking_time = self.get_clock().now()
-        self.consecutive_nonred_start_time = None
+        self.last_vad_activity_time = self.get_clock().now()
+        self.vad_state = "speaking"  # Assume speaking when session starts
         
         self.get_logger().info(
-            f'🗣️  Entered SPEAKING state (protection: {self.speaking_protection_timeout}s consecutive non-RED)'
+            f'🗣️  Entered SPEAKING state (VAD-only: {self.vad_silence_timeout}s silence timeout)'
         )
         self._start_session()
     
     def _exit_speaking_state(self, reason: str):
-        """Exit SPEAKING state when conversation ends."""
+        """Exit SPEAKING state when conversation ends (Option 2: VAD-only)."""
         self.speaking_state = "idle"
         self.speaking_start_time = None
-        self.consecutive_nonred_start_time = None
-        self.last_red_in_speaking_time = None
+        self.last_vad_activity_time = None
+        self.vad_state = "silent"
         
         self.get_logger().info(f'🔇 Exited SPEAKING state (reason: {reason})')
         self._stop_session()
@@ -352,38 +369,37 @@ class GestureIntentNode(Node):
         """
         Watchdog timer callback: Check timeouts and auto-stop speech if needed.
         
-        Two separate timeout mechanisms:
-        1. SPEAKING state: 35s grace period for GREEN (unknown person)
-        2. IDLE state: 5-minute failsafe for forgotten sessions
+        Option 2: VAD-Only Approach
+        - SPEAKING state: Uses VAD silence timeout (60s default)
+        - IDLE state: Idle failsafe for forgotten sessions (35s default)
         """
         if not self.auto_shutdown_enabled:
             return
         
         current_time = self.get_clock().now()
         
-        # ===== SPEAKING STATE PROTECTION =====
-        # Check if in SPEAKING state and grace period exceeded
+        # ===== SPEAKING STATE: VAD-BASED PROTECTION =====
+        # Check if in SPEAKING state and VAD silence timeout exceeded
         if self.speaking_state == "speaking":
-            # Check 35s grace period for GREEN status
-            if self.consecutive_nonred_start_time is not None:
-                time_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
+            if self.last_vad_activity_time is not None:
+                time_silent = (current_time - self.last_vad_activity_time).nanoseconds / 1e9
                 
-                # Log progress every 10 seconds
-                if int(time_nonred) % 10 == 0 and int(time_nonred) > 0:
-                    remaining = self.speaking_protection_timeout - time_nonred
+                # Log progress every 15 seconds
+                if int(time_silent) % 15 == 0 and int(time_silent) > 0:
+                    remaining = self.vad_silence_timeout - time_silent
                     if remaining > 0:
                         self.get_logger().info(
-                            f'SPEAKING: GREEN for {int(time_nonred)}s / {int(self.speaking_protection_timeout)}s '
-                            f'(grace expires in {int(remaining)}s if person doesn\'t return)'
+                            f'VAD: Silent for {int(time_silent)}s / {int(self.vad_silence_timeout)}s '
+                            f'(auto-stop in {int(remaining)}s if no speech detected)'
                         )
                 
-                # Check if grace period exceeded
-                if time_nonred > self.speaking_protection_timeout:
+                # Check if VAD silence timeout exceeded
+                if time_silent > self.vad_silence_timeout:
                     self.get_logger().warn(
-                        f'SPEAKING: Unknown person (GREEN) for {time_nonred:.0f}s consecutive '
-                        f'(threshold: {self.speaking_protection_timeout}s). Stopping conversation.'
+                        f'VAD: No speech detected for {time_silent:.0f}s '
+                        f'(threshold: {self.vad_silence_timeout}s). Stopping conversation.'
                     )
-                    self._exit_speaking_state(reason="green_grace_expired")
+                    self._exit_speaking_state(reason="vad_silence_timeout")
             return  # Don't check idle watchdog while in SPEAKING state
         
         # ===== IDLE STATE FAILSAFE =====
@@ -400,7 +416,7 @@ class GestureIntentNode(Node):
             # Calculate time since last RED status
             time_since_red = (current_time - self.last_red_status_time).nanoseconds / 1e9
             
-            # Check if timeout exceeded (5 minutes)
+            # Check if timeout exceeded
             if time_since_red > self.auto_shutdown_timeout:
                 if self.session_active and not self.auto_shutdown_triggered:
                     self.get_logger().warn(

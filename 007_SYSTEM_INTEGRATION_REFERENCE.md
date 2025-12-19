@@ -187,7 +187,7 @@ stateDiagram-v2
 
 ### 3. Conversation State Machine (gesture_intent_node)
 
-**IDLE/SPEAKING State with Protection**
+**IDLE/SPEAKING State with VAD-Based Protection (Option 2)**
 
 ```mermaid
 stateDiagram-v2
@@ -196,27 +196,80 @@ stateDiagram-v2
     IDLE --> IDLE: Monitoring person_status<br/>Gestures: start enabled if RED
     IDLE --> SPEAKING: index_finger_up + RED<br/>Enter SPEAKING state
     
-    SPEAKING --> SPEAKING: person_status = RED<br/>Reset 35s Grace Timer
-    SPEAKING --> SPEAKING: person_status = GREEN<br/>Count grace time (< 35s)
-    SPEAKING --> IDLE: person_status = BLUE<br/>Immediate Stop (Confirmed Absence)
+    SPEAKING --> SPEAKING: VAD: speech detected<br/>Reset 60s Silence Timer
+    SPEAKING --> SPEAKING: VAD: silence<br/>Count silence time (< 60s)
     SPEAKING --> IDLE: Fist gesture<br/>Immediate Stop (User Command)
-    SPEAKING --> IDLE: Consecutive GREEN ≥ 35s<br/>Grace Period Expired
+    SPEAKING --> IDLE: VAD silence ≥ 60s<br/>Silence Timeout
     
     note right of IDLE
         No conversation active
         Gestures: start enabled (if RED)
-        Protection: None
+        Camera: Only for gesture gating
         Watchdog: 35s idle failsafe
     end note
     
     note right of SPEAKING
-        Conversation protected from brief interruptions
-        Grace: 35s for GREEN (unknown person)
-        Critical: Immediate stop on BLUE (confirmed lost)
-        Timer: Resets on every RED seen
+        VAD-Only Protection (Option 2)
+        Timeout: 60s silence from OpenAI VAD
+        Camera: NOT used for timeout
+        Immune to face recognition flickers
         Fist: Immediate override
+        Timer: Resets on every speech activity
     end note
 ```
+
+---
+
+## VAD-Only Approach (Option 2) - Current Implementation
+
+**Problem Solved:** Camera-based timeout was causing premature session termination during active conversations due to brief face recognition misidentifications.
+
+**Solution:** Use OpenAI's built-in Voice Activity Detection (VAD) instead of camera status for session timeout.
+
+### How It Works
+
+**During Active Conversation (SPEAKING state):**
+1. **Speech Detected** (`input_audio_buffer.speech_started` from OpenAI)
+   - Resets 60-second silence timer
+   - Conversation continues regardless of camera status
+   - Immune to face recognition flickers (RED ↔ GREEN transitions)
+
+2. **Silence Detected** (`input_audio_buffer.speech_stopped` from OpenAI)
+   - Starts silence timer
+   - If silence exceeds 60 seconds → Stop session
+   - If speech resumes → Reset timer
+
+3. **User Override**
+   - Fist gesture → Immediate stop (always works)
+   - Camera still used for initial gesture gating (must be RED to start)
+
+### Key Benefits
+
+✅ **Reliable:** No false timeouts from camera flickers  
+✅ **Natural:** Stops only after extended silence (60s)  
+✅ **Accurate:** Uses microphone activity (what user actually says)  
+✅ **Cost-Effective:** Still stops forgotten sessions  
+
+### Topic Flow
+
+```
+OpenAI Realtime API
+    ↓ (WebSocket events)
+speech_node
+    ↓ publishes
+/r2d2/speech/voice_activity (JSON: "speaking" or "silent")
+    ↓ subscribes
+gesture_intent_node
+    ↓ (timeout logic)
+Stop session after 60s silence
+```
+
+### Configuration
+
+**VAD Silence Timeout:** `vad_silence_timeout_seconds` (default: 60.0)
+- Adjustable via launch parameter
+- Recommended: 60s for natural conversations
+- Can increase for longer pauses (e.g., 120s for thoughtful discussions)
 
 ---
 
@@ -844,17 +897,24 @@ ON watchdog_timer (every 10 seconds):
    - EXPECT: Speech session ends immediately
    - FEEDBACK: Conversation ended
 
-5. **I walk away**
-   - EXPECT: LED turns OFF after 20 seconds
+5. **I walk away during conversation**
+   - EXPECT: LED turns OFF after 20 seconds (camera detects absence)
    - EXPECT: "Lost you!" beep after 20 seconds
-   - EXPECT: If speech was active, auto-stops after 35 seconds total
-   - FEEDBACK: System knows I'm gone
+   - EXPECT: **Conversation continues until 60s silence** (VAD-only mode)
+   - EXPECT: If I keep talking, session stays active regardless of camera
+   - FEEDBACK: VAD protects conversation from camera flickers
 
 6. **I return to camera**
    - EXPECT: LED turns ON within 1 second
    - EXPECT: "Hello!" beep within 1 second
    - EXPECT: Can raise finger to start new conversation
    - FEEDBACK: System recognizes me again
+
+7. **I stop talking for 60 seconds (VAD-only)**
+   - EXPECT: Conversation auto-stops after 60s of complete silence
+   - EXPECT: "Stop" beep plays
+   - EXPECT: No early termination from camera flickers
+   - FEEDBACK: Natural conversation flow, stops only on real silence
 
 ### UX Failure Scenarios (Should Never Happen)
 

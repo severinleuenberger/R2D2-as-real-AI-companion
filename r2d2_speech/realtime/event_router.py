@@ -32,6 +32,7 @@ class EventRouter:
         realtime_client,
         transcript_handler,
         audio_playback=None,
+        vad_publisher=None,
     ):
         """
         Initialize event router.
@@ -40,10 +41,12 @@ class EventRouter:
             realtime_client: RealtimeClient instance
             transcript_handler: TranscriptHandler instance
             audio_playback: Optional AudioPlayback instance for assistant audio
+            vad_publisher: Optional ROS2VADPublisher for voice activity detection
         """
         self.client = realtime_client
         self.transcript_handler = transcript_handler
         self.audio_playback = audio_playback
+        self.vad_publisher = vad_publisher
         
         self.running = False
         
@@ -141,9 +144,13 @@ class EventRouter:
             # VAD events
             elif event_type == "input_audio_buffer.speech_started":
                 logger.info("🎤 Speech detected - listening...")
+                if self.vad_publisher:
+                    self.vad_publisher.publish_speech_started()
             
             elif event_type == "input_audio_buffer.speech_stopped":
                 logger.info("🔇 Speech ended - processing...")
+                if self.vad_publisher:
+                    self.vad_publisher.publish_speech_stopped()
             
             elif event_type == "input_audio_buffer.committed":
                 logger.info("✓ Audio buffer committed")
