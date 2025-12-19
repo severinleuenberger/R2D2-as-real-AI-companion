@@ -29,9 +29,11 @@
    - Action: `sudo apt remove --purge -y thunderbird`
    - Status: ✅ Removed - not needed on headless AI system
 
-3. **APT Autoremove** - orphaned dependencies cleaned
-   - Action: `sudo apt autoremove -y`
-   - Status: ✅ Completed
+3. **APT Fix** - Fixed dependency issue
+   - Issue: `apt autoremove` tried to remove `libavutil-dev` which is needed by NVIDIA's ffmpeg
+   - Fix: `sudo apt --fix-broken install -y`
+   - Prevention: `sudo apt-mark manual libavutil-dev libavcodec-dev libavformat-dev libswresample-dev libswscale-dev`
+   - Status: ✅ Fixed - ffmpeg dev packages marked as manual to prevent future issues
 
 ### Phase 4: Major Cache and Source Cleanup ✅
 
