@@ -153,23 +153,41 @@ class GestureIntentNode(Node):
             # Log status changes
             if old_status != self.person_status:
                 self.get_logger().info(f'👤 Person status: {old_status} → {self.person_status}')
-                
-                # Update SPEAKING state protection if conversation active
-                if self.speaking_state == "speaking":
-                    self._update_speaking_protection(self.person_status)
             
-            # Watchdog: Handle RED status for auto-restart
-            if self.auto_shutdown_enabled and self.person_status == "red":
-                # Person present - reset timer
-                was_tracking = self.last_red_status_time is not None
+            # CRITICAL: Immediate stop on BLUE during active session
+            if self.speaking_state == "speaking" and self.person_status == "blue":
+                self.get_logger().warn(
+                    '🔴 Person confirmed absent (BLUE status). Stopping session immediately.'
+                )
+                self._exit_speaking_state(reason="confirmed_absence_blue")
+                return
+            
+            # Update timers based on status
+            if self.person_status == "red":
+                # Target person recognized - reset all timers
+                if self.speaking_state == "speaking":
+                    self.last_red_in_speaking_time = self.get_clock().now()
+                    self.consecutive_nonred_start_time = None
+                    self.get_logger().debug('SPEAKING: RED detected, grace timer reset')
+                
+                # Reset idle watchdog
+                if self.last_red_status_time is not None:
+                    self.get_logger().debug('Idle watchdog: RED detected, timer reset')
+                self.last_red_status_time = None
+                self.auto_shutdown_triggered = False
+                
+                # Auto-restart if enabled
                 if self.auto_shutdown_triggered and self.auto_restart_on_return:
                     self.get_logger().info('👤 Person returned. Auto-restarting speech service.')
                     self._start_session()
-                elif was_tracking:
-                    self.get_logger().info('⏰ Watchdog: Person returned (RED), timer reset')
-                
-                self.last_red_status_time = None
-                self.auto_shutdown_triggered = False
+            
+            elif self.person_status == "green":
+                # Unknown person - start grace period if in speaking state
+                if self.speaking_state == "speaking" and self.consecutive_nonred_start_time is None:
+                    self.consecutive_nonred_start_time = self.get_clock().now()
+                    self.get_logger().info(
+                        f'SPEAKING: GREEN (unknown) detected, starting {self.speaking_protection_timeout}s grace period'
+                    )
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse person status: {e}')
     
@@ -293,63 +311,6 @@ class GestureIntentNode(Node):
         self.get_logger().info(f'🔇 Exited SPEAKING state (reason: {reason})')
         self._stop_session()
     
-    def _update_speaking_protection(self, person_status: str):
-        """
-        Update SPEAKING state protection based on person_status changes.
-        
-        For speech-to-speech: Only RED vs non-RED matters.
-        BLUE (nobody) and GREEN (someone unknown) both treated as non-RED.
-        
-        Protection rule: Must be non-RED for 35 CONSECUTIVE seconds before auto-stop.
-        Timer resets every time RED is seen.
-        """
-        if self.speaking_state != "speaking":
-            return
-        
-        current_time = self.get_clock().now()
-        
-        if person_status == "red":
-            # Target person recognized - RESET protection timer
-            self.last_red_in_speaking_time = current_time
-            
-            if self.consecutive_nonred_start_time is not None:
-                time_was_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
-                self.get_logger().info(
-                    f'SPEAKING: Person returned to RED (was non-RED for {time_was_nonred:.1f}s, timer RESET)'
-                )
-            
-            self.consecutive_nonred_start_time = None  # RESET
-        
-        else:
-            # Person NOT RED (BLUE or GREEN - both count as non-RED for speech)
-            if self.consecutive_nonred_start_time is None:
-                # Start tracking consecutive non-RED period
-                self.consecutive_nonred_start_time = current_time
-                self.get_logger().info(
-                    f'SPEAKING: Person non-RED (status={person_status}), '
-                    f'starting {self.speaking_protection_timeout}s consecutive timer'
-                )
-            else:
-                # Already tracking - check if threshold exceeded
-                time_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
-                
-                # Log progress every 10 seconds
-                if int(time_nonred) % 10 == 0 and int(time_nonred) > 0:
-                    remaining = self.speaking_protection_timeout - time_nonred
-                    if remaining > 0:
-                        self.get_logger().info(
-                            f'SPEAKING: Non-RED for {int(time_nonred)}s / {int(self.speaking_protection_timeout)}s '
-                            f'(auto-stop in {int(remaining)}s if person doesn\'t return)'
-                        )
-                
-                if time_nonred > self.speaking_protection_timeout:
-                    # Protection threshold exceeded
-                    self.get_logger().warn(
-                        f'SPEAKING: Person absent for {time_nonred:.0f}s consecutive '
-                        f'(threshold: {self.speaking_protection_timeout}s). Auto-stopping conversation.'
-                    )
-                    self._exit_speaking_state(reason="absence_timeout")
-    
     def _call_service(self, client, service_name):
         """
         Call a service asynchronously.
@@ -389,51 +350,67 @@ class GestureIntentNode(Node):
     
     def watchdog_callback(self):
         """
-        Watchdog timer callback: Check if person has been absent too long and auto-stop speech.
+        Watchdog timer callback: Check timeouts and auto-stop speech if needed.
         
-        This monitors person presence and automatically stops the speech service after
-        a configured timeout period (default 5 minutes) to prevent unnecessary API calls
-        when no one is present.
+        Two separate timeout mechanisms:
+        1. SPEAKING state: 35s grace period for GREEN (unknown person)
+        2. IDLE state: 5-minute failsafe for forgotten sessions
         """
         if not self.auto_shutdown_enabled:
             return
         
+        current_time = self.get_clock().now()
+        
+        # ===== SPEAKING STATE PROTECTION =====
+        # Check if in SPEAKING state and grace period exceeded
+        if self.speaking_state == "speaking":
+            # Check 35s grace period for GREEN status
+            if self.consecutive_nonred_start_time is not None:
+                time_nonred = (current_time - self.consecutive_nonred_start_time).nanoseconds / 1e9
+                
+                # Log progress every 10 seconds
+                if int(time_nonred) % 10 == 0 and int(time_nonred) > 0:
+                    remaining = self.speaking_protection_timeout - time_nonred
+                    if remaining > 0:
+                        self.get_logger().info(
+                            f'SPEAKING: GREEN for {int(time_nonred)}s / {int(self.speaking_protection_timeout)}s '
+                            f'(grace expires in {int(remaining)}s if person doesn\'t return)'
+                        )
+                
+                # Check if grace period exceeded
+                if time_nonred > self.speaking_protection_timeout:
+                    self.get_logger().warn(
+                        f'SPEAKING: Unknown person (GREEN) for {time_nonred:.0f}s consecutive '
+                        f'(threshold: {self.speaking_protection_timeout}s). Stopping conversation.'
+                    )
+                    self._exit_speaking_state(reason="green_grace_expired")
+            return  # Don't check idle watchdog while in SPEAKING state
+        
+        # ===== IDLE STATE FAILSAFE =====
+        # Only applies when session is inactive (idle cleanup)
         if self.person_status != "red":
             # Person not present (BLUE or GREEN status)
             if self.last_red_status_time is None:
                 # Start tracking absence time
-                self.last_red_status_time = self.get_clock().now()
-                self.get_logger().info(
-                    f'⏰ Watchdog: Person absent (status={self.person_status}), starting 5-minute timer'
+                self.last_red_status_time = current_time
+                self.get_logger().debug(
+                    f'Idle watchdog: Person absent (status={self.person_status}), starting {int(self.auto_shutdown_timeout)}s timer'
                 )
             
             # Calculate time since last RED status
-            time_since_red = (self.get_clock().now() - self.last_red_status_time).nanoseconds / 1e9
+            time_since_red = (current_time - self.last_red_status_time).nanoseconds / 1e9
             
-            # Log progress every minute if session is active
-            if self.session_active and int(time_since_red) % 60 == 0 and int(time_since_red) > 0:
-                remaining = self.auto_shutdown_timeout - time_since_red
-                if remaining > 0:
-                    self.get_logger().info(
-                        f'⏰ Watchdog: Person still absent ({int(time_since_red)}s / {int(self.auto_shutdown_timeout)}s). '
-                        f'Auto-shutdown in {int(remaining)}s...'
-                    )
-            
-            # Check if timeout exceeded
+            # Check if timeout exceeded (5 minutes)
             if time_since_red > self.auto_shutdown_timeout:
                 if self.session_active and not self.auto_shutdown_triggered:
                     self.get_logger().warn(
-                        f'⏰ No person presence for {time_since_red:.0f}s '
-                        f'(timeout: {self.auto_shutdown_timeout}s). '
-                        f'Auto-stopping speech service to save API costs.'
+                        f'Idle watchdog: No person for {time_since_red:.0f}s '
+                        f'(timeout: {self.auto_shutdown_timeout}s). Auto-stopping forgotten session.'
                     )
                     self._stop_session()
                     self.auto_shutdown_triggered = True
                 elif not self.session_active and not self.auto_shutdown_triggered:
-                    # Session already inactive, just mark as triggered to avoid repeated logs
-                    self.get_logger().debug(
-                        f'Watchdog: Timeout reached but session already inactive'
-                    )
+                    self.get_logger().debug('Idle watchdog: Timeout reached, session already inactive')
                     self.auto_shutdown_triggered = True
     
     def _play_audio_feedback(self, audio_file: Path):
