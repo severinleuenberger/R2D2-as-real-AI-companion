@@ -1443,7 +1443,7 @@ The R2D2 system includes a power button control system for graceful shutdown and
 - **Status:** ⏳ Reserved for future advanced patterns
 - **Connector:** 3 pins (+5V, GND, Data)
 
-**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
+**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](_ANALYSIS_AND_DOCUMENTATION/HARDWARE_WHITE_LED_WIRING.md)
 
 ### 7.4 Person Management System
 
@@ -1792,7 +1792,7 @@ sudo systemctl status r2d2-powerbutton.service
 - `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` - Audio hardware setup (prerequisite for 100_)
 - `200_SPEECH_SYSTEM_REFERENCE.md` - Phase 2 system reference (OpenAI Realtime API)
 - `204_SPEECH_CUSTOMIZATION_GUIDE.md` - Complete voice and personality customization guide (includes quick reference)
-- `QUICK_START.md` - Quick reference guide
+- `_ANALYSIS_AND_DOCUMENTATION/QUICK_START.md` - Quick reference guide
 
 ---
 

@@ -1171,7 +1171,7 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 **Documentation References:**
 - `001_ARCHITECTURE_OVERVIEW.md` - Section 2.1, 2.2, 3.1, 5.1
 - `100_PERSON_RECOGNITION_AND_STATUS.md` - Complete setup guide
-- `FACE_RECOGNITION_ANALYSIS_SUMMARY.md` - Performance analysis
+- `_ANALYSIS_AND_DOCUMENTATION/FACE_RECOGNITION_ANALYSIS_SUMMARY.md` - Performance analysis
 
 ---
 
@@ -1314,7 +1314,7 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 **Documentation References:**
 - `001_ARCHITECTURE_OVERVIEW.md` - Section 4, 6.2
 - `100_PERSON_RECOGNITION_AND_STATUS.md` - Complete setup and tuning guide
-- `AUDIO_STATUS_SYSTEM_ARCHITECTURE.md` - State machine details
+- `_ANALYSIS_AND_DOCUMENTATION/AUDIO_STATUS_SYSTEM_ARCHITECTURE.md` - State machine details
 
 ---
 
@@ -1500,7 +1500,7 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 - `200_SPEECH_SYSTEM_REFERENCE.md` - System architecture and reference
 - `201_SPEECH_SYSTEM_INSTALLATION.md` - Installation instructions
 - `203_SPEECH_SYSTEM_QUICK_START.md` - Quick reference
-- `ROS2_SPEECH_TESTING.md` - Integration testing
+- `_ANALYSIS_AND_DOCUMENTATION/ROS2_SPEECH_TESTING.md` - Integration testing
 
 ---
 

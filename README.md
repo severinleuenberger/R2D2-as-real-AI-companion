@@ -106,8 +106,8 @@ Comprehensive guides organized by audience and use case. **Start here:**
 4. **[007_SYSTEM_INTEGRATION_REFERENCE.md](007_SYSTEM_INTEGRATION_REFERENCE.md)** — ⭐ How components integrate (NEW)
 
 ### For Daily Operators
-- **[QUICK_START.md](QUICK_START.md)** — Quick reference for common tasks
-- **[AUDIO_QUICK_REFERENCE.md](AUDIO_QUICK_REFERENCE.md)** — Audio system quick reference
+- **[QUICK_START.md](_ANALYSIS_AND_DOCUMENTATION/QUICK_START.md)** — Quick reference for common tasks
+- **[AUDIO_QUICK_REFERENCE.md](_ANALYSIS_AND_DOCUMENTATION/AUDIO_QUICK_REFERENCE.md)** — Audio system quick reference
 
 ### For Phase 1 (Current) Developers
 - **[000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
