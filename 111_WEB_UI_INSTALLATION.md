@@ -210,13 +210,14 @@ sudo systemctl status r2d2-camera-stream.service
 
 ---
 
-## Phase 5: Enhanced Heartbeat Service Setup
+## Phase 5: Lightweight Heartbeat Service Setup
 
-The heartbeat service provides system health metrics (CPU, GPU, temperature).
+The heartbeat service provides a lightweight "alive" ping. System metrics (CPU, GPU, Disk, Temperature)
+are collected on-demand via the Web Dashboard's `/api/system/health` REST endpoint.
 
-### Step 5.1: Verify Enhanced Heartbeat Node
+### Step 5.1: Verify Heartbeat Node
 
-The enhanced heartbeat node should publish system metrics in JSON format.
+The heartbeat node publishes a simple timestamp + status JSON.
 
 ```bash
 # Check if heartbeat node exists
@@ -232,7 +233,7 @@ sudo nano /etc/systemd/system/r2d2-heartbeat.service
 **Add this content:**
 ```ini
 [Unit]
-Description=R2D2 Heartbeat Service (Enhanced with System Metrics)
+Description=R2D2 Heartbeat Service (Lightweight Alive Ping)
 After=network.target
 
 [Service]
@@ -271,9 +272,9 @@ sudo systemctl status r2d2-heartbeat.service
 ros2 topic echo /r2d2/heartbeat --once
 ```
 
-**Expected Output:**
+**Expected Output (lightweight format):**
 ```json
-data: '{"timestamp": "2025-12-17T10:30:00", "status": "running", "cpu_percent": 15.5, "gpu_percent": 8.2, "temperature_c": 42.3}'
+data: '{"timestamp": "2025-12-20T11:46:31", "status": "running"}'
 ```
 
 ---
@@ -572,7 +573,7 @@ Before considering the installation complete, verify all components:
 - [ ] rosbridge running (port 9090)
 - [ ] Web dashboard running (port 8080)
 - [ ] Camera stream service exists (optional)
-- [ ] Heartbeat service running (optional)
+- [ ] Heartbeat service running (lightweight alive ping)
 - [ ] **Wake API running (port 8079)**
 
 ### ✅ Network Access
@@ -588,12 +589,12 @@ Before considering the installation complete, verify all components:
 - [ ] Volume control slider works
 - [ ] Training interface accessible
 - [ ] Event stream shows live events
-- [ ] System health metrics display (if heartbeat enabled)
+- [ ] System health metrics display (via /api/system/health)
 
 ### ✅ Optional Features
 - [ ] Systemd services enabled for auto-start
 - [ ] Camera stream service working
-- [ ] Heartbeat service showing metrics
+- [ ] Heartbeat service showing alive status (metrics via REST API)
 
 ---
 

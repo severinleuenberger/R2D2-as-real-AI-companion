@@ -68,7 +68,7 @@ Tailscale VPN (Already Configured)
 │  │  ROS 2 System (Existing)                                    │  │
 │  │  ├─ /r2d2/perception/person_id (String)                      │  │
 │  │  ├─ /r2d2/audio/person_status (JSON)                        │  │
-│  │  ├─ /r2d2/heartbeat (JSON with metrics)                     │  │
+│  │  ├─ /r2d2/heartbeat (JSON: timestamp + status only)         │  │
 │  │  └─ /oak/rgb/image_raw (sensor_msgs/Image)                  │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 │                                                                     │
@@ -124,6 +124,7 @@ ROS 2 Topics
 - `/api/audio/*` - Volume control
 - `/api/training/*` - Training operations
 - `/api/status/*` - System status
+- `/api/system/health` - System metrics (CPU, GPU, Disk, Temp) - on-demand
 - `/ws` - WebSocket for training logs
 
 ### 2. rosbridge Suite
@@ -138,7 +139,7 @@ ROS 2 Topics
 - `/r2d2/audio/person_status` - Recognition state (JSON)
 - `/r2d2/perception/person_id` - Person identification
 - `/r2d2/perception/face_count` - Face count
-- `/r2d2/heartbeat` - System health metrics
+- `/r2d2/heartbeat` - System alive status (lightweight ping)
 
 **Protocol:** roslibjs (JavaScript library for rosbridge)
 
@@ -344,6 +345,24 @@ Response: {
 }
 ```
 
+### System Health API
+
+**Get System Metrics (On-Demand)**
+```http
+GET /api/system/health
+
+Response: {
+    "cpu_percent": 23.5,
+    "gpu_percent": 0.0,
+    "disk_percent": 81.9,
+    "temperature_c": 45.2
+}
+```
+
+**Note:** System metrics (CPU, GPU, Disk, Temperature) are collected on-demand only when this endpoint is called. This saves resources compared to the previous approach where metrics were published continuously via the heartbeat topic.
+
+The heartbeat topic (`/r2d2/heartbeat`) now only contains a lightweight "alive" ping with `timestamp` and `status` fields.
+
 ### Training API
 
 **Start Capture Training**
@@ -471,7 +490,7 @@ Response: {
 | `/r2d2/audio/person_status` | std_msgs/String (JSON) | 10 Hz | Recognition state |
 | `/r2d2/perception/person_id` | std_msgs/String | 6.5 Hz | Person identification |
 | `/r2d2/perception/face_count` | std_msgs/Int32 | 13 Hz | Face count |
-| `/r2d2/heartbeat` | std_msgs/String (JSON) | 1 Hz | System health |
+| `/r2d2/heartbeat` | std_msgs/String (JSON) | 1 Hz | Alive status (timestamp + running) |
 | `/oak/rgb/image_raw` | sensor_msgs/Image | 30 Hz | Camera feed (for stream) |
 
 ### ROS 2 Parameter Control

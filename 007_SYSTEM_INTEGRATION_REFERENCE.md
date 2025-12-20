@@ -477,7 +477,7 @@ This section provides a practical operational view of all services and nodes, sh
 - **`r2d2-camera-perception.service`**: starts `camera_node` + `image_listener`
 - **`r2d2-audio-notification.service`**: starts `audio_notification_node` + `status_led_node` + `database_logger_node`
 - **`r2d2-gesture-intent.service`**: starts `gesture_intent_node`
-- **`r2d2-heartbeat.service`**: starts `heartbeat_node` (system health topic `/r2d2/heartbeat`)
+- **`r2d2-heartbeat.service`**: starts `heartbeat_node` (lightweight alive ping via `/r2d2/heartbeat`)
 - **`tailscaled.service`**: VPN connectivity (remote access)
 
 **Optional / configuration-dependent (can be enabled or disabled):**
@@ -601,11 +601,14 @@ ros2 topic echo /r2d2/speech/session_status --no-arr | grep -oP '"status":\s*"\K
 done
 ```
 
-**E) System Health (heartbeat):**
+**E) System Health:**
 
 ```bash
-# Shows CPU%, memory, temperature every second
+# Heartbeat (alive status only - lightweight)
 ros2 topic echo /r2d2/heartbeat
+
+# Full metrics (CPU%, GPU%, Disk%, Temp) via REST API
+curl http://100.95.133.26:8080/api/system/health
 ```
 
 ##### 3) Combined Multi-Topic Monitors
@@ -1180,11 +1183,14 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 **Name:** `heartbeat_node`  
 **Type:** ROS 2 Node (Python)  
 **Package:** `r2d2_hello`  
-**Purpose:** System health monitoring - publishes CPU, GPU, temperature metrics
+**Purpose:** Lightweight "alive" ping - confirms system is running
+
+**Architecture Change (Dec 2025):** The heartbeat is now simplified to just publish timestamp + status.
+System metrics (CPU, GPU, Disk, Temperature) are now collected on-demand via the Web Dashboard's
+`/api/system/health` REST endpoint, saving resources when the dashboard isn't being viewed.
 
 **Dependencies:**
-- Software: psutil (system metrics), rclpy
-- Hardware: Jetson AGX Orin system sensors
+- Software: rclpy (no psutil needed - metrics moved to REST API)
 
 **Storage Location:**
 - Source: `~/dev/r2d2/ros2_ws/src/r2d2_hello/r2d2_hello/heartbeat_node.py`
@@ -1200,18 +1206,20 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 - Frequency: 1 Hz (continuous)
 
 **Topics Published:**
-- `/r2d2/heartbeat` (std_msgs/String, JSON, 1 Hz) - System health with metrics
+- `/r2d2/heartbeat` (std_msgs/String, JSON, 1 Hz) - Lightweight alive status
 
 **Message Format (JSON):**
 ```json
 {
-  "status": "alive",
-  "timestamp": 1734451200,
-  "cpu_percent": 23.5,
-  "gpu_percent": 0.0,
-  "temperature_celsius": 45.2,
-  "memory_percent": 15.3
+  "timestamp": "2025-12-20T11:46:31",
+  "status": "running"
 }
+```
+
+**Note:** System metrics (CPU, GPU, Disk, Temperature) are now available via REST API:
+```bash
+curl http://100.95.133.26:8080/api/system/health
+# Returns: {"cpu_percent": 23.5, "gpu_percent": 0.0, "disk_percent": 81.9, "temperature_c": 45.2}
 ```
 
 **Documentation References:**
@@ -1590,11 +1598,10 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 
 **Name:** `r2d2-heartbeat.service`  
 **Type:** Systemd service (oneshot + forking)  
-**Purpose:** System health monitoring - publishes CPU/GPU/temperature metrics
+**Purpose:** Lightweight alive ping - confirms system is running
 
 **Dependencies:**
 - Node: heartbeat_node
-- Software: psutil
 
 **Storage Location:**
 - Service file: `/etc/systemd/system/r2d2-heartbeat.service`
@@ -1988,7 +1995,7 @@ gesture_intent_node (gesture-intent service)
 | audio_notification_node | 2-4% | 50 MB | ✅ Yes | ✅ Yes |
 | status_led_node | <0.1% | 20 MB | ✅ Yes | ✅ Yes |
 | database_logger_node | <0.1% | 30 MB | ✅ Yes | ✅ Yes |
-| heartbeat_node | <0.5% | 10 MB | ✅ Yes | ✅ Yes |
+| heartbeat_node | <0.1% | 10 MB | ✅ Yes | ✅ Yes |
 | gesture_intent_node | <1% | 50 MB | ✅ Yes | ✅ Yes |
 | **Core Subtotal** | **16-26%** | **~410 MB** | | |
 | | | | | |

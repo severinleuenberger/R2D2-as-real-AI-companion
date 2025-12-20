@@ -147,8 +147,11 @@ ros2 topic hz /r2d2/perception/person_id
 ### Check System Health
 
 ```bash
-# Check heartbeat (with system metrics)
+# Check heartbeat (lightweight alive status)
 ros2 topic echo /r2d2/heartbeat
+
+# Get full system metrics via REST API
+curl http://100.95.133.26:8080/api/system/health
 
 # Check all running ROS 2 nodes
 ros2 node list
@@ -383,7 +386,7 @@ ls -la ~/dev/r2d2/data/face_recognition/
 | `/r2d2/perception/person_id` | String | Person identity | 6.5 Hz |
 | `/r2d2/perception/face_count` | Int32 | Face count | 13 Hz |
 | `/r2d2/perception/face_confidence` | Float32 | Confidence score | 6.5 Hz |
-| `/r2d2/heartbeat` | String (JSON) | System health | 1 Hz |
+| `/r2d2/heartbeat` | String (JSON) | Alive status | 1 Hz |
 | `/oak/rgb/image_raw` | sensor_msgs/Image | Camera feed | 30 Hz |
 
 ---
@@ -408,7 +411,7 @@ ls -la ~/dev/r2d2/data/face_recognition/
 | `audio` | r2d2-audio-notification.service | Audio alerts |
 | `camera` | r2d2-camera-perception.service | Camera + perception |
 | `powerbutton` | r2d2-powerbutton.service | Shutdown control |
-| `heartbeat` | r2d2-heartbeat.service | Health monitoring |
+| `heartbeat` | r2d2-heartbeat.service | Alive ping |
 | `camera-stream` | r2d2-camera-stream.service | MJPEG stream |
 | `rosbridge` | r2d2-rosbridge.service | WebSocket bridge |
 | `web-dashboard` | r2d2-web-dashboard.service | Web UI server |
@@ -438,7 +441,7 @@ cd ~/dev/r2d2/web_dashboard
 
 - Monitor recognition status in real-time
 - Adjust volume as needed using slider
-- Check system health metrics (CPU, GPU, temp)
+- Check system health metrics via REST API (CPU, GPU, Disk, Temp)
 - View event stream for activity logs
 
 ### Evening Shutdown

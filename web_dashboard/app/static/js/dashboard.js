@@ -279,6 +279,7 @@ function enableDashboard() {
     startServiceStatusPolling();
     startHeartbeatMonitoring();
     startMetricsTracking();
+    startSystemHealthPolling();
     
     // Reload services and other data
     loadServices();
@@ -325,6 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCameraStreamDisplay();
         // Start metrics tracking
         startMetricsTracking();
+        // Start system health polling (CPU, GPU, Disk, Temp from REST API)
+        startSystemHealthPolling();
         // Load command hints after a delay (to ensure services are loaded)
         setTimeout(() => {
             updateCommandHints();
@@ -1143,7 +1146,7 @@ function checkHeartbeatStatus() {
 }
 
 function updateHealthDisplay(heartbeatData) {
-    // Update status
+    // Update online/offline status only (heartbeat is now lightweight)
     const statusIcon = document.getElementById('health-status-icon');
     const statusText = document.getElementById('health-status-text');
     const timestamp = document.getElementById('health-timestamp');
@@ -1162,12 +1165,39 @@ function updateHealthDisplay(heartbeatData) {
         const date = new Date(heartbeatData.timestamp);
         timestamp.textContent = `Last update: ${date.toLocaleTimeString()}`;
     }
-    
+}
+
+// Fetch system health metrics from REST API (on-demand, saves resources)
+let systemHealthInterval = null;
+
+async function fetchSystemHealth() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/system/health`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        updateSystemHealthDisplay(data);
+    } catch (error) {
+        console.debug('Failed to fetch system health:', error);
+    }
+}
+
+function startSystemHealthPolling() {
+    // Poll system health every 1 second
+    if (systemHealthInterval) {
+        clearInterval(systemHealthInterval);
+    }
+    fetchSystemHealth(); // Fetch immediately
+    systemHealthInterval = setInterval(fetchSystemHealth, 1000);
+    storedIntervals.push(systemHealthInterval);
+}
+
+function updateSystemHealthDisplay(metricsData) {
     // Update CPU usage
-    if (heartbeatData.cpu_percent !== undefined) {
+    if (metricsData.cpu_percent !== undefined) {
         const cpuValue = document.getElementById('cpu-value');
         const cpuBarFill = document.getElementById('cpu-bar-fill');
-        const cpuPercent = heartbeatData.cpu_percent;
+        const cpuPercent = metricsData.cpu_percent;
         
         if (cpuValue) {
             cpuValue.textContent = `${cpuPercent}%`;
@@ -1178,10 +1208,10 @@ function updateHealthDisplay(heartbeatData) {
     }
     
     // Update GPU usage
-    if (heartbeatData.gpu_percent !== undefined) {
+    if (metricsData.gpu_percent !== undefined) {
         const gpuValue = document.getElementById('gpu-value');
         const gpuBarFill = document.getElementById('gpu-bar-fill');
-        const gpuPercent = heartbeatData.gpu_percent;
+        const gpuPercent = metricsData.gpu_percent;
         
         if (gpuValue) {
             gpuValue.textContent = `${gpuPercent}%`;
@@ -1192,10 +1222,10 @@ function updateHealthDisplay(heartbeatData) {
     }
     
     // Update Disk usage
-    if (heartbeatData.disk_percent !== undefined) {
+    if (metricsData.disk_percent !== undefined) {
         const diskValue = document.getElementById('disk-value');
         const diskBarFill = document.getElementById('disk-bar-fill');
-        const diskPercent = heartbeatData.disk_percent;
+        const diskPercent = metricsData.disk_percent;
         
         if (diskValue) {
             diskValue.textContent = `${diskPercent}%`;
@@ -1206,9 +1236,9 @@ function updateHealthDisplay(heartbeatData) {
     }
     
     // Update temperature
-    if (heartbeatData.temperature_c !== undefined) {
+    if (metricsData.temperature_c !== undefined) {
         const tempValue = document.getElementById('temperature-value');
-        const temp = heartbeatData.temperature_c;
+        const temp = metricsData.temperature_c;
         
         if (tempValue) {
             tempValue.textContent = temp.toFixed(1);

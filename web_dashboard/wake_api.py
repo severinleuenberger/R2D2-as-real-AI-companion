@@ -1,11 +1,17 @@
 """
 Minimal Wake API for R2D2 Web UI Service Mode.
 Runs with minimal resources to allow starting/stopping the full Web UI.
+
+Architecture:
+- Heartbeat = Simple "alive" ping from ROS 2 (lightweight)
+- System metrics = Collected on-demand via tegrastats/thermal zones
 """
 import subprocess
 import os
 import json
 import asyncio
+import re
+import shutil
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -119,7 +125,7 @@ HTML_TEMPLATE = """
         <h1>R2D2 Service Mode</h1>
         
         <div class="status-box">
-            <div style="margin-bottom: 10px; font-weight: bold; color: #58a6ff;">SYSTEM HEARTBEAT</div>
+            <div style="margin-bottom: 10px; font-weight: bold; color: #58a6ff;">SYSTEM STATUS</div>
             <div id="heartbeat-data">
                 <div class="status-item"><span class="label">Status:</span> <span>Checking...</span></div>
             </div>
@@ -133,32 +139,34 @@ HTML_TEMPLATE = """
         const TAILSCALE_IP = "100.95.133.26";
         const DASHBOARD_PORT = 8080;
         
-        async function updateHeartbeat() {
+        async function updateStatus() {
             try {
-                const response = await fetch('/api/heartbeat');
-                const data = await response.json();
+                // Fetch heartbeat (online check) and metrics separately
+                const [heartbeatRes, metricsRes] = await Promise.all([
+                    fetch('/api/heartbeat'),
+                    fetch('/api/metrics')
+                ]);
+                const heartbeat = await heartbeatRes.json();
+                const metrics = await metricsRes.json();
                 
                 const box = document.getElementById('heartbeat-data');
-                if (data.online) {
+                if (heartbeat.online) {
                     box.innerHTML = `
                         <div class="status-item">
                             <span class="label">Status:</span> 
                             <span><span class="online-indicator"></span>Online</span>
                         </div>
                         <div class="status-item">
-                            <span class="label">CPU:</span> <span class="value">${data.cpu}%</span>
+                            <span class="label">CPU:</span> <span class="value">${metrics.cpu}%</span>
                         </div>
                         <div class="status-item">
-                            <span class="label">GPU:</span> <span class="value">${data.gpu}%</span>
+                            <span class="label">GPU:</span> <span class="value">${metrics.gpu}%</span>
                         </div>
                         <div class="status-item">
-                            <span class="label">Disk:</span> <span class="value">${data.disk}%</span>
+                            <span class="label">Disk:</span> <span class="value">${metrics.disk}%</span>
                         </div>
                         <div class="status-item">
-                            <span class="label">Temp:</span> <span class="value">${data.temp}°C</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Last Seen:</span> <span class="value">${data.ago}s ago</span>
+                            <span class="label">Temp:</span> <span class="value">${metrics.temp}°C</span>
                         </div>
                     `;
                 } else {
@@ -173,7 +181,7 @@ HTML_TEMPLATE = """
                     `;
                 }
             } catch (e) {
-                console.error("Heartbeat fetch error", e);
+                console.error("Status fetch error", e);
             }
         }
 
@@ -244,28 +252,111 @@ HTML_TEMPLATE = """
         }
 
         // Poll every 4 seconds
-        setInterval(updateHeartbeat, 4000);
+        setInterval(updateStatus, 4000);
         setInterval(checkServiceStatus, 4000);
         
         // Initial check
-        updateHeartbeat();
+        updateStatus();
         checkServiceStatus();
     </script>
 </body>
 </html>
 """
 
+
+def get_system_metrics() -> dict:
+    """
+    Collect system metrics from Jetson tegrastats and thermal zones.
+    This runs on-demand only when the API is called.
+    """
+    metrics = {
+        'cpu': 0.0,
+        'gpu': 0.0,
+        'temp': 0.0,
+        'disk': 0.0
+    }
+    
+    # Get disk usage for root partition
+    try:
+        disk_usage = shutil.disk_usage('/')
+        metrics['disk'] = round((disk_usage.used / disk_usage.total) * 100.0, 1)
+    except Exception:
+        pass
+    
+    # Try to get metrics from tegrastats (Jetson-specific)
+    try:
+        process = subprocess.Popen(
+            ['sh', '-c', 'timeout 1.5 tegrastats --interval 1000 2>&1 | head -1'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        try:
+            stdout, stderr = process.communicate(timeout=2.0)
+            if stdout:
+                output = stdout.strip()
+                
+                # Parse CPU usage: CPU [19%@729,28%@729,...]
+                cpu_match = re.search(r'CPU \[([^\]]+)\]', output)
+                if cpu_match:
+                    cpu_str = cpu_match.group(1)
+                    cpu_percentages = re.findall(r'(\d+)%@', cpu_str)
+                    if cpu_percentages:
+                        cpu_values = [float(p) for p in cpu_percentages]
+                        metrics['cpu'] = round(sum(cpu_values) / len(cpu_values), 1)
+                
+                # Parse GPU usage: GR3D_FREQ 0%
+                gpu_match = re.search(r'GR3D_FREQ\s+(\d+)%', output)
+                if gpu_match:
+                    metrics['gpu'] = float(gpu_match.group(1))
+                
+                # Parse CPU temperature: cpu@41.562C
+                temp_match = re.search(r'cpu@([\d.]+)C', output)
+                if temp_match:
+                    metrics['temp'] = round(float(temp_match.group(1)), 1)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+        except Exception:
+            pass
+                
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+    
+    # Fallback to thermal zones for temperature if not set
+    if metrics['temp'] == 0.0:
+        try:
+            thermal_zones = ['/sys/class/thermal/thermal_zone0/temp',
+                           '/sys/class/thermal/thermal_zone1/temp']
+            for zone in thermal_zones:
+                if os.path.exists(zone):
+                    with open(zone, 'r') as f:
+                        temp_millidegrees = int(f.read().strip())
+                        temp_c = temp_millidegrees / 1000.0
+                        if temp_c > 0:
+                            metrics['temp'] = round(temp_c, 1)
+                            break
+        except Exception:
+            pass
+    
+    return metrics
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return HTML_TEMPLATE
 
+
 @app.get("/api/heartbeat")
 async def get_heartbeat():
-    """Get system heartbeat from ROS 2 topic via subprocess"""
+    """
+    Check if R2D2 system is alive via ROS 2 heartbeat topic.
+    The heartbeat is now lightweight - just timestamp + status.
+    """
     try:
-        # Run ros2 topic echo --once
-        # Note: We need to source ROS 2 setup in the service definition, 
-        # so this assumes 'ros2' is in PATH or alias
         result = subprocess.run(
             ['ros2', 'topic', 'echo', '/r2d2/heartbeat', '--once', '--no-arr'],
             capture_output=True, 
@@ -276,46 +367,44 @@ async def get_heartbeat():
         if result.returncode != 0 or not result.stdout:
             return {"online": False}
             
-        # Parse output: data: "{\"timestamp\": ...}"
+        # Parse output: data: '{"timestamp": ..., "status": "running"}'
         output = result.stdout.strip()
         if "data: " in output:
-            # Get everything after "data: "
             raw_data = output.split("data: ")[1]
-            # Take only the first line (ignore --- separator if present)
             json_str = raw_data.split("\n")[0].strip()
-            # Remove surrounding quotes
             json_str = json_str.strip("'").strip('"')
-            # Handle escaped quotes if present
             json_str = json_str.replace('\\"', '"')
             
             try:
                 data = json.loads(json_str)
-                return {
-                    "online": True,
-                    "cpu": data.get("cpu_percent", "--"),
-                    "gpu": data.get("gpu_percent", "--"),
-                    "disk": data.get("disk_percent", "--"),
-                    "temp": data.get("temperature_c", "--"),
-                    "ago": 0 
-                }
+                # Heartbeat is simple: if we got status="running", system is online
+                return {"online": data.get("status") == "running"}
             except json.JSONDecodeError:
                 pass
                 
-        return {"online": True, "cpu": "?", "gpu": "?", "disk": "?", "temp": "?", "ago": "?"}
+        # If we got output but couldn't parse, still mark as online
+        return {"online": True}
         
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return {"online": False}
     except Exception as e:
         print(f"Heartbeat error: {e}")
         return {"online": False}
-    except Exception as e:
-        print(f"Heartbeat error: {e}")
-        return {"online": False}
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    """
+    Get system metrics on-demand (CPU, GPU, Disk, Temperature).
+    These are collected only when requested, saving resources.
+    """
+    metrics = get_system_metrics()
+    return metrics
+
 
 @app.get("/api/status")
 async def get_status():
     """Check if Web UI services are running"""
-    # Check if web dashboard service is active
     result = subprocess.run(
         ['systemctl', 'is-active', 'r2d2-web-dashboard.service'],
         capture_output=True,
@@ -324,11 +413,11 @@ async def get_status():
     is_running = result.stdout.strip() == 'active'
     return {"running": is_running}
 
+
 @app.post("/api/start")
 async def start_services():
     """Start all Web UI services"""
     try:
-        # Start all services
         cmd = f"sudo systemctl start {' '.join(SERVICES)}"
         proc = await asyncio.create_subprocess_shell(
             cmd,
@@ -344,11 +433,11 @@ async def start_services():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 @app.post("/api/stop")
 async def stop_services():
     """Stop all Web UI services"""
     try:
-        # Stop all services
         cmd = f"sudo systemctl stop {' '.join(SERVICES)}"
         proc = await asyncio.create_subprocess_shell(
             cmd,
@@ -364,6 +453,6 @@ async def stop_services():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 if __name__ == "__main__":
     uvicorn.run(app, host=TAILSCALE_IP, port=PORT)
-

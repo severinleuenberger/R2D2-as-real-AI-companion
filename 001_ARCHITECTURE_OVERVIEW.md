@@ -428,7 +428,7 @@ AUDIO & STATUS TOPICS:
 /r2d2/audio/last_frequency             std_msgs/Float32       Event  Last beep frequency
 
 SYSTEM TOPICS:
-/r2d2/heartbeat                        std_msgs/String       1 Hz   Health indicator (JSON with CPU/GPU/temp)
+/r2d2/heartbeat                        std_msgs/String       1 Hz   Alive ping (JSON: timestamp + status)
 
 * Only published if enable_face_recognition=true
 ** Only published when target person is recognized (gated by person_status="red")
@@ -444,7 +444,7 @@ SYSTEM TOPICS:
 |------|---------|------|--------|---------|-----|--------|
 | **camera_node** | r2d2_camera | Sensor driver | N/A | 30 Hz | 2-3% | ✅ |
 | **image_listener** | r2d2_perception | Computer vision | 30 Hz | 6 topics | 8-15% | ✅ |
-| **heartbeat_node** | r2d2_hello | Health monitor + metrics | N/A | 1 Hz | <0.5% | ✅ |
+| **heartbeat_node** | r2d2_hello | Alive ping (lightweight) | N/A | 1 Hz | <0.1% | ✅ |
 | **camera_stream_node** | r2d2_camera | MJPEG stream server | 30 Hz | 15 FPS | 2-5% | ✅ |
 | **audio_notification_node** | r2d2_audio | State machine | 6.5 Hz | 10 Hz | 2-4% | ✅ |
 | **status_led_node** | r2d2_audio | GPIO control | 10 Hz | N/A | <0.1% | ✅ |
@@ -1520,7 +1520,7 @@ ROS 2 Topics
     ├─ /r2d2/perception/person_id
     ├─ /r2d2/audio/person_status
     ├─ /r2d2/perception/face_count
-    └─ /r2d2/heartbeat (system metrics)
+    └─ /r2d2/heartbeat (alive status)
 ```
 
 ### 8.3 Components
@@ -1539,7 +1539,7 @@ ROS 2 Topics
 - `rosbridge_server` - ROS 2 WebSocket bridge
 - `systemd` - Service management
 - `camera_stream_node` - MJPEG video stream server
-- `heartbeat_node` - System health monitoring with metrics
+- `heartbeat_node` - Lightweight alive ping (metrics via REST API on-demand)
 
 ### 8.4 API Endpoints
 
@@ -1562,7 +1562,7 @@ ROS 2 Topics
 - `GET /api/training/status/{task_id}` - Get training status
 
 **New Features (December 2025):**
-- ✅ **System Health Monitoring:** Enhanced heartbeat service with CPU/GPU/temperature metrics
+- ✅ **System Health Monitoring:** On-demand metrics via `/api/system/health` (CPU/GPU/Disk/Temp)
 - ✅ **Camera Stream Service:** On-demand MJPEG video stream (port 8081)
 - ✅ **Star Wars UI Theme:** Dark futuristic design optimized for 1920x1200 display
 - ✅ **Single-Page Layout:** All content fits on one screen without scrolling
@@ -1592,7 +1592,8 @@ The architecture provides clear integration points for future development:
    - `/r2d2/cmd_vel` - Movement commands (geometry_msgs/Twist)
 
 3. **Status Topics** (for system health):
-   - `/r2d2/heartbeat` - System health indicator with metrics (CPU%, GPU%, temperature)
+   - `/r2d2/heartbeat` - Lightweight alive ping (timestamp + status only)
+   - System metrics (CPU%, GPU%, Disk%, temperature) available via REST API `/api/system/health`
 
 **Template for Adding New Nodes:**
 
