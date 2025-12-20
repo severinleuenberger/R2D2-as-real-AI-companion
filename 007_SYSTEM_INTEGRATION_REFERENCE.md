@@ -120,8 +120,9 @@ After RED ends, GREEN/BLUE transitions use smoothing (hysteresis) to prevent fli
 
 **MULTI-USER AUTHORIZATION:** Any trained person automatically gets RED status. The LBPH face
 recognition model only returns a name if the person was trained - the training itself is the
-authorization. No hardcoded names are required. When switching users, only the face model path
-needs to change; no code changes are needed.
+authorization. No hardcoded names are required. The system uses PersonRegistry (r2d2_common)
+to auto-resolve model paths at runtime. Adding new users requires only training - no code or
+configuration changes needed.
 
 ```mermaid
 stateDiagram-v2
@@ -212,13 +213,13 @@ stateDiagram-v2
 stateDiagram-v2
     [*] --> IDLE: Node started
     
-    IDLE --> IDLE: Monitoring person_status<br/>Gestures: start enabled if RED
-    IDLE --> SPEAKING: index_finger_up + RED<br/>Enter SPEAKING state
+    IDLE --> IDLE: Monitoring (gestures enabled if RED)
+    IDLE --> SPEAKING: index_finger_up + RED
     
-    SPEAKING --> SPEAKING: VAD: speech detected<br/>Pause Silence Timer
-    SPEAKING --> SPEAKING: VAD: silence<br/>Start 60s Timer from NOW
-    SPEAKING --> IDLE: Fist gesture<br/>Immediate Stop (User Command)
-    SPEAKING --> IDLE: VAD silence ≥ 60s<br/>Silence Timeout
+    SPEAKING --> SPEAKING: VAD speech detected (pause timer)
+    SPEAKING --> SPEAKING: VAD silence (start 60s timer)
+    SPEAKING --> IDLE: Fist gesture (immediate stop)
+    SPEAKING --> IDLE: VAD silence ≥ 60s
     
     note right of IDLE
         No conversation active
@@ -933,14 +934,16 @@ ON watchdog_timer (every 10 seconds):
 **image_listener:**
 - `enable_face_recognition`: true (required)
 - `enable_gesture_recognition`: true (required)
-- `target_person_name`: "severin" (must match training)
+- `target_person_name`: "target_person" (auto-resolved via PersonRegistry)
+- `face_recognition_model_path`: "auto" (auto-resolved from PersonRegistry)
+- `gesture_model_path`: "auto" (auto-resolved from PersonRegistry)
 - `face_presence_threshold`: 2.0 (seconds to confirm presence)
 - `face_absence_threshold`: 5.0 (seconds to confirm absence)
-- `target_person_gesture_name`: "severin" (must match gesture training)
+- `target_person_gesture_name`: "target_person" (auto-resolved via PersonRegistry)
 - `gesture_frame_skip`: 5 (balance between latency and CPU)
 
 **audio_notification_node:**
-- `target_person`: "severin" (must match perception target)
+- `target_person`: "target_person" (auto-resolved via PersonRegistry)
 - `audio_volume`: 0.3 (30% volume for alerts)
 - `red_status_timeout_seconds`: 15.0 (RED timer, resets on recognition)
 - `green_entry_delay`: 2.0 (seconds of face before BLUE→GREEN)
@@ -1137,7 +1140,7 @@ This appendix provides the authoritative reference for all ROS 2 nodes, systemd 
 **Dependencies:**
 - Topics: `/oak/rgb/image_raw` (from camera_node)
 - Software: OpenCV, OpenCV contrib (LBPH), NumPy, cv_bridge
-- Model: `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml` (if recognition enabled)
+- Model: Auto-resolved from PersonRegistry (`~/dev/r2d2/data/persons.db`)
 - Environment: `OPENBLAS_CORETYPE=ARMV8` (critical on ARM64)
 
 **Storage Location:**
@@ -1544,7 +1547,7 @@ curl http://100.95.133.26:8080/api/system/health
 
 **Parameters:**
 - `enable_face_recognition:=true` (configured in service)
-- `target_person_name:=severin` (configured in service)
+- Model paths auto-resolved from PersonRegistry (no hardcoded parameters)
 
 **Documentation References:**
 - `001_ARCHITECTURE_OVERVIEW.md` - Section 3.2, 6.1
@@ -1581,7 +1584,7 @@ curl http://100.95.133.26:8080/api/system/health
 - database_logger_node (<0.1% CPU, ~30 MB RAM)
 
 **Parameters:**
-- `target_person:=severin`
+- `target_person:=target_person` (auto-resolved from PersonRegistry)
 - `audio_volume:=0.05`
 - `jitter_tolerance_seconds:=5.0`
 - `loss_confirmation_seconds:=15.0`
