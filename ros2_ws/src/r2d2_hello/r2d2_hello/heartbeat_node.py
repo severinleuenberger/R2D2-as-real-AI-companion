@@ -7,6 +7,7 @@ import json
 import re
 import os
 import threading
+import shutil
 
 class HeartbeatNode(Node):
     def __init__(self):
@@ -17,7 +18,8 @@ class HeartbeatNode(Node):
         self.current_metrics = {
             'cpu_percent': 0.0,
             'gpu_percent': 0.0,
-            'temperature_c': 0.0
+            'temperature_c': 0.0,
+            'disk_percent': 0.0
         }
         self.metrics_lock = threading.Lock()
         # Start background thread to collect metrics
@@ -41,8 +43,16 @@ class HeartbeatNode(Node):
         metrics = {
             'cpu_percent': 0.0,
             'gpu_percent': 0.0,
-            'temperature_c': 0.0
+            'temperature_c': 0.0,
+            'disk_percent': 0.0
         }
+        
+        # Get disk usage for root partition
+        try:
+            disk_usage = shutil.disk_usage('/')
+            metrics['disk_percent'] = (disk_usage.used / disk_usage.total) * 100.0
+        except Exception as e:
+            self.get_logger().debug(f'Disk usage error: {e}')
         
         # Try to get metrics from tegrastats (non-blocking with timeout)
         try:
@@ -113,6 +123,8 @@ class HeartbeatNode(Node):
                 metrics['gpu_percent'] = self.current_metrics['gpu_percent']
             if metrics['temperature_c'] == 0.0 and self.current_metrics['temperature_c'] > 0:
                 metrics['temperature_c'] = self.current_metrics['temperature_c']
+            if metrics['disk_percent'] == 0.0 and self.current_metrics['disk_percent'] > 0:
+                metrics['disk_percent'] = self.current_metrics['disk_percent']
         
         return metrics
     
@@ -131,7 +143,8 @@ class HeartbeatNode(Node):
             'status': 'running',
             'cpu_percent': round(metrics['cpu_percent'], 1),
             'gpu_percent': round(metrics['gpu_percent'], 1),
-            'temperature_c': round(metrics['temperature_c'], 1)
+            'temperature_c': round(metrics['temperature_c'], 1),
+            'disk_percent': round(metrics['disk_percent'], 1)
         }
         
         msg = String()

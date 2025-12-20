@@ -152,6 +152,9 @@ HTML_TEMPLATE = """
                             <span class="label">GPU:</span> <span class="value">${data.gpu}%</span>
                         </div>
                         <div class="status-item">
+                            <span class="label">Disk:</span> <span class="value">${data.disk}%</span>
+                        </div>
+                        <div class="status-item">
                             <span class="label">Temp:</span> <span class="value">${data.temp}°C</span>
                         </div>
                         <div class="status-item">
@@ -291,13 +294,14 @@ async def get_heartbeat():
                     "online": True,
                     "cpu": data.get("cpu_percent", "--"),
                     "gpu": data.get("gpu_percent", "--"),
+                    "disk": data.get("disk_percent", "--"),
                     "temp": data.get("temperature_c", "--"),
                     "ago": 0 
                 }
             except json.JSONDecodeError:
                 pass
                 
-        return {"online": True, "cpu": "?", "gpu": "?", "temp": "?", "ago": "?"}
+        return {"online": True, "cpu": "?", "gpu": "?", "disk": "?", "temp": "?", "ago": "?"}
         
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return {"online": False}

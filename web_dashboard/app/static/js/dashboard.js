@@ -1191,6 +1191,20 @@ function updateHealthDisplay(heartbeatData) {
         }
     }
     
+    // Update Disk usage
+    if (heartbeatData.disk_percent !== undefined) {
+        const diskValue = document.getElementById('disk-value');
+        const diskBarFill = document.getElementById('disk-bar-fill');
+        const diskPercent = heartbeatData.disk_percent;
+        
+        if (diskValue) {
+            diskValue.textContent = `${diskPercent}%`;
+        }
+        if (diskBarFill) {
+            diskBarFill.style.width = `${Math.min(diskPercent, 100)}%`;
+        }
+    }
+    
     // Update temperature
     if (heartbeatData.temperature_c !== undefined) {
         const tempValue = document.getElementById('temperature-value');
