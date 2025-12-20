@@ -4,13 +4,19 @@
 **Date:** December 17, 2025  
 **Status:** ✅ COMPLETE AND OPERATIONAL  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Access:** Via Tailscale VPN (http://100.95.133.26:8080)
+**Access:** Via Tailscale VPN (http://100.95.133.26:8079)
 
 ---
 
 ## Executive Summary
 
-The R2D2 Web UI provides remote access to monitor and control the R2D2 system from anywhere via Tailscale VPN. The system includes a comprehensive web dashboard with real-time monitoring, service control, volume adjustment, and face recognition training integration.
+The R2D2 Web UI system uses a **Service Mode** architecture. By default, only a minimal "Wake API" runs (saving resources). The full Web UI is started on-demand.
+
+**Access Points:**
+- **Service Mode (Always On):** http://100.95.133.26:8079 (Check status, Start UI)
+- **Full Dashboard (On Demand):** http://100.95.133.26:8080 (Control Robot)
+
+The system includes a comprehensive web dashboard with real-time monitoring, service control, volume adjustment, and face recognition training integration.
 
 **Key Capabilities:**
 - Real-time person recognition monitoring (RED/BLUE/GREEN states)
@@ -493,21 +499,14 @@ Response: {
 ### Access Control
 
 **Current Implementation:**
-- ✅ VPN-only access (Tailscale provides encryption)
-- ✅ No public Internet exposure
-- ⚠️ No authentication (relies on VPN security)
+- ✅ **Tailscale VPN Only:** Services bind strictly to `100.95.133.26`.
+- ✅ **Local Access Blocked:** Services are NOT accessible from local WiFi (192.168.x.x).
+- ✅ **Service Mode:** Full Web UI is stopped by default to reduce attack surface.
 
-**Network Security:**
-- Accessible only via Tailscale VPN (100.95.133.26)
-- No firewall rules needed (Tailscale handles routing)
-- All traffic encrypted by Tailscale
-
-**Future Enhancements:**
-- Consider HTTP basic authentication
-- Or session-based authentication
-- HTTPS with Let's Encrypt certificate
-
-### Service Control Security
+### Input Validation
+- ✅ **Regex Validation:** Person names must be alphanumeric + underscore.
+- ✅ **Path Traversal Protection:** File operations are strictly confined to data directories.
+- ✅ **Service Whitelisting:** Only specific r2d2-* services can be controlled.
 
 **Sudo Configuration:**
 ```bash

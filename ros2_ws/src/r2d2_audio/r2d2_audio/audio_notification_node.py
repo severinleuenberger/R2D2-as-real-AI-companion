@@ -310,12 +310,12 @@ class AudioNotificationNode(Node):
             # Check if we've seen a face long enough to transition to GREEN
             time_with_face = current_time - self.face_detected_start_time
             if time_with_face >= self.green_entry_delay:
-                if self.current_status != "green":
-                    self.current_status = "green"
-                    self.current_person = "unknown"
-                    self.status_changed_time = current_time
-                    self.unknown_person_detected = True
-                    self._publish_status("green", "unknown", confidence=0.70)
+            if self.current_status != "green":
+                self.current_status = "green"
+                self.current_person = "unknown"
+                self.status_changed_time = current_time
+                self.unknown_person_detected = True
+                self._publish_status("green", "unknown", confidence=0.70)
                     self.get_logger().info(f"🟢 Unknown person detected (stable for {time_with_face:.1f}s)")
                 else:
                     self._publish_status("green", "unknown", confidence=0.70)
@@ -368,20 +368,20 @@ class AudioNotificationNode(Node):
             if self.current_status == "green":
                 if time_without_face >= self.blue_entry_delay:
                     # Stable absence - transition to BLUE
-                    self.current_status = "blue"
-                    self.current_person = "no_person"
-                    self.status_changed_time = current_time
-                    self.unknown_person_detected = False
-                    
-                    # #region agent log
-                    _debug_log('audio_notification_node.py:371', 'No faces detected - transitioning GREEN to BLUE', {
-                        'previous_status': 'green',
+                self.current_status = "blue"
+                self.current_person = "no_person"
+                self.status_changed_time = current_time
+                self.unknown_person_detected = False
+                
+                # #region agent log
+                _debug_log('audio_notification_node.py:371', 'No faces detected - transitioning GREEN to BLUE', {
+                    'previous_status': 'green',
                         'new_status': 'blue',
                         'time_without_face': time_without_face
-                    }, 'I')
-                    # #endregion
-                    
-                    self._publish_status("blue", "no_person", confidence=0.0)
+                }, 'I')
+                # #endregion
+                
+                self._publish_status("blue", "no_person", confidence=0.0)
                     self.get_logger().info(f"🔵 No faces for {time_without_face:.1f}s - transitioned GREEN to BLUE")
                 else:
                     # Still waiting - keep publishing GREEN
@@ -452,27 +452,27 @@ class AudioNotificationNode(Node):
                 )
             else:
                 # No face visible → BLUE
-                self.current_status = "blue"
-                self.current_person = "no_person"
-                self.status_changed_time = current_time
-                self.unknown_person_detected = False
-                
+            self.current_status = "blue"
+            self.current_person = "no_person"
+            self.status_changed_time = current_time
+            self.unknown_person_detected = False
+            
                 # Reset smoothing timers
                 self.face_detected_start_time = None
                 self.face_absent_start_time = None
                 
-                self._publish_status("blue", "no_person", confidence=0.0)
-                
+            self._publish_status("blue", "no_person", confidence=0.0)
+            
                 # Play "Lost you!" beep
-                if self.last_loss_beep_time is None or \
-                   (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                    self._play_audio_file(self.loss_audio, alert_type="LOSS")
-                    self.last_loss_beep_time = current_time
+            if self.last_loss_beep_time is None or \
+               (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
+                self._play_audio_file(self.loss_audio, alert_type="LOSS")
+                self.last_loss_beep_time = current_time
                     self._publish_event(f"❌ {previous_person} lost (no person visible)")
-                
-                self.get_logger().info(
+            
+            self.get_logger().info(
                     f"✗ {previous_person} lost → BLUE (no person visible, timeout: {time_since_recognition:.1f}s)"
-                )
+            )
     
     def publish_current_status(self):
         """

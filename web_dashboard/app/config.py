@@ -6,7 +6,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 
 # Server configuration
-HOST = os.getenv("WEB_DASHBOARD_HOST", "0.0.0.0")
+HOST = os.getenv("WEB_DASHBOARD_HOST", "100.95.133.26")
 PORT = int(os.getenv("WEB_DASHBOARD_PORT", "8080"))
 
 # ROS 2 configuration

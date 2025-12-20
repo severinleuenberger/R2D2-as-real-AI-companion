@@ -524,96 +524,36 @@ sudo systemctl restart r2d2-camera-stream.service
 
 ---
 
-## Phase 9: Optional - Create Systemd Services for Web Dashboard
+## Phase 9: Service Mode Configuration (Recommended)
 
-For production deployment, create systemd services so the web dashboard starts automatically on boot.
+To save resources (RAM/CPU) and improve security, configure the system to run in "Service Mode". This keeps only a minimal "Wake API" running by default.
 
-### Step 9.1: Create rosbridge Service
+### Step 9.1: Run Setup Script
 
-```bash
-sudo nano /etc/systemd/system/r2d2-rosbridge.service
-```
-
-**Add this content:**
-```ini
-[Unit]
-Description=R2D2 rosbridge WebSocket Server
-After=network.target
-
-[Service]
-Type=simple
-User=severin
-Environment="ROS_DOMAIN_ID=0"
-ExecStart=/bin/bash -c "source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && ros2 run rosbridge_server rosbridge_websocket --ros-args -p port:=9090 -p address:=0.0.0.0"
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Save and exit**
-
-### Step 9.2: Create Web Dashboard Service
+The setup script handles all configuration automatically:
+- Creates `r2d2-wake-api.service`
+- Disables auto-start for heavy Web UI services
+- Configures sudo permissions
+- Cleans system logs to free disk space
 
 ```bash
-sudo nano /etc/systemd/system/r2d2-web-dashboard.service
+sudo ~/dev/r2d2/web_dashboard/setup_service_mode.sh
 ```
 
-**Add this content:**
-```ini
-[Unit]
-Description=R2D2 Web Dashboard (FastAPI)
-After=network.target r2d2-rosbridge.service
-Requires=r2d2-rosbridge.service
+### Step 9.2: Verify Installation
 
-[Service]
-Type=simple
-User=severin
-WorkingDirectory=/home/severin/dev/r2d2/web_dashboard
-Environment="PATH=/home/severin/dev/r2d2/web_dashboard/web_dashboard_env/bin"
-ExecStart=/home/severin/dev/r2d2/web_dashboard/web_dashboard_env/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
-Restart=always
-RestartSec=5
+1. Check if Wake API is running:
+   ```bash
+   systemctl status r2d2-wake-api.service
+   ```
 
-[Install]
-WantedBy=multi-user.target
-```
+2. Access the Service Mode page:
+   - Open browser: `http://100.95.133.26:8079`
+   - You should see the heartbeat monitor
 
-**Save and exit**
-
-### Step 9.3: Enable and Start Services
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable services (auto-start on boot)
-sudo systemctl enable r2d2-rosbridge.service
-sudo systemctl enable r2d2-web-dashboard.service
-
-# Start services
-sudo systemctl start r2d2-rosbridge.service
-sudo systemctl start r2d2-web-dashboard.service
-
-# Check status
-sudo systemctl status r2d2-rosbridge.service
-sudo systemctl status r2d2-web-dashboard.service
-```
-
-### Step 9.4: Test Auto-Start
-
-```bash
-# Reboot Jetson
-sudo reboot
-
-# After reboot, check if services are running
-sudo systemctl status r2d2-rosbridge.service
-sudo systemctl status r2d2-web-dashboard.service
-
-# Test dashboard access
-curl http://localhost:8080
-```
+3. Test Full UI:
+   - Click "Start Web UI"
+   - You should be redirected to the full dashboard at port 8080
 
 ---
 
@@ -626,16 +566,19 @@ Before considering the installation complete, verify all components:
 - [ ] FastAPI and dependencies installed
 - [ ] Virtual environment created and activated
 - [ ] Sudo permissions configured for service control
+- [ ] **Wake API installed and running**
 
 ### ✅ Services Running
 - [ ] rosbridge running (port 9090)
 - [ ] Web dashboard running (port 8080)
 - [ ] Camera stream service exists (optional)
 - [ ] Heartbeat service running (optional)
+- [ ] **Wake API running (port 8079)**
 
 ### ✅ Network Access
 - [ ] Dashboard accessible locally (http://localhost:8080)
 - [ ] Dashboard accessible via Tailscale (http://100.95.133.26:8080)
+- [ ] **Wake API accessible (http://100.95.133.26:8079)**
 - [ ] rosbridge WebSocket connection working
 - [ ] Camera stream accessible (http://100.95.133.26:8081/stream)
 

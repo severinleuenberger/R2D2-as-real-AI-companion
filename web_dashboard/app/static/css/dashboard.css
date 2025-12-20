@@ -54,6 +54,24 @@ body {
     gap: 15px;
 }
 
+.service-mode-btn {
+    background-color: #30363d;
+    color: #c9d1d9;
+    border: 1px solid #8b949e;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-right: 15px;
+    transition: all 0.2s;
+}
+
+.service-mode-btn:hover {
+    background-color: #da3633;
+    color: white;
+    border-color: #da3633;
+}
+
 .instance-info {
     display: flex;
     align-items: center;

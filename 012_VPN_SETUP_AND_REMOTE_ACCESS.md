@@ -289,7 +289,7 @@ Host jetson-tailscale
 
 **Usage:**
 - `ssh r2d2` - Connects via local network (when on same network)
-- `ssh jetson-tailscale` - Connects via Tailscale (works from anywhere)
+   - `ssh jetson-tailscale` - Connects via Tailscale (works from anywhere)
 
 **Optional: Use device name instead of IP:**
 If Tailscale MagicDNS is enabled, you can use:
@@ -299,6 +299,18 @@ Host jetson-tailscale
     User severin
     IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
 ```
+
+### Web UI Access
+
+The R2D2 Web UI is secured to only listen on the Tailscale interface. You cannot access it via the local IP (192.168.x.x).
+
+**Service Mode (Always On):**
+- URL: `http://100.95.133.26:8079`
+- Use this to check status and start the main dashboard
+
+**Main Dashboard (On Demand):**
+- URL: `http://100.95.133.26:8080`
+- Only active after starting it from the Service Mode page
 
 ---
 

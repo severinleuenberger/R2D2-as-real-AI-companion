@@ -12,6 +12,9 @@
         <header class="dashboard-header">
             <h1>🤖 R2D2 System Monitor</h1>
             <div class="header-right">
+                <button class="service-mode-btn" onclick="exitServiceMode()" title="Stop Web UI services and save resources">
+                    Exit Service Mode
+                </button>
                 <div class="instance-info" id="instance-info">
                     <span class="instance-label">Instance:</span>
                     <span class="instance-id" id="instance-id">--</span>
@@ -234,6 +237,36 @@
         </div>
     </div>
 
+    <script>
+        // Exit Service Mode function
+        async function exitServiceMode() {
+            if (!confirm('Are you sure you want to stop the Web UI services? This will save resources but you will need to restart them from the Wake API.')) {
+                return;
+            }
+            
+            try {
+                // Call the Wake API stop endpoint (cross-origin request to port 8079)
+                // Note: We use the hostname from the current URL to match the Tailscale IP
+                const wakeApiUrl = `http://${window.location.hostname}:8079/api/stop`;
+                
+                // We use no-cors because we just want to fire the request, we can't read the response due to CORS
+                // However, the browser might block it. A better way is to have the main API proxy it or just fire and forget.
+                // Since we are stopping *this* server, the request might fail anyway.
+                
+                // Alternative: Add an endpoint to THIS server to stop itself
+                // But let's try calling the Wake API first.
+                await fetch(wakeApiUrl, { method: 'POST', mode: 'no-cors' });
+                
+                // Redirect to Wake API
+                setTimeout(() => {
+                    window.location.href = `http://${window.location.hostname}:8079`;
+                }, 1000);
+            } catch (e) {
+                console.error("Failed to stop services", e);
+                alert("Failed to stop services. Please try again.");
+            }
+        }
+    </script>
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

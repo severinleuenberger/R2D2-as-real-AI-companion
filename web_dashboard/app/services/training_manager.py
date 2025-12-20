@@ -189,15 +189,29 @@ class TrainingTaskManager:
         Returns:
             Success status
         """
+        # Security check: Validate path traversal characters
+        if '..' in person_name or '/' in person_name or '\\' in person_name:
+            return {"success": False, "error": "Invalid person name"}
+            
         try:
             # Delete model
-            model_file = self.base_dir / 'models' / f'{person_name}_lbph.xml'
+            model_file = (self.base_dir / 'models' / f'{person_name}_lbph.xml').resolve()
+            
+            # Security check: Ensure path is within base directory
+            if not str(model_file).startswith(str(self.base_dir.resolve())):
+                return {"success": False, "error": "Invalid path"}
+
             if model_file.exists():
                 model_file.unlink()
             
             # Delete images directory
-            person_dir = self.base_dir / person_name
-            if person_dir.exists():
+            person_dir = (self.base_dir / person_name).resolve()
+            
+            # Security check: Ensure path is within base directory
+            if not str(person_dir).startswith(str(self.base_dir.resolve())):
+                 # Don't error here if model was deleted, just don't delete dir
+                 pass 
+            elif person_dir.exists():
                 shutil.rmtree(person_dir)
             
             return {"success": True, "message": f"Deleted {person_name}"}

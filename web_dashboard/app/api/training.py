@@ -9,7 +9,13 @@ task_manager = TrainingTaskManager()
 
 
 class TrainingRequest(BaseModel):
-    person_name: str = Field(..., description="Name of person to train")
+    person_name: str = Field(
+        ..., 
+        description="Name of person to train",
+        min_length=1,
+        max_length=50,
+        pattern=r'^[a-zA-Z0-9_]+$'
+    )
     option: Optional[int] = Field(None, description="Menu option number (for reference)")
 
 

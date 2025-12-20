@@ -2,74 +2,48 @@
 ## Essential Commands and Daily Use Reference
 
 **Date:** December 17, 2025  
-**Access:** http://100.95.133.26:8080 (via Tailscale)
+**Access:** http://100.95.133.26:8079 (Service Mode)
 
 ---
 
 ## Quick Access
 
-### Web Dashboard
-```
-http://100.95.133.26:8080
-```
-(Replace with your Jetson's Tailscale IP)
+### 1. Service Mode (Wake API)
+**URL:** `http://100.95.133.26:8079`
+- Check if R2D2 is alive (Heartbeat)
+- Start the full Web UI
+- **Always on** (minimal resource usage)
 
-### Camera Stream
-```
-http://100.95.133.26:8081/stream
-```
+### 2. Full Web Dashboard
+**URL:** `http://100.95.133.26:8080`
+- Full control interface
+- **Must be started first** from Service Mode
 
-### API Documentation
-```
-http://100.95.133.26:8080/docs
-```
-(FastAPI Swagger UI - if available)
+### 3. Camera Stream
+**URL:** `http://100.95.133.26:8081/stream`
 
 ---
 
-## Starting the Dashboard
+## Daily Usage Pattern
 
-### Method 1: Combined Script (Recommended)
+### 1. Check Status
+Open `http://100.95.133.26:8079`.
+- Look at the "Heartbeat" section.
+- If it says "Online", R2D2 core systems are running.
 
-```bash
-cd ~/dev/r2d2/web_dashboard
-./scripts/start_web_dashboard.sh
-```
+### 2. Start Dashboard
+- Click **"Start Web UI"**.
+- Wait ~5 seconds.
+- You will be redirected to the full dashboard.
 
-This starts both rosbridge and the web server in one command.
+### 3. Use System
+- Perform your tasks (monitoring, training, etc.).
 
-### Method 2: Separate Terminals
-
-**Terminal 1: Start rosbridge**
-```bash
-cd ~/dev/r2d2/web_dashboard
-./start_rosbridge.sh
-```
-
-**Terminal 2: Start web server**
-```bash
-cd ~/dev/r2d2/web_dashboard
-source web_dashboard_env/bin/activate
-./start_server.sh
-```
-
-### Method 3: Using systemd Services
-
-If you've set up systemd services (see Installation Guide):
-
-```bash
-# Start both services
-sudo systemctl start r2d2-rosbridge.service
-sudo systemctl start r2d2-web-dashboard.service
-
-# Check status
-sudo systemctl status r2d2-rosbridge.service
-sudo systemctl status r2d2-web-dashboard.service
-
-# Enable auto-start on boot
-sudo systemctl enable r2d2-rosbridge.service
-sudo systemctl enable r2d2-web-dashboard.service
-```
+### 4. Finish & Save Resources
+- Click **"Exit Service Mode"** in the top-right corner.
+- The heavy Web UI services will stop.
+- You'll be returned to the minimal Service Mode page.
+- This saves ~300MB RAM and ~10% CPU.
 
 ---
 
