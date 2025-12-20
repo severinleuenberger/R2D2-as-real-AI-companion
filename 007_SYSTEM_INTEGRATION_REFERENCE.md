@@ -2,8 +2,8 @@
 ## Complete Architecture Documentation
 
 **Document ID:** 007_SYSTEM_INTEGRATION_REFERENCE.md  
-**Date:** December 19, 2025  
-**Version:** 2.1 (Consolidated service/node inventory, enhanced monitoring)  
+**Date:** December 20, 2025  
+**Version:** 2.2 (Complete timing reference, behavior scenarios, bug fixes)  
 **Status:** Authoritative system reference - all service/node info consolidated here  
 **Purpose:** Complete system map for developers, operators, and debugging
 
@@ -297,6 +297,220 @@ Stop session after 60s silence
 - Ignores fist gestures for N seconds after index_finger_up
 - Protects against hand transitional movements being misclassified as "fist"
 - Recommended: 5s (allows natural hand lowering after start gesture)
+
+---
+
+## Complete Timing Reference
+
+This section provides the authoritative reference for **all timing parameters** in the system. Understanding these delays is critical for debugging and tuning system behavior.
+
+### Timing Parameters by Node
+
+#### audio_notification_node (Person Recognition State Machine)
+
+| Parameter | Default | Purpose | Behavior |
+|-----------|---------|---------|----------|
+| `red_status_timeout_seconds` | **15.0s** | RED state duration | Timer resets on EACH recognition. When timer expires without recognition, transitions to GREEN (if face visible) or BLUE (if no face). |
+| `green_entry_delay` | **2.0s** | BLUE→GREEN smoothing | Requires 2 consecutive seconds of unknown face before transitioning from BLUE to GREEN. Prevents flicker. |
+| `blue_entry_delay` | **3.0s** | GREEN→BLUE smoothing | Requires 3 consecutive seconds of no face before transitioning from GREEN to BLUE. Prevents flicker. |
+| `cooldown_seconds` | **2.0s** | Alert cooldown | Minimum time between "Hello!" beeps to prevent spam during recognition jitter. |
+| `recognition_cooldown_after_loss_seconds` | **5.0s** | Post-loss quiet period | After "Lost you!" beep plays, wait 5s before allowing next "Hello!" beep. |
+
+**State Timeline Example (User Appears and Leaves):**
+```
+t=0s    User appears → Face detected → Person recognized
+t=0s    → RED state entered → LED ON → "Hello!" beep
+t=0-15s → RED timer counting (resets each time user is recognized)
+t=15s   → User not recognized for 15s → Timer expires
+t=15s   → Check: Is face visible?
+          YES → GREEN state (unknown person)
+          NO  → BLUE state (no person) → LED OFF → "Lost you!" beep
+```
+
+#### gesture_intent_node (Conversation Control)
+
+| Parameter | Default | Purpose | Behavior |
+|-----------|---------|---------|----------|
+| `cooldown_start_seconds` | **2.0s** | Start gesture cooldown | Minimum time between accepting index_finger_up gestures. |
+| `cooldown_stop_seconds` | **1.0s** | Stop gesture cooldown | Minimum time between accepting fist gestures. |
+| `speaking_start_grace_seconds` | **5.0s** | Fist ignore period | After index_finger_up, ignore fist gestures for 5s to prevent false positives from hand lowering. |
+| `vad_silence_timeout_seconds` | **60.0s** | VAD silence timeout | Stop conversation after 60s of continuous silence (no speech detected by OpenAI VAD). |
+| `auto_shutdown_timeout_seconds` | **300.0s** (5 min) | Idle failsafe | Emergency stop for forgotten sessions when person not present for 5 minutes. |
+
+**Conversation Timeline Example:**
+```
+t=0s     User raises index finger (person_status="red")
+t=0s     → SPEAKING state entered → start_session called → "Start" beep (16.mp3)
+t=0-5s   → Grace period: fist gestures IGNORED (hand lowering protection)
+t=5s+    → Fist gestures now accepted
+t=any    → User speaks: VAD="speaking" → silence timer PAUSED
+t=any    → User stops: VAD="silent" → 60s silence timer STARTS
+t=+60s   → If no speech for 60s → session auto-stops → "Stop" beep (20.mp3)
+```
+
+### Complete State Transition Delays
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    
+    state "BLUE (No Person)" as BLUE
+    state "GREEN (Unknown)" as GREEN  
+    state "RED (Recognized)" as RED
+    state "SPEAKING" as SPEAKING
+    
+    [*] --> BLUE: Boot
+    
+    BLUE --> GREEN: 2s unknown face
+    BLUE --> RED: Instant (trained person)
+    
+    GREEN --> BLUE: 3s no face
+    GREEN --> RED: Instant (trained person)
+    
+    RED --> GREEN: 15s timeout + face visible
+    RED --> BLUE: 15s timeout + no face
+    RED --> RED: Recognition resets 15s timer
+    
+    note right of BLUE
+        Entry: 3s no face (from GREEN)
+        Exit: Instant (to RED) or 2s (to GREEN)
+    end note
+    
+    note right of GREEN
+        Entry: 2s unknown face (from BLUE)
+        Exit: Instant (to RED) or 3s (to BLUE)
+    end note
+    
+    note right of RED
+        Entry: Instant (any trained person)
+        Exit: 15s timeout (no recognition)
+        Behavior: Timer resets on each recognition
+    end note
+```
+
+### Behavior Scenarios
+
+The system handles the following distinct scenarios. Each scenario describes the **complete user experience** with exact timing.
+
+---
+
+#### Scenario A: Normal Conversation Flow
+
+**User appears → starts conversation → talks → stops manually**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | User stands in front of camera | Face detected, recognition starts |
+| t=0s | Person recognized | RED state → LED ON → "Hello!" beep |
+| t=2s | User raises index finger | Gesture detected (status=red ✓) |
+| t=2s | | → SPEAKING state → start_session → "Start" beep (16.mp3) |
+| t=2-7s | | Grace period: fist gestures ignored |
+| t=7s+ | User speaks | VAD="speaking" → no timeout |
+| t=any | User pauses to think (< 60s) | VAD="silent" → 60s timer starts |
+| t=any | User resumes speaking | VAD="speaking" → timer cancelled |
+| t=30s | User makes fist | Gesture detected → stop_session → "Stop" beep (20.mp3) |
+| t=30s | | → IDLE state → ready for next conversation |
+
+---
+
+#### Scenario B: Natural End (VAD Timeout)
+
+**User stops talking and walks away**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | Conversation active (SPEAKING state) | VAD monitoring active |
+| t=0s | User finishes speaking, goes silent | VAD="silent" → 60s timer starts |
+| t=15s | User walks away | Camera: person_status→BLUE after 15s |
+| t=15s | | LED OFF → "Lost you!" beep |
+| t=15s | | Note: SPEAKING state PROTECTED from camera |
+| t=60s | 60s VAD silence timeout | Session auto-stops → "Stop" beep (20.mp3) |
+| t=60s | | → IDLE state |
+
+**Key Insight:** Camera status (RED→BLUE) does NOT affect SPEAKING state. Only VAD silence or fist gesture stops conversation.
+
+---
+
+#### Scenario C: Quick Recognition Flicker
+
+**Camera briefly loses recognition during conversation**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | Conversation active, user speaking | SPEAKING state, VAD="speaking" |
+| t=5s | Camera flicker: recognition fails | RED timer starts (15s) |
+| t=6s | Camera recovers: user recognized | RED timer reset |
+| t=6s | | No interruption to conversation |
+| t=20s | User continues speaking | SPEAKING state continues |
+
+**Key Insight:** The 15s RED timer and VAD-only approach protect against camera flickers.
+
+---
+
+#### Scenario D: Grace Period Protection
+
+**User lowers hand after starting, fist falsely detected**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | User raises index finger | SPEAKING state entered → "Start" beep |
+| t=1s | User lowers hand, fist falsely detected | Grace period active (5s) |
+| t=1s | | Log: "Fist ignored: grace period (1.0s < 5.0s)" |
+| t=3s | Another fist false positive | Grace period active |
+| t=3s | | Log: "Fist ignored: grace period (3.0s < 5.0s)" |
+| t=6s | User intentionally makes fist | Grace period expired → stop_session |
+| t=6s | | → "Stop" beep (20.mp3) |
+
+---
+
+#### Scenario E: Session Disconnect (External)
+
+**Speech service disconnects unexpectedly**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | Conversation active | SPEAKING state, session_active=true |
+| t=10s | OpenAI connection lost | speech_node publishes status="disconnected" |
+| t=10s | | gesture_intent_node receives disconnect |
+| t=10s | | session_active → false |
+| t=10s | | SPEAKING → IDLE (reason: session_disconnected) |
+| t=10s | | "Stop" beep (20.mp3) plays |
+| t=10s | | All timers reset, ready for new conversation |
+
+**Key Insight:** External disconnects properly reset all state (fixed Dec 20, 2025).
+
+---
+
+#### Scenario F: Multi-User Recognition
+
+**Multiple trained users**
+
+| Time | Event | System Response |
+|------|-------|-----------------|
+| t=0s | User A appears | Recognized → RED state → "Hello!" beep |
+| t=10s | User A leaves, User B appears | User B recognized → RED timer reset |
+| t=10s | | No "Lost you!" beep (still RED) |
+| t=25s | User B starts conversation | index_finger_up → SPEAKING state |
+
+**Key Insight:** ANY trained person keeps system in RED state. Training IS authorization.
+
+---
+
+### Audio Assets Reference
+
+All audio feedback files are stored in:
+`~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
+
+| File | Trigger | Node | Purpose |
+|------|---------|------|---------|
+| `Voicy_R2-D2 - 2.mp3` | RED state entry | audio_notification_node | "Hello!" recognition beep |
+| `Voicy_R2-D2 - 5.mp3` | RED→BLUE transition | audio_notification_node | "Lost you!" loss beep |
+| `Voicy_R2-D2 - 16.mp3` | Session connected | gesture_intent_node | "Start" conversation beep |
+| `Voicy_R2-D2 - 20.mp3` | Session disconnected | gesture_intent_node | "Stop" conversation beep |
+| `Voicy_R2-D2 - XX.mp3` | (Future) | - | Shutdown alert (planned) |
+| `Voicy_R2-D2 - XX.mp3` | (Future) | - | Disk space alert (planned) |
+
+**Audio Volume:** Controlled by `audio_volume` parameter (0.0-1.0, default: 0.02 = 2%)
 
 ---
 
@@ -2094,10 +2308,11 @@ This inventory document serves as the foundation for:
 
 ---
 
-**Document Version:** 2.1  
-**Last Updated:** December 19, 2025  
+**Document Version:** 2.2  
+**Last Updated:** December 20, 2025  
 **Purpose:** Authoritative system reference for R2D2 gesture-controlled speech-to-speech system  
 **Change Log:**
+- v2.2 (Dec 20, 2025): **Major Update** - Added comprehensive timing reference with all parameters and exact delays. Added detailed behavior scenarios (A-F) with step-by-step timing. Fixed fist gesture bug (indentation), state synchronization bug (session disconnect), added audio assets reference table. Removed hardcoded "severin" references - system now uses PersonRegistry for dynamic person resolution.
 - v2.1 (Dec 19, 2025): Consolidated service/node inventory, enhanced monitoring commands with color-coded streams
 - v2.0 (Dec 18, 2025): Added simplified RED status and SPEAKING state concepts
 - v1.0 (Dec 17, 2025): Initial system map with complete inventory

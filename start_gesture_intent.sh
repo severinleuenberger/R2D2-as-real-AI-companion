@@ -8,6 +8,10 @@
 source /opt/ros/humble/setup.bash
 source /home/severin/dev/r2d2/ros2_ws/install/setup.bash
 
+# PulseAudio environment for systemd service (required for audio playback)
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+export PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
+
 # Launch with production parameters
 exec ros2 launch r2d2_gesture gesture_intent.launch.py \
     enabled:=true \

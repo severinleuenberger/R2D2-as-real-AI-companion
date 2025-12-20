@@ -213,6 +213,13 @@ class GestureIntentNode(Node):
                     # Session stopped (active → inactive or connected → disconnected)
                     self.get_logger().info(f'🔊 Session stopped (status={status_str})')
                     self._play_audio_feedback(self.stop_beep_sound)
+                    # CRITICAL: Also reset speaking state when session disconnects externally
+                    if self.speaking_state == "speaking":
+                        self.speaking_state = "idle"
+                        self.speaking_start_time = None
+                        self.last_vad_activity_time = None
+                        self.vad_state = "silent"
+                        self.get_logger().info('🔇 Exited SPEAKING state (reason: session_disconnected)')
                     
                 self.get_logger().info(f'Session active changed: {old_active} → {self.session_active} (status={status_str})')
             else:
@@ -312,8 +319,8 @@ class GestureIntentNode(Node):
                 if time_since_start < self.speaking_start_grace:
                     self.get_logger().info(
                         f'✊ Fist ignored: speaking grace period ({time_since_start:.1f}s < {self.speaking_start_grace}s)'
-                )
-                return
+                    )
+                    return
             
             # Trigger stop session - Exit SPEAKING state
             self.get_logger().info('✊ Fist detected → Stopping conversation')

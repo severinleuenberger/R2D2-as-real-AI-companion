@@ -445,6 +445,38 @@ echo "If all services active and nodes running, system is ready!"
 
 ---
 
+## PersonRegistry Troubleshooting
+
+### Issue: "Person Not Resolved" / "target_person" Showing Instead of Actual Name
+
+**Symptom:** System shows "target_person" instead of actual person name
+
+**Root Cause:** PersonRegistry is empty or database not found
+
+**Diagnosis:**
+```bash
+# Check if persons are registered
+cd ~/dev/r2d2/tests/face_recognition
+python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); print(r.list_persons())"
+
+# Check database exists
+ls -la ~/dev/r2d2/data/persons.db
+```
+
+**Solution:**
+```bash
+# Run auto-migrate to populate from existing models
+cd ~/dev/r2d2/tests/face_recognition
+python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); print(r.auto_migrate())"
+
+# Verify registration
+python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); persons = r.list_persons(); [print(f'{p[\"display_name\"]}: face={\"✓\" if p[\"face_model_path\"] else \"✗\"}, gesture={\"✓\" if p[\"gesture_model_path\"] else \"✗\"}') for p in persons]"
+```
+
+**Expected:** At least one person should be listed with face/gesture model paths.
+
+---
+
 ## Contact and References
 
 **For comprehensive system details:**
@@ -460,6 +492,7 @@ echo "If all services active and nodes running, system is ready!"
 - 100_PERSON_RECOGNITION_REFERENCE.md
 - 200_SPEECH_SYSTEM_REFERENCE.md
 - 300_GESTURE_SYSTEM_OVERVIEW.md
+- 250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md (PersonRegistry)
 
 ---
 

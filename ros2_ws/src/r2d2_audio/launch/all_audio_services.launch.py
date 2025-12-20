@@ -22,8 +22,8 @@ def generate_launch_description():
         # Arguments (can be overridden from command line)
         DeclareLaunchArgument(
             'target_person',
-            default_value='severin',
-            description='Name of person to recognize'
+            default_value='target_person',
+            description='Name of person to recognize (auto-resolved from PersonRegistry)'
         ),
         DeclareLaunchArgument(
             'audio_volume',

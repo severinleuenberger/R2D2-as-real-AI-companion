@@ -13,6 +13,7 @@ import cv2
 import time
 import os
 import numpy as np
+from r2d2_common.person_config import PersonConfig
 
 
 class ImageListener(Node):
@@ -49,19 +50,19 @@ class ImageListener(Node):
         
         # Face recognition parameters (LBPH)
         self.declare_parameter('enable_face_recognition', False)  # Enable personal face recognition
-        self.declare_parameter('face_recognition_model_path', '/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml')
+        self.declare_parameter('face_recognition_model_path', 'auto')  # Auto-resolve from PersonRegistry, or provide explicit path
         self.declare_parameter('recognition_confidence_threshold', 150.0)  # Confidence threshold for target person (lower is better, set high to accept training variations)
         self.declare_parameter('recognition_frame_skip', 2)  # Process every Nth frame to manage CPU load
-        self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (should match training data)
+        self.declare_parameter('target_person_name', 'target_person')  # Name of the person to recognize (auto-resolved from PersonRegistry)
         self.declare_parameter('face_presence_threshold', 0.3)  # Seconds face must be detected before entering "stable presence" state (fast response)
         self.declare_parameter('face_absence_threshold', 5.0)  # Seconds face must be absent before entering "stable absence" state
         
         # Gesture recognition parameters
         self.declare_parameter('enable_gesture_recognition', False)  # Enable hand gesture recognition
-        self.declare_parameter('gesture_model_path', '/home/severin/dev/r2d2/data/gesture_recognition/models/target_person_gesture_classifier.pkl')
+        self.declare_parameter('gesture_model_path', 'auto')  # Auto-resolve from PersonRegistry, or provide explicit path
         self.declare_parameter('gesture_frame_skip', 3)  # Process every Nth frame to manage CPU load
         self.declare_parameter('gesture_confidence_threshold', 0.7)  # Minimum confidence for gesture recognition
-        self.declare_parameter('target_person_gesture_name', 'target_person')  # Person whose gestures to recognize
+        self.declare_parameter('target_person_gesture_name', 'target_person')  # Person whose gestures to recognize (auto-resolved from PersonRegistry)
         
         # Get parameter values
         self.debug_frame_path = self.get_parameter('debug_frame_path').value
@@ -85,6 +86,37 @@ class ImageListener(Node):
         self.gesture_frame_skip = self.get_parameter('gesture_frame_skip').value
         self.gesture_confidence_threshold = self.get_parameter('gesture_confidence_threshold').value
         self.target_person_gesture_name = self.get_parameter('target_person_gesture_name').value
+        
+        # Dynamic resolution using PersonConfig
+        # Resolve person names from PersonRegistry if set to 'target_person'
+        if self.target_person_name == 'target_person':
+            resolved_name = PersonConfig.get_person_name('target_person')
+            if resolved_name and resolved_name != 'target_person':
+                self.get_logger().info(f"Target person name auto-resolved from PersonRegistry: {resolved_name}")
+                self.target_person_name = resolved_name
+        
+        if self.target_person_gesture_name == 'target_person':
+            resolved_gesture_name = PersonConfig.get_person_name('target_person')
+            if resolved_gesture_name and resolved_gesture_name != 'target_person':
+                self.get_logger().info(f"Gesture person name auto-resolved from PersonRegistry: {resolved_gesture_name}")
+                self.target_person_gesture_name = resolved_gesture_name
+        
+        # Resolve model paths from PersonRegistry if set to 'auto' or contain 'target_person'
+        if self.enable_recognition and ('auto' in self.recognition_model_path.lower() or 'target_person' in self.recognition_model_path):
+            resolved_face_path = PersonConfig.get_face_model_path(self.target_person_name)
+            if resolved_face_path:
+                self.get_logger().info(f"Face model path auto-resolved from PersonRegistry: {resolved_face_path}")
+                self.recognition_model_path = resolved_face_path
+            else:
+                self.get_logger().warn(f"Could not auto-resolve face model path for '{self.target_person_name}', using provided path")
+        
+        if self.enable_gesture_recognition and ('auto' in self.gesture_model_path.lower() or 'target_person' in self.gesture_model_path):
+            resolved_gesture_path = PersonConfig.get_gesture_model_path(self.target_person_gesture_name)
+            if resolved_gesture_path:
+                self.get_logger().info(f"Gesture model path auto-resolved from PersonRegistry: {resolved_gesture_path}")
+                self.gesture_model_path = resolved_gesture_path
+            else:
+                self.get_logger().warn(f"Could not auto-resolve gesture model path for '{self.target_person_gesture_name}', using provided path")
         
         # Create subscription to camera topic
         self.subscription = self.create_subscription(

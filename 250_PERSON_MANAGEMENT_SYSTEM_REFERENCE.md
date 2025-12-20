@@ -22,40 +22,56 @@ The Person Management System provides a centralized SQLite-based registry for ma
 
 ## System Architecture
 
-### Current Implementation (Phase 1)
+### Current Implementation (Phase 1 - COMPLETE)
 
-```
-Person Registry Architecture:
+**Enhanced Architecture with r2d2_common Integration:**
 
-┌─────────────────────────────────────────────────────────┐
-│                  Person Entity                          │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ UUID-based ID                                   │   │
-│  │ Name (normalized + display)                     │   │
-│  │ Timestamps (created/updated)                    │   │
-│  │ Face Model Link (.xml)                          │   │
-│  │ Gesture Model Link (.pkl)                       │   │
-│  │ Google Account (future)                         │   │
-│  │ Extensible Metadata (JSON)                      │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
-                          ↕
-┌─────────────────────────────────────────────────────────┐
-│              SQLite Database (persons.db)                │
-│  - Forward-compatible explicit column queries            │
-│  - No SELECT * (future-proof)                            │
-│  - Extensible schema design                              │
-└─────────────────────────────────────────────────────────┘
-                          ↕
-┌──────────────────┬──────────────────┬──────────────────┐
-│  Training System │  ROS 2 Nodes     │  Web Dashboard   │
-│  (train_manager) │  (query person)  │  (UI management) │
-└──────────────────┴──────────────────┴──────────────────┘
+```mermaid
+flowchart TB
+    subgraph TrainingLayer [Training Layer]
+        TrainManager[train_manager.py<br/>Face + Gesture Training]
+    end
+    
+    subgraph DataLayer [Data Layer - Persistent Storage]
+        PersonsDB[(persons.db<br/>~/dev/r2d2/data/persons.db)]
+        FaceModels[Face Models<br/>{person}_lbph.xml]
+        GestureModels[Gesture Models<br/>{person}_gesture_classifier.pkl]
+    end
+    
+    subgraph CommonLayer [r2d2_common Package - Abstraction]
+        PersonRegistry[PersonRegistry<br/>Database API]
+        PersonConfig[PersonConfig<br/>ROS 2 Helper]
+    end
+    
+    subgraph ROS2Layer [ROS 2 Nodes - Runtime]
+        ImageListener[image_listener<br/>Perception Node]
+        AudioNotif[audio_notification_node<br/>State Machine]
+    end
+    
+    TrainManager -->|auto_migrate| PersonRegistry
+    PersonRegistry --> PersonsDB
+    PersonsDB -.links to.-> FaceModels
+    PersonsDB -.links to.-> GestureModels
+    
+    PersonRegistry --> PersonConfig
+    PersonConfig --> ImageListener
+    PersonConfig --> AudioNotif
+    
+    ImageListener -.uses models.-> FaceModels
+    ImageListener -.uses models.-> GestureModels
 ```
+
+**Key Components:**
+- **Database:** `~/dev/r2d2/data/persons.db` (persistent location, NOT relative path)
+- **PersonRegistry:** `tests/face_recognition/person_registry.py` (database API)
+- **PersonConfig:** `r2d2_common/person_config.py` (ROS 2 integration layer)
+- **CLI Manager:** `tests/face_recognition/person_manager.py`
+- **Auto-Registration:** Automatic registration in `train_manager.py`
 
 **Core Components:**
-- **Database:** `tests/face_recognition/data/persons.db`
+- **Database:** `~/dev/r2d2/data/persons.db` (persistent location)
 - **Registry API:** `tests/face_recognition/person_registry.py`
+- **ROS 2 Integration:** `r2d2_common.person_config.PersonConfig`
 - **CLI Manager:** `tests/face_recognition/person_manager.py`
 - **Integration:** Automatic registration in `train_manager.py`
 
@@ -148,18 +164,28 @@ Person Entity (UUID)
 
 ### Query Patterns
 
-```
-Training System:
+**Training System:**
+```python
+PersonRegistry API (direct):
   register_person(name) → person_id
   update_face_model(person_id, model_path)
   update_gesture_model(person_id, model_path)
+  auto_migrate() → scan and register existing models
+```
 
-ROS 2 Nodes (future):
-  get_person(name) → person_data
-  query models, preferences, account links
+**ROS 2 Nodes (via r2d2_common.PersonConfig):**
+```python
+PersonConfig API (abstraction for ROS nodes):
+  get_person_name('target_person') → resolved name
+  get_face_model_path('target_person') → model path
+  get_gesture_model_path('target_person') → model path
+```
 
-Web Dashboard (future):
+**Web Dashboard (future):**
+```python
+PersonRegistry API (direct):
   list_persons() → person list
+  get_person(name) → person details
   CRUD operations for person management
 ```
 
@@ -176,12 +202,14 @@ Web Dashboard (future):
 ```python
 from person_registry import PersonRegistry
 
-# Default database location (data/persons.db)
+# Default database location (~/dev/r2d2/data/persons.db - persistent)
 registry = PersonRegistry()
 
 # Custom database location
 registry = PersonRegistry(db_path='/custom/path/persons.db')
 ```
+
+**Important:** The default path is now `~/dev/r2d2/data/persons.db` (absolute persistent location), not a relative path. This ensures data persistence even when the registry is imported from installed ROS 2 packages.
 
 #### Core Methods
 
@@ -331,8 +359,12 @@ print(f"Errors: {results['errors']}")
 ```
 
 **Scans:**
-- `data/face_recognition/models/*.yml`
-- `data/gesture_recognition/models/*_gesture_classifier.pkl`
+- `~/dev/r2d2/data/face_recognition/models/*.yml` and `*.xml` (LBPH models)
+- `~/dev/r2d2/data/gesture_recognition/models/*_gesture_classifier.pkl`
+
+**Naming Convention:**
+- Face models: `{person}_lbph.xml` → extracts "person"
+- Gesture models: `{person}_gesture_classifier.pkl` → extracts "person"
 
 ---
 
@@ -364,57 +396,123 @@ self.person_registry.update_gesture_model(person_id, str(model_file))
 
 ---
 
-### For Auto-Start Services
+### For ROS 2 Nodes via r2d2_common
 
-Gesture models are automatically loaded by the camera-perception service on boot.
+**PersonConfig Integration:**
+
+The `r2d2_common` package provides `PersonConfig` for ROS 2 nodes to access the registry dynamically:
+
+**Location:** `ros2_ws/src/r2d2_common/r2d2_common/person_config.py`
+
+**Integration Flow:**
+
+```mermaid
+flowchart TB
+    subgraph ROS2Nodes [ROS 2 Nodes]
+        AudioNode[audio_notification_node]
+        PerceptionNode[image_listener]
+    end
+    
+    subgraph r2d2Common [r2d2_common Package]
+        PersonConfig[PersonConfig Class]
+    end
+    
+    subgraph DataLayer [Data Layer]
+        PersonRegistry[PersonRegistry]
+        DB[(persons.db)]
+    end
+    
+    AudioNode --> PersonConfig
+    PerceptionNode --> PersonConfig
+    PersonConfig --> PersonRegistry
+    PersonRegistry --> DB
+```
+
+**Usage in Nodes:**
+```python
+from r2d2_common.person_config import PersonConfig
+
+# In node __init__:
+target_person_param = self.get_parameter('target_person').value
+self.target_person = PersonConfig.get_person_name(target_person_param)
+# If param was 'target_person', resolves to actual name from registry
+
+# Or resolve model paths:
+face_model_path = PersonConfig.get_face_model_path('target_person')
+gesture_model_path = PersonConfig.get_gesture_model_path('target_person')
+```
+
+**Key Methods:**
+- `PersonConfig.get_person_name(name='target_person')` → Resolved person name
+- `PersonConfig.get_face_model_path(name='target_person')` → Face model path
+- `PersonConfig.get_gesture_model_path(name='target_person')` → Gesture model path
 
 **MULTI-USER AUTHORIZATION:** Any trained person automatically gets RED status and can use gestures.
-The LBPH face recognition model only returns a name if the person was successfully trained - the
-training itself is the authorization. No hardcoded `target_person_name` is needed in the service file.
+The training itself is the authorization. No hardcoded names in code - all resolved from PersonRegistry.
+
+**Auto-Start Services:**
+
+Gesture models are automatically loaded by the camera-perception service on boot via PersonRegistry.
 
 **Service Configuration:**
 ```bash
-# Model path in /etc/systemd/system/r2d2-camera-perception.service
-# Note: Only the model path is specified - no hardcoded target_person_name required!
-gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
+# /etc/systemd/system/r2d2-camera-perception.service
+# No model paths needed - auto-resolved from PersonRegistry!
+ExecStart=... ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
+  enable_face_recognition:=true \
+  enable_gesture_recognition:=true
 ```
 
 **Update After New Training:**
 ```bash
-# If you train a new person's gestures, update service file
-sudo nano /etc/systemd/system/r2d2-camera-perception.service
+# Just train the new person - no service file changes needed!
+cd ~/dev/r2d2/tests/face_recognition
+python3 train_manager.py  # Train face (option 1) and gestures (option 8)
 
-# Change gesture_recognition_model_path to new person's model
-# (No need to change target_person_name - any trained person is authorized)
-
-# Reload and restart
-sudo systemctl daemon-reload
+# System auto-discovers new person from PersonRegistry on next restart
 sudo systemctl restart r2d2-camera-perception.service
-sudo systemctl restart r2d2-gesture-intent.service
 ```
 
 ---
 
-### For ROS 2 Nodes (Future)
+### For ROS 2 Nodes (IMPLEMENTED)
 
-**Query Person Information:**
+**Query Person Information via r2d2_common.PersonConfig:**
 
 ```python
-from person_registry import PersonRegistry
+from r2d2_common.person_config import PersonConfig
 
 class MyNode(Node):
     def __init__(self):
         super().__init__('my_node')
-        self.person_registry = PersonRegistry()
-    
-    def on_person_recognized(self, person_name):
-        # Get person details
-        person = self.person_registry.get_person(person_name)
         
-        if person:
-            # Load preferences, check account links, etc.
-            voice_preference = person['metadata'].get('voice', 'default')
-            # Use person-specific settings
+        # Get default person name
+        self.target_person = PersonConfig.get_person_name('target_person')
+        
+        # Get model paths
+        self.face_model = PersonConfig.get_face_model_path(self.target_person)
+        self.gesture_model = PersonConfig.get_gesture_model_path(self.target_person)
+        
+        self.get_logger().info(f"Using person: {self.target_person}")
+        self.get_logger().info(f"Face model: {self.face_model}")
+```
+
+**Current Implementation:**
+- `image_listener`: Uses PersonConfig for face and gesture model paths
+- `audio_notification_node`: Uses PersonConfig for target person name
+
+**For advanced use cases (direct registry access):**
+
+```python
+from person_registry import PersonRegistry
+
+# Direct database access (use sparingly, prefer PersonConfig)
+registry = PersonRegistry()
+person = registry.get_person(person_name)
+
+if person:
+    # Access metadata, preferences, account links
+    voice_preference = person['metadata'].get('voice', 'default')
 ```
 
 ---

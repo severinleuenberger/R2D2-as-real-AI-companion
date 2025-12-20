@@ -62,7 +62,7 @@ def generate_launch_description():
     
     recognition_model_arg = DeclareLaunchArgument(
         'face_recognition_model_path',
-        default_value='/home/severin/dev/r2d2/data/face_recognition/models/severin_lbph.xml',
+        default_value='auto',
         description='Path to trained LBPH face recognizer model'
     )
     
@@ -99,7 +99,7 @@ def generate_launch_description():
     
     gesture_model_arg = DeclareLaunchArgument(
         'gesture_model_path',
-        default_value='/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl',
+        default_value='auto',
         description='Path to trained gesture classifier model'
     )
     

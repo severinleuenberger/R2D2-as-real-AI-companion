@@ -132,13 +132,9 @@ r2d2_audio package
 - Publish status JSON for LED and other consumers
 - Implement jitter tolerance and loss confirmation
 
-**State Machine Logic (RED-Primary Design):**
-- **MULTI-USER:** Any trained person automatically triggers RED status. The training itself is the authorization - if LBPH recognizes someone, they are authorized. No hardcoded names needed.
-- **RED is Primary:** While ANY trained person is recognized, ALL other face detections are IGNORED
-- **RED Status Timer:** 15 seconds (resets on each trained person recognition)
-- **Post-RED Transition:** When RED times out → GREEN (face visible) or BLUE (no face)
-- **GREEN Entry Delay:** 2 seconds of stable face detection before BLUE→GREEN
-- **BLUE Entry Delay:** 3 seconds of no face before GREEN→BLUE (hysteresis)
+**State Machine Logic:**
+- **RED Status Timer:** 15 seconds (resets on target person recognition)
+- **Total loss time:** ~20 seconds before alert (5s perception hysteresis + 15s audio timer)
 - **Cooldown:** 2 seconds between same alert type
 - **Speaking Protection:** 35 seconds consecutive non-RED prevents gesture interruption
 
@@ -208,7 +204,7 @@ r2d2_audio package
 | Parameter | Default | Type | Purpose |
 |-----------|---------|------|---------|
 | `enable_face_recognition` | `false` | bool | Enable/disable LBPH recognition |
-| `face_recognition_model_path` | `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml` | string | Path to trained model |
+| `face_recognition_model_path` | `auto` | string | Path to trained model (auto-resolved from PersonRegistry, or provide explicit path) |
 | `recognition_confidence_threshold` | `70.0` | float | Threshold (lower=stricter) |
 | `recognition_frame_skip` | `2` | int | Process every Nth frame |
 
@@ -509,8 +505,9 @@ export OPENBLAS_CORETYPE=ARMV8  # Prevents "illegal instruction" errors
 ### Core System
 
 **Training Data:**
-- Images: `~/dev/r2d2/data/face_recognition/severin/`
-- Model: `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml`
+- Images: `~/dev/r2d2/data/face_recognition/{person}/`
+- Models: `~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml`
+- Registry: `~/dev/r2d2/data/persons.db` (central person database)
 
 **Audio Files:**
 - Source: `~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`
@@ -595,11 +592,11 @@ ffplay -nodisp -autoexit -af "volume=0.05" /path/to/audio.mp3
 # Run training script first
 cd ~/dev/r2d2/tests/face_recognition
 source ~/depthai_env/bin/activate
-python3 1_capture_training_data.py
-python3 2_train_recognizer.py
+python3 train_manager.py  # Select option 1 to train new person
 
-# Verify model exists
-ls -la ~/dev/r2d2/data/face_recognition/models/severin_lbph.xml
+# Verify model and registry
+ls -la ~/dev/r2d2/data/face_recognition/models/
+python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); print(r.list_persons())"
 ```
 
 ### Issue: Always Returning "unknown"

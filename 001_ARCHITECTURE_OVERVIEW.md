@@ -103,7 +103,9 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 | **Power Button GPIO** | Pin 32 (40-pin header) | Hardware | Shutdown control |
 | **Boot/Wake Pin** | J42 Pin 4 (POWER) | Hardware | Boot/wake control |
 | **OPENBLAS_CORETYPE** | ARMV8 | Environment | Critical for ARM64 (prevents "Illegal instruction") |
-| **Face Recognition Model Path** | `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml` | File system | Default model location |
+| **Person Registry Database** | `~/dev/r2d2/data/persons.db` | File system | Central person entity database |
+| **Face Recognition Models** | `~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml` | File system | Per-person face models (auto-resolved) |
+| **Gesture Recognition Models** | `~/dev/r2d2/data/gesture_recognition/models/{person}_gesture_classifier.pkl` | File system | Per-person gesture models (auto-resolved) |
 | **Audio Assets Path** | `ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/` | File system | MP3 audio files location |
 
 **Critical Environment Variables:**
@@ -379,20 +381,6 @@ ROS 2 NODE LAYER:
 │  │ • (Future: SQLite database)         │
 │  └─────────────────────────────────────┘
 └─────────────────────────────────────────┘
-       │
-       ↓ [Status & events available]
-       
-FUTURE INTEGRATION POINTS (Phase 2-4):
-┌─────────────────────┐
-│  Phase 2: Speech     │ • Subscribe to /r2d2/audio/person_status
-│  (STT-LLM-TTS)       │ • Subscribe to /r2d2/perception/person_id
-│                     │ • Publish to /r2d2/cmd/* (commands)
-└─────────────────────┘
-┌─────────────────────┐
-│  Phase 3: Navigation │ • Subscribe to /r2d2/perception/face_count
-│  (SLAM, movement)    │ • Subscribe to /r2d2/cmd/* (commands)
-│                     │ • Publish to /r2d2/cmd_vel
-└─────────────────────┘
 
 * Only published if enable_face_recognition=true
 ```
@@ -409,26 +397,82 @@ FUTURE INTEGRATION POINTS (Phase 2-4):
 Complete list of all topics published:
 
 ```
-TOPIC                                  TYPE                  FREQ   NOTES
-─────────────────────────────────────────────────────────────────────────
+TOPIC                                  TYPE                  FREQ   DESCRIPTION
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 PERCEPTION TOPICS:
-/oak/rgb/image_raw                     sensor_msgs/Image     30 Hz  Raw camera
-/r2d2/perception/brightness            std_msgs/Float32      13 Hz  Mean brightness
-/r2d2/perception/face_count            std_msgs/Int32        13 Hz  Number of faces
-/r2d2/perception/person_id             std_msgs/String       6.5 Hz* Person name
-/r2d2/perception/face_confidence       std_msgs/Float32      6.5 Hz* Confidence score
-/r2d2/perception/is_target_person            std_msgs/Bool         6.5 Hz* Target person present?
-/r2d2/perception/gesture_event         std_msgs/String       Event** Gesture detected (index_finger_up, fist)
+/oak/rgb/image_raw                     sensor_msgs/Image     30 Hz  Raw RGB camera frames from OAK-D Lite (1920x1080)
+                                                                    Published by: camera_node
+                                                                    
+/r2d2/perception/brightness            std_msgs/Float32      13 Hz  Mean pixel brightness value (0-255 scale)
+                                                                    Used for: Lighting condition detection
+                                                                    Published by: image_listener
+                                                                    
+/r2d2/perception/face_count            std_msgs/Int32        13 Hz  Number of faces detected in frame (0, 1, 2, ...)
+                                                                    Uses: Haar Cascade detection with hysteresis filter (2s/5s)
+                                                                    Published by: image_listener
+                                                                    
+/r2d2/perception/person_id             std_msgs/String       6.5 Hz* Person name from face recognition
+                                                                    Values: Person name (from PersonRegistry), "unknown", "no_person"
+                                                                    Uses: LBPH face recognizer with trained models
+                                                                    Published by: image_listener
+                                                                    
+/r2d2/perception/face_confidence       std_msgs/Float32      6.5 Hz* LBPH confidence score (lower = better match)
+                                                                    Range: 0-200+ (typical: 35-50 for recognized, 80-120 for unknown)
+                                                                    Threshold: Configurable (default: 70.0)
+                                                                    Published by: image_listener
+                                                                    
+/r2d2/perception/is_target_person      std_msgs/Bool         6.5 Hz* Boolean convenience topic
+                                                                    Values: true (recognized person), false (unknown/no person)
+                                                                    Published by: image_listener
+                                                                    
+/r2d2/perception/gesture_event         std_msgs/String       Event** Hand gesture recognition events
+                                                                    Values: "index_finger_up" (start), "fist" (stop)
+                                                                    Uses: MediaPipe Hands + person-specific SVM classifier
+                                                                    Published by: image_listener
+                                                                    Gated by: Only when recognized person present (RED status)
 
 AUDIO & STATUS TOPICS:
-/r2d2/audio/person_status              std_msgs/String       10 Hz  JSON status (RED/BLUE/GREEN)
-/r2d2/audio/notification_event        std_msgs/String       Event  Recognition/loss events
-/r2d2/audio/status                    std_msgs/String       Event  Audio system status
-/r2d2/audio/beep_count                std_msgs/UInt32        Event  Beep counter
-/r2d2/audio/last_frequency             std_msgs/Float32       Event  Last beep frequency
+/r2d2/audio/person_status              std_msgs/String       10 Hz  Person recognition state machine status (JSON)
+                                                                    Format: {"status": "red|blue|green", "person_identity": "...", ...}
+                                                                    States: RED (recognized), BLUE (lost/idle), GREEN (unknown person)
+                                                                    Published by: audio_notification_node
+                                                                    Used by: LED controller, gesture gating, watchdog timer
+                                                                    
+/r2d2/audio/notification_event         std_msgs/String       Event  Audio alert event notifications
+                                                                    Values: "recognition", "loss", state transitions
+                                                                    Published by: audio_notification_node
+                                                                    
+/r2d2/audio/status                     std_msgs/String       Event  Audio system status messages
+                                                                    Published by: audio_notification_node
+                                                                    
+/r2d2/audio/beep_count                 std_msgs/UInt32        Event  Beep counter (demo node only)
+                                                                    Published by: audio_beep_node (testing)
+                                                                    
+/r2d2/audio/last_frequency             std_msgs/Float32       Event  Last beep frequency (demo node only)
+                                                                    Published by: audio_beep_node (testing)
+
+SPEECH TOPICS (Phase 2 - OPERATIONAL):
+/r2d2/speech/session_status            std_msgs/String       Event  Speech session state (JSON)
+                                                                    Format: {"status": "connected|disconnected", ...}
+                                                                    Published by: speech_node
+                                                                    Used by: gesture_intent_node for gating
+                                                                    
+/r2d2/speech/user_transcript           std_msgs/String       Event  User speech transcribed to text
+                                                                    Published by: speech_node (OpenAI Whisper-1)
+                                                                    
+/r2d2/speech/assistant_transcript      std_msgs/String       Event  AI assistant response text
+                                                                    Published by: speech_node (OpenAI GPT-4o)
+                                                                    
+/r2d2/speech/voice_activity            std_msgs/String       Event  Voice activity detection events (JSON)
+                                                                    Values: {"status": "speaking|silent"}
+                                                                    Published by: speech_node
+                                                                    Used by: gesture_intent_node for VAD-based timeout
 
 SYSTEM TOPICS:
-/r2d2/heartbeat                        std_msgs/String       1 Hz   Alive ping (JSON: timestamp + status)
+/r2d2/heartbeat                        std_msgs/String       1 Hz   System health heartbeat (JSON)
+                                                                    Format: {"timestamp": "...", "status": "running"}
+                                                                    Published by: heartbeat_node
+                                                                    Note: Detailed metrics (CPU/GPU/temp) available via REST API
 
 * Only published if enable_face_recognition=true
 ** Only published when target person is recognized (gated by person_status="red")
@@ -440,17 +484,18 @@ SYSTEM TOPICS:
 
 ### 3.1 Node Details
 
-| Node | Package | Type | FPS In | FPS Out | CPU | Status |
-|------|---------|------|--------|---------|-----|--------|
-| **camera_node** | r2d2_camera | Sensor driver | N/A | 30 Hz | 2-3% | ✅ |
-| **image_listener** | r2d2_perception | Computer vision | 30 Hz | 6 topics | 8-15% | ✅ |
-| **heartbeat_node** | r2d2_hello | Alive ping (lightweight) | N/A | 1 Hz | <0.1% | ✅ |
-| **camera_stream_node** | r2d2_camera | MJPEG stream server | 30 Hz | 15 FPS | 2-5% | ✅ |
-| **audio_notification_node** | r2d2_audio | State machine | 6.5 Hz | 10 Hz | 2-4% | ✅ |
-| **status_led_node** | r2d2_audio | GPIO control | 10 Hz | N/A | <0.1% | ✅ |
-| **database_logger_node** | r2d2_audio | Event logging | 10 Hz | N/A | <0.1% | ✅ |
-| **audio_beep_node** | r2d2_audio | Audio demo | N/A | Event | <0.1% | ✅ |
-| **gesture_intent_node** | r2d2_gesture | Gesture-to-speech control | Event | Service calls | <1% | ✅ |
+| Node | Package | Type | Description | FPS In | FPS Out | CPU | Status |
+|------|---------|------|-------------|--------|---------|-----|--------|
+| **camera_node** | r2d2_camera | Sensor driver | OAK-D Lite camera driver using DepthAI SDK. Captures RGB frames via USB 3.0 and publishes to ROS 2. Exclusive camera access (cannot run with camera_stream_node). | N/A | 30 Hz | 2-3% | ✅ |
+| **image_listener** | r2d2_perception | Computer vision | Main perception pipeline: downscales frames (1920x1080→640x360), computes brightness, detects faces (Haar Cascade), recognizes persons (LBPH), detects gestures (MediaPipe+SVM). Uses PersonRegistry for dynamic model loading. | 30 Hz | 6 topics | 8-15% | ✅ |
+| **heartbeat_node** | r2d2_hello | Health monitor | Lightweight alive ping publishing timestamp and status. System metrics (CPU/GPU/temp) available via REST API (/api/system/health) to save resources. | N/A | 1 Hz | <0.5% | ✅ |
+| **camera_stream_node** | r2d2_camera | MJPEG stream | On-demand HTTP MJPEG video stream server for web dashboard (port 8081). Mutually exclusive with camera_node (device conflict). Started manually or via dashboard. | 30 Hz | 15 FPS | 2-5% | ✅ |
+| **audio_notification_node** | r2d2_audio | State machine | 3-state recognition state machine (RED/BLUE/GREEN). Tracks person presence with 15s timer, plays MP3 alerts on transitions, publishes JSON status for LED/gesture gating. Uses PersonConfig for dynamic person resolution. | 6.5 Hz | 10 Hz | 2-4% | ✅ |
+| **status_led_node** | r2d2_audio | GPIO control | Controls white LED (GPIO 17, Pin 22) for visual feedback. LED ON=recognized (RED), OFF=lost/unknown (BLUE/GREEN). Subscribes to person_status JSON, updates at 10 Hz. | 10 Hz | N/A | <0.1% | ✅ |
+| **database_logger_node** | r2d2_audio | Event logging | Logs state transitions and recognition events to console. Structure ready for future SQLite integration. Tracks recognition events for conversation history. | 10 Hz | N/A | <0.1% | ✅ |
+| **audio_beep_node** | r2d2_audio | Audio demo | Demo node for testing audio hardware with simple tone generation. NOT used in production (recognition/loss alerts handled by audio_notification_node). | N/A | Event | <0.1% | ✅ |
+| **gesture_intent_node** | r2d2_gesture | Gesture control | Translates gesture events into speech service calls with strict gating (person must be RED). Implements cooldowns (5s start, 3s stop), watchdog timer (35s auto-shutdown), and audio feedback (R2D2 beeps). | Event | Service calls | <1% | ✅ |
+| **speech_node** | r2d2_speech | Speech system | OpenAI Realtime API integration for speech-to-speech conversations. Lifecycle node with WebSocket streaming, HyperX mic input, PAM8403 speaker output. Provides start/stop services, publishes transcripts and session status. | Audio stream | Audio+Topics | 10-15% | ✅ |
 
 ### 3.2 Launch Sequence
 
@@ -479,48 +524,44 @@ camera_node started    image_listener started
 
 ### 4.1 Person Recognition State Machine
 
-The `r2d2_audio` package implements a 3-state recognition system with **RED as the primary state**:
+The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│      PERSON RECOGNITION STATE MACHINE (RED-PRIMARY)          │
+│              PERSON RECOGNITION STATE MACHINE                │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  🔴 RED STATE (PRIMARY - Target Recognized)                  │
+│  🔴 RED STATE (Recognized)                                   │
 │     • Target person is currently visible                     │
-│     • Audio: "Hello!" MP3 plays on entry                    │
-│     • LED: Solid WHITE (GPIO pin 17)                        │
+│     • Audio: "Hello!" MP3 plays on transition               │
+│     • LED: Solid RED (GPIO pin 17)                          │
 │     • Status: Active engagement                             │
-│     • Timer: 15s resets on each recognition                 │
-│     • IGNORES: All non-target face detections!              │
-│     • Immune: To camera flickers while active               │
-│     • Transitions: → GREEN/BLUE after 15s timeout           │
+│     • Transitions: → BLUE (after loss confirmation)          │
+│                    → GREEN (if unknown person appears)      │
 │                                                              │
-│  🔵 BLUE STATE (No Person)                                   │
-│     • No face visible                                        │
-│     • Audio: "Oh, I lost you!" MP3 plays on entry          │
-│     • LED: OFF                                               │
+│  🔵 BLUE STATE (Lost/Idle)                                   │
+│     • No target person visible                              │
+│     • Audio: "Oh, I lost you!" MP3 plays on transition     │
+│     • LED: Solid BLUE (GPIO pin 22)                         │
 │     • Status: Idle, waiting for recognition                  │
-│     • Entry Delay: 3s smoothing (from GREEN)                │
-│     • Transitions: → RED (target person detected)           │
-│                    → GREEN (face detected for 2s)           │
+│     • Timing: 5s jitter tolerance + 15s confirmation        │
+│     • Transitions: → RED (when target person detected)      │
+│                    → GREEN (if unknown person appears)       │
 │                                                              │
 │  🟢 GREEN STATE (Unknown Person)                            │
 │     • Face detected but not the target person               │
 │     • Audio: Silent (no alerts)                             │
-│     • LED: OFF                                               │
-│     • Status: Unknown person present                         │
-│     • Entry Delay: 2s smoothing (from BLUE)                 │
-│     • Transitions: → RED (target person detected)           │
-│                    → BLUE (no face for 3s)                  │
+│     • LED: Solid GREEN (GPIO pin 27)                        │
+│     • Status: Caution mode                                   │
+│     • Transitions: → RED (if target person appears)         │
+│                    → BLUE (if unknown person leaves)        │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **State Machine Features:**
-- **RED is Primary:** While target person recognized, all other detections are IGNORED
-- **15s Timeout:** RED → GREEN/BLUE after 15 seconds without target person
-- **Smoothing (Hysteresis):** GREEN/BLUE transitions use delays (2s/3s) to prevent flicker
+- **Jitter Tolerance:** 5-second window for brief interruptions (prevents false loss alerts)
+- **Loss Confirmation:** 15-second confirmation window after jitter (total ~20s to loss alert)
 - **Cooldown Periods:** 2s between recognition alerts, 5s quiet period after loss alert
 - **Status Publishing:** JSON messages at 10 Hz for LED, database, and future dialogue system
 
@@ -685,11 +726,10 @@ EXAMPLES:
     log_every_n_frames:=10 \
     log_face_detections:=true
   
-  # With gesture recognition enabled
+  # With gesture recognition enabled (model paths auto-resolved from PersonRegistry)
   ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
     enable_face_recognition:=true \
-    enable_gesture_recognition:=true \
-    gesture_recognition_model_path:=/home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
+    enable_gesture_recognition:=true
 ```
 
 ### 6.2 Launch Parameters (Audio Notification System)
@@ -854,433 +894,58 @@ EXAMPLES:
 
 ## 6.3.1 System Configuration Guide
 
-This section explains how to customize the three main system parameters: **audio volume**, **voice selection**, and **assistant personality instructions**.
+The R2D2 system supports three main configurable parameters: **audio volume**, **voice selection**, and **assistant personality instructions**.
 
-### Audio Volume Configuration
+### Configurable Parameters Overview
 
-The R2D2 system uses a centralized audio volume parameter that controls all audio feedback including recognition beeps, loss alerts, and gesture start/stop beeps.
+| Parameter | Current Value | Type | Description | Config Locations |
+|-----------|---------------|------|-------------|------------------|
+| **audio_volume** | 0.30 (30%) | float (0.0-1.0) | Global volume for all audio feedback (recognition beeps, loss alerts, gesture beeps) | 3 files: audio_params.yaml, audio_notification_node.py, gesture_intent_node.py |
+| **realtime_voice** | 'sage' | string | OpenAI voice selection (alloy, echo, fable, onyx, nova, shimmer, sage) | 4 files: speech_params.yaml, speech_node.py, launch file, realtime_client.py |
+| **instructions** | R2-D2 personality | string | System prompt defining AI personality, speaking style, and behavior | 4 files: speech_params.yaml, speech_node.py, launch file, realtime_client.py |
 
-#### Current Configuration
+### Quick Configuration
 
-**Centralized Config File:** `ros2_ws/src/r2d2_audio/config/audio_params.yaml`
-
-```yaml
-/**:
-  ros__parameters:
-    audio_volume: 0.30  # Global volume for all audio feedback (0.0-1.0)
-```
-
-**Current Volume:** 0.30 (30% volume)
-
-**Controls:**
-- Recognition beep ("Hello!") - Voicy_R2-D2 - 2.mp3
-- Loss alert ("Oh, I lost you!") - Voicy_R2-D2 - 5.mp3
-- Gesture start beep - Voicy_R2-D2 - 16.mp3
-- Gesture stop beep - Voicy_R2-D2 - 20.mp3
-
-#### How to Change Audio Volume
-
-**Important:** Due to the way systemd services start nodes directly (not via launch files), you must update **3 locations** to keep the system consistent.
-
-##### Step 1: Edit Centralized Config File (Primary)
-
+**Audio Volume:**
 ```bash
+# Primary config file
 nano ~/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml
+# Values: 0.02 (quiet) to 1.00 (maximum), current: 0.30
 ```
 
-Change line 7:
-```yaml
-audio_volume: 0.30  # Change to your desired value
-```
-
-**Recommended values:**
-- `0.02` = 2% (very quiet, subtle)
-- `0.05` = 5% (quiet, unobtrusive)
-- `0.30` = 30% (medium, clear) ← **Current**
-- `0.50` = 50% (loud, assertive)
-- `1.00` = 100% (maximum)
-
-##### Step 2: Edit Audio Notification Node Default
-
+**Voice & Instructions:**
 ```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/audio_notification_node.py
-```
-
-Find line 87 and update to match your config file:
-```python
-self.declare_parameter('audio_volume', 0.30)  # Match config file value
-```
-
-##### Step 3: Edit Gesture Intent Node Default
-
-```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_gesture/r2d2_gesture/gesture_intent_node.py
-```
-
-Find line 61 and update to match your config file:
-```python
-self.declare_parameter('audio_volume', 0.30)  # Match config file value
-```
-
-##### Step 4: Rebuild and Restart
-
-```bash
-# Rebuild packages
-cd ~/dev/r2d2/ros2_ws
-source /opt/ros/humble/setup.bash
-colcon build --packages-select r2d2_audio r2d2_gesture --symlink-install
-
-# Restart services
-sudo systemctl restart r2d2-audio-notification.service
-sudo systemctl restart r2d2-gesture-intent.service
-
-# Verify (wait 3 seconds for services to start)
-sleep 3
-systemctl is-active r2d2-audio-notification.service r2d2-gesture-intent.service
-```
-
-##### Step 5: Verify Volume
-
-```bash
-cd ~/dev/r2d2/ros2_ws && source install/setup.bash
-
-# Check both nodes are using correct volume
-ros2 param get /audio_notification_node audio_volume
-ros2 param get /gesture_intent_node audio_volume
-
-# Both should show your new value (e.g., 0.30)
-```
-
-#### Runtime Volume Override (Temporary)
-
-You can change volume without restarting for testing:
-
-```bash
-# Set volume for individual nodes (temporary, lost on restart)
-ros2 param set /audio_notification_node audio_volume 0.5
-ros2 param set /gesture_intent_node audio_volume 0.5
-```
-
-#### Testing Audio Volume
-
-Test all beeps at your configured volume:
-
-```bash
-cd ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio
-
-# Replace 0.30 with your volume value
-VOLUME=0.30
-
-# Test all 4 beeps
-echo "1. Recognition beep..." && ffplay -nodisp -autoexit -loglevel error -af volume=$VOLUME Voicy_R2-D2\ -\ 2.mp3
-echo "2. Loss beep..." && ffplay -nodisp -autoexit -loglevel error -af volume=$VOLUME Voicy_R2-D2\ -\ 5.mp3
-echo "3. Start beep..." && ffplay -nodisp -autoexit -loglevel error -af volume=$VOLUME Voicy_R2-D2\ -\ 16.mp3
-echo "4. Stop beep..." && ffplay -nodisp -autoexit -loglevel error -af volume=$VOLUME Voicy_R2-D2\ -\ 20.mp3
-```
-
----
-
-### Voice Selection Configuration
-
-The speech system uses OpenAI's Realtime API with 7 different voice options. The voice controls **how the AI sounds** (pitch, tone, accent), while instructions control **what it says** (personality, word choice).
-
-#### Available Voices
-
-| Voice | Characteristics | Best For |
-|-------|----------------|----------|
-| `alloy` | Neutral, balanced | General purpose |
-| `echo` | Warm, friendly | Customer service |
-| `fable` | Expressive, storytelling | Narrative content |
-| `onyx` | Deep, authoritative | Professional, announcements |
-| `nova` | Bright, energetic | Upbeat interactions |
-| `shimmer` | Soft, gentle | Calming, relaxation |
-| `sage` | **Slightly synthetic, robotic** | **R2-D2 (Current)** ✅ |
-
-**Current Configuration:** `sage` (best for robot personality)
-
-#### How to Change Voice
-
-**Important:** Voice is configured in **4 locations**. Update all 4 for consistency.
-
-##### Step 1: Edit ROS2 Parameter File (Primary Configuration)
-
-```bash
+# Primary config file
 nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
+# Voice: sage (current), alloy, echo, fable, onyx, nova, shimmer
+# Instructions: Custom personality prompt
 ```
 
-Change line 6:
-```yaml
-realtime_voice: 'sage'  # Change to: alloy, echo, fable, onyx, nova, shimmer, or sage
-```
+### Important Notes
 
-##### Step 2: Edit Speech Node Default Parameter
+- **Audio volume** requires updating 3 locations and rebuilding packages
+- **Voice and instructions** require updating 4 locations and restarting speech system
+- **Runtime overrides** available for testing (use `ros2 param set`)
+- **Temporary updates** possible via `/r2d2/speech/assistant_prompt` topic
 
+### For Complete Customization Guide
+
+**See:** [`204_SPEECH_CUSTOMIZATION_GUIDE.md`](204_SPEECH_CUSTOMIZATION_GUIDE.md) for:
+- Step-by-step instructions for all parameters
+- Personality templates (Butler, Companion, Technical Support, etc.)
+- Voice examples and recommendations
+- Testing procedures
+- Troubleshooting guide
+- Best practices and advanced tuning (Temperature, VAD settings)
+
+**Quick Reference:**
 ```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/r2d2_speech_ros/speech_node.py
+# Check current settings
+cat ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
+
+# Test audio volume
+ffplay -nodisp -autoexit -af volume=0.30 ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 2.mp3
 ```
-
-Find line 47 and update:
-```python
-self.declare_parameter('realtime_voice', 'sage')  # Match YAML config
-```
-
-##### Step 3: Edit Launch File Default Argument
-
-```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/launch/speech_node.launch.py
-```
-
-Find line ~33 and update the default_value in the `DeclareLaunchArgument` for voice (if present).
-
-##### Step 4: Edit Realtime Client Default
-
-```bash
-nano ~/dev/r2d2/r2d2_speech/realtime/realtime_client.py
-```
-
-Find line 41 and update:
-```python
-voice: str = "sage"  # Match YAML config
-```
-
-##### Step 5: Restart Speech System
-
-```bash
-# If using systemd service
-sudo systemctl restart r2d2-speech-node.service
-
-# Or if running manually
-bash ~/dev/r2d2/launch_ros2_speech.sh
-```
-
-#### Voice Examples
-
-**Example 1: Friendly Companion (Nova)**
-```yaml
-realtime_voice: 'nova'
-```
-Bright, energetic voice for upbeat interactions.
-
-**Example 2: Professional Assistant (Onyx)**
-```yaml
-realtime_voice: 'onyx'
-```
-Deep, authoritative voice for professional interactions.
-
-**Example 3: Warm & Friendly (Echo)**
-```yaml
-realtime_voice: 'echo'
-```
-Warm, friendly voice for customer service style.
-
----
-
-### Assistant Instructions Configuration
-
-Instructions define the AI's **personality, speaking style, and behavior**. This is the system prompt sent to OpenAI GPT-4o that guides response generation.
-
-#### Current R2-D2 Instructions
-
-```
-You are the R2D2 robot from the Star Wars Movie. 
-Speak with a slightly synthetic, system-like delivery. 
-Use short, precise sentences. 
-Fast-paced, efficient cadence. 
-Recognize emotions internally, but keep vocal emotional inflection minimal. 
-Clear, clipped articulation. 
-Avoid unnecessary pauses. 
-Sound efficient and machine-like.
-```
-
-**Effect:**
-- Word choice: Technical, precise
-- Sentence structure: Short, efficient
-- Tone: Minimal emotion, system-like
-- Cadence: Fast-paced, no pauses
-
-#### How to Change Instructions
-
-**Important:** Instructions are configured in **4 locations**. Update all 4 for consistency.
-
-##### Step 1: Edit ROS2 Parameter File (Primary Configuration)
-
-```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
-```
-
-Change line 19 (the instructions field):
-```yaml
-instructions: 'Your new personality instructions here...'
-```
-
-##### Step 2: Edit Speech Node Default Parameter
-
-```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/r2d2_speech_ros/speech_node.py
-```
-
-Find line 54 and update:
-```python
-self.declare_parameter('instructions', 'Your new personality instructions...')
-```
-
-##### Step 3: Edit Launch File Default Argument
-
-```bash
-nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/launch/speech_node.launch.py
-```
-
-Find lines 33-35 and update the default_value:
-```python
-instructions_arg = DeclareLaunchArgument(
-    'instructions', 
-    default_value='Your new personality instructions...',
-    description='System instructions')
-```
-
-##### Step 4: Edit Realtime Client Default
-
-```bash
-nano ~/dev/r2d2/r2d2_speech/realtime/realtime_client.py
-```
-
-Find line 101 and update:
-```python
-instructions: str = "Your new personality instructions..."
-```
-
-##### Step 5: Restart Speech System
-
-```bash
-# If using systemd service
-sudo systemctl restart r2d2-speech-node.service
-
-# Verify speech node is active
-ros2 lifecycle get /speech_node
-# Should show: active [3]
-```
-
-#### Instructions Examples
-
-**Example 1: Friendly Companion Robot**
-```yaml
-instructions: 'You are a friendly companion robot. Be warm and encouraging. Use casual language. Show enthusiasm. Keep responses conversational and upbeat. Make the user feel welcomed and supported.'
-```
-
-**Example 2: Professional Butler Robot**
-```yaml
-instructions: 'You are a professional butler robot. Speak formally and politely. Use complete sentences with proper grammar. Maintain a respectful, service-oriented tone. Be helpful and attentive. Address users with courtesy.'
-```
-
-**Example 3: Technical Support Robot**
-```yaml
-instructions: 'You are a technical support robot. Speak clearly and precisely. Use appropriate technical terminology. Provide step-by-step instructions. Be patient, thorough, and methodical. Confirm understanding before proceeding.'
-```
-
-**Example 4: Star Wars R2-D2 (Current)**
-```yaml
-instructions: 'You are the R2D2 robot from the Star Wars Movie. Speak with a slightly synthetic, system-like delivery. Use short, precise sentences. Fast-paced, efficient cadence. Recognize emotions internally, but keep vocal emotional inflection minimal. Clear, clipped articulation. Avoid unnecessary pauses. Sound efficient and machine-like.'
-```
-
-#### Voice vs Instructions: Key Differences
-
-| Aspect | Voice | Instructions |
-|--------|-------|--------------|
-| **Controls** | Audio characteristics | Content and style |
-| **Examples** | Pitch, tone, accent | Word choice, personality |
-| **Parameter** | `realtime_voice` | `instructions` |
-| **Values** | alloy/echo/fable/onyx/nova/shimmer/sage | Free-form text prompt |
-| **Effect** | How it sounds | What it says |
-| **Changed by** | Voice selection | Prompt engineering |
-
-**Important:** Both work together to create the complete personality!
-- **Voice:** "sage" = slightly robotic sound (audio characteristics)
-- **Instructions:** R2-D2 character = what it says and how it phrases things (content)
-
-#### Dynamic Instructions Update (Running Session)
-
-Update instructions without restarting for testing:
-
-```bash
-# Update instructions on active session (temporary, lost on restart)
-ros2 topic pub --once /r2d2/speech/assistant_prompt std_msgs/String \
-  "data: 'You are a pirate robot. Speak like a pirate but be efficient.'"
-```
-
-**Note:** Dynamic updates only affect current session. Changes are lost on restart.
-
-#### Testing Your Changes
-
-After modifying voice or instructions:
-
-```bash
-# Start speech system (if not running)
-sudo systemctl start r2d2-speech-node.service
-
-# Trigger conversation with index finger gesture
-# Or call service manually:
-ros2 service call /r2d2/speech/start_session std_srvs/srv/Trigger
-
-# Speak test questions:
-# - "Hello, who are you?" (Tests identity/personality)
-# - "Tell me about yourself" (Tests character depth)
-# - "How are you feeling today?" (Tests emotional response)
-```
-
-#### Configuration Best Practices
-
-1. **Keep consistent:** Update all locations (3 for audio, 4 for voice/instructions)
-2. **Test first:** Use runtime overrides (`ros2 param set`) to test before making permanent
-3. **Document changes:** Note why you chose specific settings in config comments
-4. **Back up configs:** Keep copies of working configurations before major changes
-5. **Verify after restart:** Always verify parameters with `ros2 param get` after restart
-
-#### Quick Reference Commands
-
-```bash
-# Check current audio volume
-ros2 param get /audio_notification_node audio_volume
-ros2 param get /gesture_intent_node audio_volume
-
-# Check current voice
-grep realtime_voice ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
-
-# Check current instructions
-grep instructions ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
-
-# Update instructions dynamically (temporary)
-ros2 topic pub --once /r2d2/speech/assistant_prompt std_msgs/String \
-  "data: 'New instructions here'"
-
-# Test audio at specific volume
-VOLUME=0.30  # Your test volume
-ffplay -nodisp -autoexit -loglevel error -af volume=$VOLUME \
-  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 2.mp3
-```
-
-#### Troubleshooting Configuration Changes
-
-**Issue: Volume didn't change after editing config file**
-
-**Solution:**
-1. Verify all 3 locations match (config + 2 node files)
-2. Rebuild packages: `colcon build --packages-select r2d2_audio r2d2_gesture --symlink-install`
-3. Restart services: `sudo systemctl restart r2d2-audio-notification.service r2d2-gesture-intent.service`
-4. Verify: `ros2 param get /audio_notification_node audio_volume`
-
-**Issue: Voice didn't change**
-
-**Solution:**
-1. Verify all 4 locations match (YAML + speech_node.py + launch file + realtime_client.py)
-2. Restart speech: `sudo systemctl restart r2d2-speech-node.service`
-3. Start new session: Old sessions keep old voice, make fist and restart with finger
-
-**Issue: Instructions not working**
-
-**Solution:**
-1. Check all 4 locations have matching instructions
-2. Restart speech system
-3. Verify in logs: `sudo journalctl -u r2d2-speech-node.service | grep instructions`
 
 ---
 
@@ -1443,7 +1108,7 @@ The R2D2 system includes a power button control system for graceful shutdown and
 - **Status:** ⏳ Reserved for future advanced patterns
 - **Connector:** 3 pins (+5V, GND, Data)
 
-**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](_ANALYSIS_AND_DOCUMENTATION/HARDWARE_WHITE_LED_WIRING.md)
+**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
 
 ### 7.4 Person Management System
 
@@ -1475,6 +1140,38 @@ The R2D2 system includes a centralized person entity management system for linki
 - Model migration for existing data
 - CRUD operations for person entities
 - Extensible for future features (OAuth, preferences, cloud sync)
+
+**For complete details, see:** [`250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md`](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md)
+
+### 7.5 Person Registry Integration (Dynamic Multi-User Support)
+
+The R2D2 system uses a centralized Person Registry to eliminate hardcoded person names and model paths, enabling true multi-user support without code changes.
+
+**Key Architecture:**
+- **Database:** `~/dev/r2d2/data/persons.db` (persistent SQLite)
+- **Common Package:** `r2d2_common` provides `PersonConfig` for ROS 2 nodes
+- **Auto-Resolution:** When parameters use 'auto' or 'target_person', the system queries the PersonRegistry
+
+**How It Works:**
+
+```
+Training System → PersonRegistry Database (persons.db)
+                       ↓
+                  PersonConfig (r2d2_common)
+                       ↓
+    ┌──────────────────┼──────────────────┐
+    ↓                  ↓                  ↓
+image_listener    audio_notification  Launch Files
+(face + gesture)  (target person)     (auto-resolve)
+```
+
+**Benefits:**
+- No hardcoded person names in code (only in database)
+- Adding new users requires only training, not code changes
+- Multi-user support: any trained person is automatically authorized
+- Model paths automatically resolved at runtime
+
+**Key Concept:** When you use `target_person:='target_person'` (the generic default), the system automatically resolves it to the first registered person in the database. You can still override with specific names or paths when needed.
 
 **For complete details, see:** [`250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md`](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md)
 
@@ -1520,7 +1217,7 @@ ROS 2 Topics
     ├─ /r2d2/perception/person_id
     ├─ /r2d2/audio/person_status
     ├─ /r2d2/perception/face_count
-    └─ /r2d2/heartbeat (alive status)
+    └─ /r2d2/heartbeat (system metrics)
 ```
 
 ### 8.3 Components
@@ -1539,7 +1236,7 @@ ROS 2 Topics
 - `rosbridge_server` - ROS 2 WebSocket bridge
 - `systemd` - Service management
 - `camera_stream_node` - MJPEG video stream server
-- `heartbeat_node` - Lightweight alive ping (metrics via REST API on-demand)
+- `heartbeat_node` - System health monitoring with metrics
 
 ### 8.4 API Endpoints
 
@@ -1562,7 +1259,7 @@ ROS 2 Topics
 - `GET /api/training/status/{task_id}` - Get training status
 
 **New Features (December 2025):**
-- ✅ **System Health Monitoring:** On-demand metrics via `/api/system/health` (CPU/GPU/Disk/Temp)
+- ✅ **System Health Monitoring:** Enhanced heartbeat service with CPU/GPU/temperature metrics
 - ✅ **Camera Stream Service:** On-demand MJPEG video stream (port 8081)
 - ✅ **Star Wars UI Theme:** Dark futuristic design optimized for 1920x1200 display
 - ✅ **Single-Page Layout:** All content fits on one screen without scrolling
@@ -1592,8 +1289,7 @@ The architecture provides clear integration points for future development:
    - `/r2d2/cmd_vel` - Movement commands (geometry_msgs/Twist)
 
 3. **Status Topics** (for system health):
-   - `/r2d2/heartbeat` - Lightweight alive ping (timestamp + status only)
-   - System metrics (CPU%, GPU%, Disk%, temperature) available via REST API `/api/system/health`
+   - `/r2d2/heartbeat` - System health indicator with metrics (CPU%, GPU%, temperature)
 
 **Template for Adding New Nodes:**
 
@@ -1721,13 +1417,23 @@ NODES:
   ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/status_led_node.py
   ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/database_logger_node.py
 
-FACE RECOGNITION MODEL:
-  ~/dev/r2d2/data/face_recognition/models/severin_lbph.xml
+PERSON REGISTRY:
+  ~/dev/r2d2/data/persons.db
+  
+FACE RECOGNITION MODELS:
+  ~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml
+  
+GESTURE RECOGNITION MODELS:
+  ~/dev/r2d2/data/gesture_recognition/models/{person}_gesture_classifier.pkl
 
 AUDIO ASSETS:
   ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/
-    ├─ Voicy_R2-D2 - 2.mp3 (recognition alert)
-    └─ Voicy_R2-D2 - 5.mp3 (loss alert)
+    ├─ Voicy_R2-D2 - 2.mp3 (recognition alert "Hello!")
+    ├─ Voicy_R2-D2 - 5.mp3 (loss alert "Oh, I lost you!")
+    ├─ Voicy_R2-D2 - 16.mp3 (gesture start beep for speech session)
+    ├─ Voicy_R2-D2 - 20.mp3 (gesture stop beep for speech session)
+    ├─ (Future: Shutdown beep for graceful power-down)
+    └─ (Future: System alert beep for low disk space/warnings)
 
 HARDWARE CONTROL:
   ~/dev/r2d2/r2d2_power_button_simple.py
@@ -1793,7 +1499,7 @@ sudo systemctl status r2d2-powerbutton.service
 - `101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md` - Audio hardware setup (prerequisite for 100_)
 - `200_SPEECH_SYSTEM_REFERENCE.md` - Phase 2 system reference (OpenAI Realtime API)
 - `204_SPEECH_CUSTOMIZATION_GUIDE.md` - Complete voice and personality customization guide (includes quick reference)
-- `_ANALYSIS_AND_DOCUMENTATION/QUICK_START.md` - Quick reference guide
+- `QUICK_START.md` - Quick reference guide
 
 ---
 

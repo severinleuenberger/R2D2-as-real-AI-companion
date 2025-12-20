@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
+from r2d2_common.person_config import PersonConfig
 
 # #region agent log
 DEBUG_LOG_PATH = '/home/severin/.cursor/debug.log'
@@ -83,7 +84,7 @@ class AudioNotificationNode(Node):
         self.get_logger().info("R2D2 Audio Notification Node starting...")
         
         # Declare parameters
-        self.declare_parameter('target_person', 'severin')
+        self.declare_parameter('target_person', 'target_person')  # Default: generic 'target_person' which resolves via registry
         self.declare_parameter('audio_volume', 0.02)       # 0.0-1.0 (audio file volume) - 30% volume (from config/audio_params.yaml)
         self.declare_parameter('alsa_device', 'hw:1,0')    # ALSA device for audio output (e.g., hw:1,0)
         self.declare_parameter('red_status_timeout_seconds', 15.0)  # Simple 15s timeout, resets on recognition
@@ -94,7 +95,11 @@ class AudioNotificationNode(Node):
         self.declare_parameter('enabled', True)
         
         # Get parameters
-        self.target_person = self.get_parameter('target_person').value
+        target_person_param = self.get_parameter('target_person').value
+        # Resolve person name using registry if 'target_person' is used
+        self.target_person = PersonConfig.get_person_name(target_person_param)
+        self.get_logger().info(f"Target person resolved to: {self.target_person}")
+
         self.audio_volume = self.get_parameter('audio_volume').value
         self.alsa_device = self.get_parameter('alsa_device').value
         self.red_status_timeout = self.get_parameter('red_status_timeout_seconds').value

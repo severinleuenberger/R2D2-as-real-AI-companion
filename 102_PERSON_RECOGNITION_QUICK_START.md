@@ -393,8 +393,9 @@ sudo systemctl restart r2d2-audio-notification.service
 ## File Locations
 
 **Training Data:**
-- Images: `~/dev/r2d2/data/face_recognition/severin/`
-- Model: `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml`
+- Images: `~/dev/r2d2/data/face_recognition/{person}/`
+- Models: `~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml`
+- Registry: `~/dev/r2d2/data/persons.db` (auto-resolution database)
 
 **Audio Files:**
 - Source: `~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/`

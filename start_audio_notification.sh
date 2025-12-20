@@ -16,6 +16,10 @@ source install/setup.bash
 export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 export ROS_LOCALHOST_ONLY=${ROS_LOCALHOST_ONLY:-0}
 
+# PulseAudio environment for systemd service (required for audio playback)
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+export PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
+
 # Critical for ARM64 (Jetson AGX Orin)
 export OPENBLAS_CORETYPE=ARMV8
 

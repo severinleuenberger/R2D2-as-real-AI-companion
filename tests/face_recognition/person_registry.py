@@ -69,11 +69,12 @@ class PersonRegistry:
         Initialize person registry.
         
         Args:
-            db_path: Path to SQLite database. Defaults to data/persons.db
+            db_path: Path to SQLite database. Defaults to ~/dev/r2d2/data/persons.db
         """
         if db_path is None:
-            base_dir = Path(__file__).parent / 'data'
-            base_dir.mkdir(exist_ok=True)
+            # Use persistent path instead of relative path (critical for installed ROS packages)
+            base_dir = Path.home() / 'dev' / 'r2d2' / 'data'
+            base_dir.mkdir(parents=True, exist_ok=True)
             db_path = base_dir / 'persons.db'
         
         self.db_path = Path(db_path)
@@ -296,7 +297,8 @@ class PersonRegistry:
         Returns:
             Dictionary with migration statistics
         """
-        base_dir = Path(__file__).parent / 'data'
+        # Use persistent data directory instead of relative path
+        base_dir = Path.home() / 'dev' / 'r2d2' / 'data'
         
         face_models_dir = base_dir / 'face_recognition' / 'models'
         gesture_models_dir = base_dir / 'gesture_recognition' / 'models'
@@ -305,10 +307,11 @@ class PersonRegistry:
         skipped = 0
         errors = 0
         
-        # Scan face recognition models
+        # Scan face recognition models (.xml for LBPH, .yml for alternative formats)
         if face_models_dir.exists():
-            for model_file in face_models_dir.glob('*.yml'):
-                person_name = model_file.stem
+            for model_file in list(face_models_dir.glob('*.yml')) + list(face_models_dir.glob('*.xml')):
+                # Extract person name (remove _lbph suffix for .xml files)
+                person_name = model_file.stem.replace('_lbph', '')
                 
                 try:
                     # Check if person already exists

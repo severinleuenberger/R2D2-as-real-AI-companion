@@ -477,7 +477,8 @@ python3 2_train_recognizer.py
 - Reads all images from capture directory
 - Extracts faces using Haar Cascade
 - Trains LBPH recognizer
-- Saves model to `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml`
+- Saves model to `~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml`
+- Registers person in PersonRegistry database
 - Duration: 30-60 seconds
 
 **Expected Output:**
@@ -485,13 +486,18 @@ python3 2_train_recognizer.py
 Training LBPH recognizer...
 Processing 80 images...
 Training complete!
-Model saved to: ~/dev/r2d2/data/face_recognition/models/severin_lbph.xml
+Model saved to: ~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml
+Person registered in PersonRegistry
 ```
 
-**Verify Model:**
+**Verify Model and Registry:**
 ```bash
-ls -lh ~/dev/r2d2/data/face_recognition/models/severin_lbph.xml
-# Should show: ~33 MB file
+# Check model file exists
+ls -lh ~/dev/r2d2/data/face_recognition/models/*.xml
+
+# Verify PersonRegistry registration
+cd ~/dev/r2d2/tests/face_recognition
+python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); print(r.list_persons())"
 ```
 
 ### Step 5.4: Test the Model
@@ -526,7 +532,8 @@ ros2 launch r2d2_bringup r2d2_camera_perception.launch.py \
 ```
 
 **Requirements:**
-- Trained model must exist at `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml`
+- At least one person must be registered in PersonRegistry with a face model
+- Models auto-resolved from `~/dev/r2d2/data/persons.db`
 - If model not found, node logs warning and continues without recognition
 
 ### Step 6.2: Verify Recognition
@@ -752,7 +759,9 @@ sudo journalctl -u r2d2-gesture-intent.service -n 20
 **Training:**
 - [ ] Training images captured (~80 images)
 - [ ] LBPH model trained and saved (~33 MB XML file)
-- [ ] Model location: `~/dev/r2d2/data/face_recognition/models/severin_lbph.xml`
+- [ ] Person registered in PersonRegistry (`~/dev/r2d2/data/persons.db`)
+- [ ] Model linked in registry (verify with `python3 -c "from person_registry import PersonRegistry; r = PersonRegistry(); print(r.list_persons())"`)
+
 
 **Functionality:**
 - [ ] Camera publishes frames to `/oak/rgb/image_raw`

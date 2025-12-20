@@ -424,11 +424,12 @@ After training gestures, deploy to the auto-start system:
 ### Step 1: Update Camera Service Model Path
 
 ```bash
-# Edit camera service
-sudo nano /etc/systemd/system/r2d2-camera-perception.service
+# No service file changes needed - models auto-resolved from PersonRegistry!
+# Just verify the service is using auto-resolution:
+cat /etc/systemd/system/r2d2-camera-perception.service | grep "launch.py"
 
-# Verify gesture_recognition_model_path points to your trained model
-# Default: /home/severin/dev/r2d2/data/gesture_recognition/models/severin_gesture_classifier.pkl
+# Should NOT contain hardcoded gesture_recognition_model_path
+# Models are auto-discovered from ~/dev/r2d2/data/persons.db
 ```
 
 ### Step 2: Restart Services
@@ -460,10 +461,13 @@ sudo reboot
 ```
 
 **Model Storage:**
-- Location: `data/gesture_recognition/models/{person_name}_gesture_classifier.pkl`
-- Registered in: Person Registry database (`data/persons.db`)
+- Location: `~/dev/r2d2/data/gesture_recognition/models/{person_name}_gesture_classifier.pkl`
+- Registered in: PersonRegistry database (`~/dev/r2d2/data/persons.db`)
+- Auto-resolved by: `r2d2_common.PersonConfig` at runtime
 - Used by: ROS 2 perception pipeline (`image_listener` node)
 - Controlled by: Gesture intent node (auto-starts on boot)
+
+**No Manual Configuration Required:** The system automatically discovers trained models from PersonRegistry.
 
 For complete deployment details, see [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md).
 
