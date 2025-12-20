@@ -23,6 +23,7 @@ const STATUS_UPDATE_INTERVAL_MS = 500; // 2 Hz = 500ms between updates
 // Window Instance Management
 let windowInstanceManager = null;
 let serviceStatusPollingInterval = null;
+let systemHealthInterval = null;
 let storedIntervals = [];
 
 // Generate unique ID for this window instance
@@ -243,6 +244,10 @@ function disableDashboard() {
     if (metricsUpdateInterval) {
         clearInterval(metricsUpdateInterval);
         metricsUpdateInterval = null;
+    }
+    if (systemHealthInterval) {
+        clearInterval(systemHealthInterval);
+        systemHealthInterval = null;
     }
 }
 
@@ -1168,8 +1173,6 @@ function updateHealthDisplay(heartbeatData) {
 }
 
 // Fetch system health metrics from REST API (on-demand, saves resources)
-let systemHealthInterval = null;
-
 async function fetchSystemHealth() {
     try {
         const response = await fetch(`${API_BASE_URL}/system/health`);
