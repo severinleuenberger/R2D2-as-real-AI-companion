@@ -7,12 +7,8 @@ Architecture:
 - System metrics = Collected on-demand via tegrastats/thermal zones
 """
 import subprocess
-import os
 import json
 import asyncio
-import re
-import shutil
-from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 import uvicorn
@@ -125,9 +121,9 @@ HTML_TEMPLATE = """
         <h1>R2D2 Service Mode</h1>
         
         <div class="status-box">
-            <div style="margin-bottom: 10px; font-weight: bold; color: #58a6ff;">SYSTEM STATUS</div>
+            <div style="margin-bottom: 10px; font-weight: bold; color: #58a6ff;">HEARTBEAT</div>
             <div id="heartbeat-data">
-                <div class="status-item"><span class="label">Status:</span> <span>Checking...</span></div>
+                <div class="status-item" style="justify-content: center;"><span>Checking...</span></div>
             </div>
         </div>
 
@@ -139,49 +135,34 @@ HTML_TEMPLATE = """
         const TAILSCALE_IP = "100.95.133.26";
         const DASHBOARD_PORT = 8080;
         
-        async function updateStatus() {
+        async function updateHeartbeat() {
             try {
-                // Fetch heartbeat (online check) and metrics separately
-                const [heartbeatRes, metricsRes] = await Promise.all([
-                    fetch('/api/heartbeat'),
-                    fetch('/api/metrics')
-                ]);
-                const heartbeat = await heartbeatRes.json();
-                const metrics = await metricsRes.json();
+                // Fetch ONLY heartbeat (lightweight online/offline check)
+                const response = await fetch('/api/heartbeat');
+                const heartbeat = await response.json();
                 
                 const box = document.getElementById('heartbeat-data');
                 if (heartbeat.online) {
                     box.innerHTML = `
-                        <div class="status-item">
-                            <span class="label">Status:</span> 
-                            <span><span class="online-indicator"></span>Online</span>
+                        <div class="status-item" style="justify-content: center;">
+                            <span><span class="online-indicator"></span><strong style="color: #238636; font-size: 1.2rem;">R2D2 is Online</strong></span>
                         </div>
-                        <div class="status-item">
-                            <span class="label">CPU:</span> <span class="value">${metrics.cpu}%</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">GPU:</span> <span class="value">${metrics.gpu}%</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Disk:</span> <span class="value">${metrics.disk}%</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Temp:</span> <span class="value">${metrics.temp}°C</span>
+                        <div class="status-item" style="justify-content: center; color: #8b949e; font-size: 0.8rem;">
+                            ROS 2 system is running
                         </div>
                     `;
                 } else {
                     box.innerHTML = `
-                        <div class="status-item">
-                            <span class="label">Status:</span> 
-                            <span><span class="offline-indicator"></span>Offline</span>
+                        <div class="status-item" style="justify-content: center;">
+                            <span><span class="offline-indicator"></span><strong style="color: #da3633; font-size: 1.2rem;">R2D2 is Offline</strong></span>
                         </div>
-                        <div class="status-item" style="color: #da3633; font-size: 0.8rem;">
+                        <div class="status-item" style="justify-content: center; color: #da3633; font-size: 0.8rem;">
                             No heartbeat received from ROS 2
                         </div>
                     `;
                 }
             } catch (e) {
-                console.error("Status fetch error", e);
+                console.error("Heartbeat fetch error", e);
             }
         }
 
@@ -252,97 +233,16 @@ HTML_TEMPLATE = """
         }
 
         // Poll every 4 seconds
-        setInterval(updateStatus, 4000);
+        setInterval(updateHeartbeat, 4000);
         setInterval(checkServiceStatus, 4000);
         
         // Initial check
-        updateStatus();
+        updateHeartbeat();
         checkServiceStatus();
     </script>
 </body>
 </html>
 """
-
-
-def get_system_metrics() -> dict:
-    """
-    Collect system metrics from Jetson tegrastats and thermal zones.
-    This runs on-demand only when the API is called.
-    """
-    metrics = {
-        'cpu': 0.0,
-        'gpu': 0.0,
-        'temp': 0.0,
-        'disk': 0.0
-    }
-    
-    # Get disk usage for root partition
-    try:
-        disk_usage = shutil.disk_usage('/')
-        metrics['disk'] = round((disk_usage.used / disk_usage.total) * 100.0, 1)
-    except Exception:
-        pass
-    
-    # Try to get metrics from tegrastats (Jetson-specific)
-    try:
-        process = subprocess.Popen(
-            ['sh', '-c', 'timeout 1.5 tegrastats --interval 1000 2>&1 | head -1'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        
-        try:
-            stdout, stderr = process.communicate(timeout=2.0)
-            if stdout:
-                output = stdout.strip()
-                
-                # Parse CPU usage: CPU [19%@729,28%@729,...]
-                cpu_match = re.search(r'CPU \[([^\]]+)\]', output)
-                if cpu_match:
-                    cpu_str = cpu_match.group(1)
-                    cpu_percentages = re.findall(r'(\d+)%@', cpu_str)
-                    if cpu_percentages:
-                        cpu_values = [float(p) for p in cpu_percentages]
-                        metrics['cpu'] = round(sum(cpu_values) / len(cpu_values), 1)
-                
-                # Parse GPU usage: GR3D_FREQ 0%
-                gpu_match = re.search(r'GR3D_FREQ\s+(\d+)%', output)
-                if gpu_match:
-                    metrics['gpu'] = float(gpu_match.group(1))
-                
-                # Parse CPU temperature: cpu@41.562C
-                temp_match = re.search(r'cpu@([\d.]+)C', output)
-                if temp_match:
-                    metrics['temp'] = round(float(temp_match.group(1)), 1)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()
-        except Exception:
-            pass
-                
-    except FileNotFoundError:
-        pass
-    except Exception:
-        pass
-    
-    # Fallback to thermal zones for temperature if not set
-    if metrics['temp'] == 0.0:
-        try:
-            thermal_zones = ['/sys/class/thermal/thermal_zone0/temp',
-                           '/sys/class/thermal/thermal_zone1/temp']
-            for zone in thermal_zones:
-                if os.path.exists(zone):
-                    with open(zone, 'r') as f:
-                        temp_millidegrees = int(f.read().strip())
-                        temp_c = temp_millidegrees / 1000.0
-                        if temp_c > 0:
-                            metrics['temp'] = round(temp_c, 1)
-                            break
-        except Exception:
-            pass
-    
-    return metrics
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -390,16 +290,6 @@ async def get_heartbeat():
     except Exception as e:
         print(f"Heartbeat error: {e}")
         return {"online": False}
-
-
-@app.get("/api/metrics")
-async def get_metrics():
-    """
-    Get system metrics on-demand (CPU, GPU, Disk, Temperature).
-    These are collected only when requested, saving resources.
-    """
-    metrics = get_system_metrics()
-    return metrics
 
 
 @app.get("/api/status")
