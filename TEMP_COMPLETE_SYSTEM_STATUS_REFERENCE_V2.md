@@ -14,94 +14,94 @@
 
 ```mermaid
 sequenceDiagram
-    participant Camera as Camera Perception
-    participant PersonRec as Person Recognition
-    participant GestureRec as Gesture Recognition
-    participant StatusMgr as Status Manager
-    participant GestureCtrl as Gesture Intent
-    participant SpeechSvc as Speech Service
-    participant Feedback as LED Audio
-    participant OpenAI as OpenAI API
+    participant Camera as "Camera Perception"
+    participant PersonRec as "Person Recognition"
+    participant GestureRec as "Gesture Recognition"
+    participant StatusMgr as "Status Manager"
+    participant GestureCtrl as "Gesture Intent"
+    participant SpeechSvc as "Speech Service"
+    participant Feedback as "LED Audio"
+    participant OpenAI as "OpenAI API"
 
-    Note over Camera,OpenAI: System Idle BLUE status no person present
+    Note over Camera,OpenAI: "System Idle BLUE status no person present"
 
-    Camera->>Camera: Face detected raw
-    Note over Camera: Hysteresis filter 2s presence threshold
-    Camera->>PersonRec: Face confirmed after 2s smoothing
-    PersonRec->>PersonRec: LBPH recognition threshold 70
-    PersonRec->>StatusMgr: person_id severin trained person
+    Camera->>Camera: "Face detected raw"
+    Note over Camera: "Hysteresis filter 2s presence threshold"
+    Camera->>PersonRec: "Face confirmed after 2s smoothing"
+    PersonRec->>PersonRec: "LBPH recognition threshold 70"
+    PersonRec->>StatusMgr: "person_id severin trained person"
     
-    StatusMgr->>StatusMgr: person_status BLUE to RED
-    Note over StatusMgr: RED timer starts 15s resets on recognition
-    StatusMgr->>Feedback: status_change RED
-    Feedback->>Feedback: GPIO 17 HIGH LED ON
-    Feedback->>Feedback: Play Hello beep 2mp3
-    StatusMgr->>GestureCtrl: person_status RED 10 Hz continuous
+    StatusMgr->>StatusMgr: "person_status BLUE to RED"
+    Note over StatusMgr: "RED timer starts 15s resets on recognition"
+    StatusMgr->>Feedback: "status_change RED"
+    Feedback->>Feedback: "GPIO 17 HIGH LED ON"
+    Feedback->>Feedback: "Play Hello beep 2mp3"
+    StatusMgr->>GestureCtrl: "person_status RED 10 Hz continuous"
     
-    Note over Camera,GestureCtrl: User recognized LED ON gestures enabled
+    Note over Camera,GestureCtrl: "User recognized LED ON gestures enabled"
 
-    Camera->>GestureRec: Frame with hand visible
-    GestureRec->>GestureRec: MediaPipe SVM index_finger_up conf 0.87
-    Note over GestureRec: Gated only when person_id trained
-    GestureRec->>GestureCtrl: gesture_event index_finger_up
+    Camera->>GestureRec: "Frame with hand visible"
+    GestureRec->>GestureRec: "MediaPipe SVM index_finger_up conf 0.87"
+    Note over GestureRec: "Gated only when person_id trained"
+    GestureRec->>GestureCtrl: "gesture_event index_finger_up"
 
-    GestureCtrl->>GestureCtrl: Gate 1 person_status RED
-    GestureCtrl->>GestureCtrl: Gate 2 session_active false
-    GestureCtrl->>GestureCtrl: Gate 3 cooldown elapsed 5s
-    GestureCtrl->>SpeechSvc: start_session service call
+    GestureCtrl->>GestureCtrl: "Gate 1 person_status RED"
+    GestureCtrl->>GestureCtrl: "Gate 2 session_active false"
+    GestureCtrl->>GestureCtrl: "Gate 3 cooldown elapsed 5s"
+    GestureCtrl->>SpeechSvc: "start_session service call"
     
-    SpeechSvc->>SpeechSvc: Lifecycle Inactive to Active
-    SpeechSvc->>OpenAI: WebSocket connect
-    OpenAI-->>SpeechSvc: Connection established
-    SpeechSvc->>SpeechSvc: Start audio streaming 48kHz to 24kHz
-    SpeechSvc->>GestureCtrl: session_status connected
+    SpeechSvc->>SpeechSvc: "Lifecycle Inactive to Active"
+    SpeechSvc->>OpenAI: "WebSocket connect"
+    OpenAI-->>SpeechSvc: "Connection established"
+    SpeechSvc->>SpeechSvc: "Start audio streaming 48kHz to 24kHz"
+    SpeechSvc->>GestureCtrl: "session_status connected"
     
-    GestureCtrl->>GestureCtrl: session_active true SPEAKING state
-    Note over GestureCtrl: Grace period 5s ignore fist gestures
-    GestureCtrl->>Feedback: Play Start beep 16mp3
+    GestureCtrl->>GestureCtrl: "session_active true SPEAKING state"
+    Note over GestureCtrl: "Grace period 5s ignore fist gestures"
+    GestureCtrl->>Feedback: "Play Start beep 16mp3"
     
-    Note over SpeechSvc,OpenAI: Conversation Active VAD monitoring
+    Note over SpeechSvc,OpenAI: "Conversation Active VAD monitoring"
 
-    SpeechSvc->>OpenAI: Audio stream user speaking
-    OpenAI->>OpenAI: Whisper STT GPT-4o TTS
-    OpenAI-->>SpeechSvc: Audio response stream 24kHz
-    SpeechSvc->>SpeechSvc: Resample 24kHz to 44.1kHz play
-    SpeechSvc->>GestureCtrl: voice_activity speaking
-    Note over GestureCtrl: VAD speaking silence timer PAUSED
+    SpeechSvc->>OpenAI: "Audio stream user speaking"
+    OpenAI->>OpenAI: "Whisper STT GPT-4o TTS"
+    OpenAI-->>SpeechSvc: "Audio response stream 24kHz"
+    SpeechSvc->>SpeechSvc: "Resample 24kHz to 44.1kHz play"
+    SpeechSvc->>GestureCtrl: "voice_activity speaking"
+    Note over GestureCtrl: "VAD speaking silence timer PAUSED"
 
-    SpeechSvc->>GestureCtrl: voice_activity silent
-    Note over GestureCtrl: VAD silent 60s timer STARTS
+    SpeechSvc->>GestureCtrl: "voice_activity silent"
+    Note over GestureCtrl: "VAD silent 60s timer STARTS"
 
-    Note over Camera,GestureCtrl: User walks away from camera
+    Note over Camera,GestureCtrl: "User walks away from camera"
 
-    Camera->>Camera: Face lost raw detection
-    Note over Camera: Hysteresis filter 5s absence threshold
-    Camera->>PersonRec: Face absence confirmed after 5s
-    PersonRec->>StatusMgr: face_count 0 person_id no_person
+    Camera->>Camera: "Face lost raw detection"
+    Note over Camera: "Hysteresis filter 5s absence threshold"
+    Camera->>PersonRec: "Face absence confirmed after 5s"
+    PersonRec->>StatusMgr: "face_count 0 person_id no_person"
     
-    Note over StatusMgr: RED timer expires 15s no recognition
-    StatusMgr->>StatusMgr: person_status RED to BLUE
-    StatusMgr->>Feedback: status_change BLUE
-    Feedback->>Feedback: GPIO 17 LOW LED OFF
-    Feedback->>Feedback: Play Lost you beep 5mp3
-    StatusMgr->>GestureCtrl: person_status BLUE 10 Hz continuous
+    Note over StatusMgr: "RED timer expires 15s no recognition"
+    StatusMgr->>StatusMgr: "person_status RED to BLUE"
+    StatusMgr->>Feedback: "status_change BLUE"
+    Feedback->>Feedback: "GPIO 17 LOW LED OFF"
+    Feedback->>Feedback: "Play Lost you beep 5mp3"
+    StatusMgr->>GestureCtrl: "person_status BLUE 10 Hz continuous"
     
-    Note over GestureCtrl: SPEAKING state IMMUNE to camera status
-    Note over GestureCtrl: Watchdog timer starts 35s idle failsafe
-    Note over GestureCtrl: VAD silence timer continues 60s
+    Note over GestureCtrl: "SPEAKING state IMMUNE to camera status"
+    Note over GestureCtrl: "Watchdog timer starts 35s idle failsafe"
+    Note over GestureCtrl: "VAD silence timer continues 60s"
 
-    GestureCtrl->>GestureCtrl: Check 60s VAD silence elapsed
-    GestureCtrl->>SpeechSvc: stop_session auto-stop vad_timeout
+    GestureCtrl->>GestureCtrl: "Check 60s VAD silence elapsed"
+    GestureCtrl->>SpeechSvc: "stop_session auto-stop vad_timeout"
     
-    SpeechSvc->>OpenAI: WebSocket disconnect
-    OpenAI-->>SpeechSvc: Disconnected
-    SpeechSvc->>SpeechSvc: Lifecycle Active to Inactive
-    SpeechSvc->>GestureCtrl: session_status disconnected
+    SpeechSvc->>OpenAI: "WebSocket disconnect"
+    OpenAI-->>SpeechSvc: "Disconnected"
+    SpeechSvc->>SpeechSvc: "Lifecycle Active to Inactive"
+    SpeechSvc->>GestureCtrl: "session_status disconnected"
     
-    GestureCtrl->>GestureCtrl: session_active false IDLE state
-    GestureCtrl->>Feedback: Play Stop beep 20mp3
+    GestureCtrl->>GestureCtrl: "session_active false IDLE state"
+    GestureCtrl->>Feedback: "Play Stop beep 20mp3"
     
-    Note over Camera,OpenAI: System returns to BLUE idle state
+    Note over Camera,OpenAI: "System returns to BLUE idle state"
 ```
 
 ---
