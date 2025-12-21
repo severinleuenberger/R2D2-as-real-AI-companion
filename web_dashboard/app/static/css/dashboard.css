@@ -795,6 +795,17 @@ body {
     box-shadow: 0 0 10px rgba(0, 168, 255, 0.5);
 }
 
+.btn-stream.running {
+    background: rgba(255, 68, 68, 0.2);
+    color: #ff4444;
+    border-color: #ff4444;
+}
+
+.btn-stream.running:hover {
+    background: rgba(255, 68, 68, 0.3);
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+}
+
 .stream-status {
     font-size: 12px;
     font-weight: 600;

@@ -153,17 +153,10 @@
             <div class="panel camera-stream-panel center">
                 <h2>Camera Stream</h2>
                 <div class="stream-controls">
-                    <div class="copyable-command" onclick="copyToClipboard('stream-start-command')" title="Click to copy command">
-                        <span class="command-label">Start Stream</span>
-                        <code id="stream-start-command" style="display: none;">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service && sudo systemctl start r2d2-camera-stream.service</code>
-                        <span class="copy-indicator">📋</span>
-                    </div>
-                    <div class="copyable-command" onclick="copyToClipboard('stream-stop-command')" title="Click to copy command">
-                        <span class="command-label">Stop Stream</span>
-                        <code id="stream-stop-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service</code>
-                        <span class="copy-indicator">📋</span>
-                    </div>
-                    <span class="stream-status" id="stream-status">● Stopped</span>
+                    <button id="stream-toggle-btn" class="btn-stream" onclick="toggleStream()">
+                        Start Stream
+                    </button>
+                    <span class="stream-status" id="stream-status">Stopped</span>
                 </div>
                 <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
                     <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />

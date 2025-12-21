@@ -2,37 +2,74 @@
 **Date:** December 9, 2025 (Comprehensive Update)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
 **Phase:** 1 - Perception, Face Recognition & Audio Notifications (Complete)  
-**Latest Update:** December 18, 2025 - Gesture-controlled speech-to-speech operational
+**Latest Update:** December 21, 2025 - RED-first architecture implemented, documentation restructured
 
 ---
 
 ## Executive Summary
 
-The R2D2 system is a modular ROS 2-based pipeline that captures video from an OAK-D Lite camera, processes frames in real-time, detects human faces, recognizes specific individuals, and provides gesture-controlled speech-to-speech conversations with audio/visual feedback through sophisticated state machines. The system prioritizes efficiency (15-25% CPU usage), conversation stability (SPEAKING state protection), and extensibility (easy to add new components).
+The R2D2 system is a modular ROS 2-based pipeline that provides seamless gesture-controlled speech-to-speech conversations with intelligent person recognition and multi-modal feedback. The system captures video from an OAK-D Lite camera, processes frames in real-time, detects and recognizes faces using RED-first architecture (~460ms response time), responds to person-specific gestures, and provides audio/visual feedback through sophisticated state machines. The system prioritizes conversation stability, fast recognition, and extensibility.
+
+**Key System Capabilities (December 2025):**
+- ✅ **RED-First Recognition:** Immediate face recognition without hysteresis gate (~460ms to RED status)
+- ✅ **Rolling Window Filter:** 3 recognition matches in 1.0s window for robust RED entry
+- ✅ **Multi-User Support:** Any trained person triggers RED via PersonRegistry auto-resolution
+- ✅ **Person-Specific Gestures:** MediaPipe + SVM gesture recognition (only active in RED status)
+- ✅ **VAD-Based Conversation Protection:** 60s silence timeout (immune to camera flickers)
+- ✅ **Production Auto-Start:** Systemd services with proper dependencies
+- ✅ **Complete Documentation:** Reference, installation, quick start, and troubleshooting per system
 
 **Current Processing Chain:**
 ```
 OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
              ↓
-             r2d2_perception node:
+             r2d2_perception node (image_listener):
              ├─ Downscale (1920×1080 → 640×360)
              ├─ Brightness computation → /r2d2/perception/brightness (13 Hz)
-             ├─ Haar Cascade face detection → /r2d2/perception/face_count (13 Hz)
-             └─ LBPH face recognition → /r2d2/perception/person_id (6.5 Hz, optional)
+             ├─ Haar Cascade face detection → /r2d2/perception/face_count (13 Hz, hysteresis)
+             ├─ LBPH face recognition → /r2d2/perception/person_id (6.5 Hz, NO hysteresis)
+             └─ MediaPipe+SVM gesture recognition → /r2d2/perception/gesture_event (gated by RED)
              ↓
-             r2d2_audio package:
-             ├─ audio_notification_node: State machine (RED/BLUE/GREEN)
-             ├─ status_led_node: RGB LED visual feedback
-             ├─ database_logger_node: Event logging
-             └─ audio_beep_node: Simple beep demo
+             r2d2_audio package (audio_notification_node):
+             ├─ Rolling Window Filter: 3 matches in 1.0s → RED status
+             ├─ State Machine: RED/GREEN/BLUE with 15s RED timer
+             ├─ Audio feedback: "Hello!" (recognition), "Lost you!" (loss)
+             └─ Status publishing: /r2d2/audio/person_status (10 Hz JSON)
              ↓
-             Web Dashboard (NEW):
-             ├─ rosbridge_server: WebSocket bridge (port 9090)
-             ├─ FastAPI web server: REST API + static files (port 8080)
-             └─ HTML/JavaScript dashboard: Real-time monitoring & control
+             r2d2_audio package (status_led_node):
+             └─ White LED control: ON=RED, OFF=GREEN/BLUE
              ↓
-             Downstream consumers (Phase 2: speech, Phase 3: navigation)
+             r2d2_gesture package (gesture_intent_node):
+             ├─ Gesture gating: Only when person_status=RED
+             ├─ Watchdog timer: 35s auto-shutdown if idle
+             └─ Service calls: start_session/stop_session → speech_node
+             ↓
+             r2d2_speech package (speech_node):
+             ├─ OpenAI Realtime API: WebSocket streaming
+             ├─ HyperX QuadCast S: Audio capture (48kHz → 24kHz)
+             ├─ VAD-based timeout: 60s consecutive silence
+             └─ Conversation persistence: SQLite database
 ```
+
+**System Integration State Machines:**
+
+**🔴 RED Status (Recognized):**
+- Entry: 3 recognition matches within 1.0s rolling window
+- Behavior: LED ON, "Hello!" beep (2%), 15s timer (resets on each match)
+- Gestures: ENABLED (index finger up, fist)
+- Exit: 15s timer expires without matches → GREEN (face) or BLUE (no face)
+
+**🟢 GREEN Status (Unknown Person):**
+- Entry: Face detected for 2s, not recognized
+- Behavior: LED OFF, silent
+- Exit: Target person → RED, No face 3s → BLUE
+
+**🔵 BLUE Status (No Person):**
+- Entry: No face for 5s + RED timer expired
+- Behavior: LED OFF, "Lost you!" beep from RED
+- Exit: Target person → RED, Unknown face 2s → GREEN
+
+**For complete state machines and timing details, see:** `100_PERCEPTION_STATUS_REFERENCE.md`
 
 ---
 
@@ -1440,13 +1477,25 @@ HARDWARE CONTROL:
   /etc/systemd/system/r2d2-powerbutton.service
 
 DOCUMENTATION:
-  ~/dev/r2d2/041_CAMERA_SETUP_DOCUMENTATION.md
-  ~/dev/r2d2/100_PERSON_RECOGNITION_AND_STATUS.md (⭐ Complete setup guide)
-  ~/dev/r2d2/102_CAMERA_SETUP_DOCUMENTATION.md (Camera hardware - prerequisite)
-  ~/dev/r2d2/101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md (Audio hardware - prerequisite)
-  ~/dev/r2d2/050_AUDIO_SETUP_AND_CONFIGURATION.md (Alternative audio documentation)
-  ~/dev/r2d2/080_POWER_BUTTON_FINAL_DOCUMENTATION.md
-  ~/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md
+  **PERCEPTION AND STATUS SYSTEM:**
+  ~/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md          (Complete technical reference)
+  ~/dev/r2d2/101_PERCEPTION_STATUS_INSTALLATION.md       (Installation guide)
+  ~/dev/r2d2/102_PERCEPTION_STATUS_QUICK_START.md        (Quick reference)
+  ~/dev/r2d2/103_PERCEPTION_STATUS_TROUBLESHOOTING.md    (Debug procedures)
+  
+  **SPEECH SYSTEM:**
+  ~/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md              (Technical reference)
+  ~/dev/r2d2/201_SPEECH_SYSTEM_INSTALLATION.md           (Installation guide)
+  ~/dev/r2d2/202_SPEECH_SYSTEM_QUICK_START.md            (Quick reference)
+  ~/dev/r2d2/203_SPEECH_SYSTEM_TROUBLESHOOTING.md        (Debug procedures)
+  
+  **HARDWARE:**
+  ~/dev/r2d2/102_CAMERA_SETUP_DOCUMENTATION.md           (Camera hardware)
+  ~/dev/r2d2/101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md    (Audio hardware)
+  ~/dev/r2d2/HARDWARE_WHITE_LED_WIRING.md                (LED wiring)
+  
+  **ARCHIVED (Historical):**
+  ~/dev/r2d2/_ARCHIVE/                                   (Old/merged documentation)
 ```
 
 ---

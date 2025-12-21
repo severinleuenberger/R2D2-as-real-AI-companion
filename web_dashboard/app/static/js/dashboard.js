@@ -673,6 +673,32 @@ function displayServices(services) {
 }
 
 // Camera Stream Functions
+async function toggleStream() {
+    const action = cameraStreamServiceRunning ? 'stop' : 'start';
+    try {
+        const response = await fetch(`${API_BASE_URL}/services/camera-stream/${action}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            const errorMsg = errorData.detail || errorData.error || 'Unknown error';
+            alert(`Failed to ${action} stream: ${errorMsg}`);
+            return;
+        }
+        
+        const result = await response.json();
+        
+        // Success - update UI
+        setTimeout(() => {
+            loadServices();
+        }, 1000);
+    } catch (error) {
+        console.error(`Failed to ${action} stream:`, error);
+        alert(`Failed to ${action} stream: ${error.message || 'Network error'}`);
+    }
+}
+
 async function toggleCameraStream() {
     if (cameraStreamServiceRunning) {
         await stopCameraStream();
@@ -829,7 +855,7 @@ function updateModeDisplay() {
 function updateCameraStreamDisplay() {
     const streamContainer = document.getElementById('stream-container-wrapper');
     const streamPlaceholder = document.getElementById('stream-placeholder');
-    const streamImg = document.getElementById('camera-stream'); // Now an iframe
+    const streamImg = document.getElementById('camera-stream');
     const streamStatus = document.getElementById('stream-status');
     const toggleBtn = document.getElementById('stream-toggle-btn');
     
@@ -840,15 +866,13 @@ function updateCameraStreamDisplay() {
             streamContainer.style.display = 'block';
         }
         if (streamStatus) {
-            streamStatus.textContent = '● Running';
+            streamStatus.textContent = 'Running';
             streamStatus.className = 'stream-status running';
         }
-        const stopBtn = document.getElementById('stream-stop-btn');
         if (toggleBtn) {
-            toggleBtn.textContent = 'Start Stream';
-            toggleBtn.style.display = 'none';
+            toggleBtn.textContent = 'Stop Stream';
+            toggleBtn.className = 'btn-stream running';
         }
-        if (stopBtn) stopBtn.style.display = 'inline-block';
         if (streamImg) {
             const streamUrl = `http://${window.location.hostname}:8081/stream`;
             streamImg.src = streamUrl;
@@ -864,15 +888,13 @@ function updateCameraStreamDisplay() {
             streamPlaceholder.innerHTML = '<p>Camera stream not active</p>';
         }
         if (streamStatus) {
-            streamStatus.textContent = '● Stopped';
+            streamStatus.textContent = 'Stopped';
             streamStatus.className = 'stream-status stopped';
         }
-        const stopBtn = document.getElementById('stream-stop-btn');
         if (toggleBtn) {
             toggleBtn.textContent = 'Start Stream';
-            toggleBtn.style.display = 'inline-block';
+            toggleBtn.className = 'btn-stream';
         }
-        if (stopBtn) stopBtn.style.display = 'none';
         if (streamImg) streamImg.src = '';
     }
     updateModeDisplay();
