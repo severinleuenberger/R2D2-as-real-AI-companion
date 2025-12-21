@@ -55,7 +55,7 @@ class GestureIntentNode(Node):
         self.declare_parameter('cooldown_stop_seconds', 1.0)
         self.declare_parameter('enabled', True)
         self.declare_parameter('auto_shutdown_enabled', True)
-        self.declare_parameter('auto_shutdown_timeout_seconds', 300.0)  # 5 minutes
+        self.declare_parameter('auto_shutdown_timeout_seconds', 35.0)  # 35 seconds (cost optimization)
         self.declare_parameter('auto_restart_on_return', False)
         self.declare_parameter('audio_feedback_enabled', True)
         self.declare_parameter('audio_volume', 0.02)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)

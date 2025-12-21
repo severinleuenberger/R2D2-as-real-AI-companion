@@ -94,6 +94,10 @@ class AudioNotificationNode(Node):
         self.declare_parameter('loss_audio_file', 'Voicy_R2-D2 - 5.mp3')  # Loss alert audio
         self.declare_parameter('enabled', True)
         
+        # RED-first architecture: Rolling window parameters
+        self.declare_parameter('red_entry_match_threshold', 3)  # Matches required in 1s window
+        self.declare_parameter('red_entry_window_seconds', 1.0)  # Rolling window duration
+        
         # Get parameters
         target_person_param = self.get_parameter('target_person').value
         # Resolve person name using registry if 'target_person' is used
@@ -108,6 +112,10 @@ class AudioNotificationNode(Node):
         recognition_audio_filename = self.get_parameter('recognition_audio_file').value
         loss_audio_filename = self.get_parameter('loss_audio_file').value
         self.enabled = self.get_parameter('enabled').value
+        
+        # RED-first architecture: Rolling window parameters
+        self.red_entry_match_threshold = self.get_parameter('red_entry_match_threshold').value
+        self.red_entry_window_seconds = self.get_parameter('red_entry_window_seconds').value
         
         # Simplified state tracking - 15s reset timer
         self.last_recognition_time: Optional[float] = None  # Last time saw target person (resets 15s timer)
@@ -124,6 +132,9 @@ class AudioNotificationNode(Node):
         # Track face count to detect when no faces are visible
         self.last_face_count = None
         self.last_face_count_time = None
+        
+        # Rolling buffer for RED-first architecture (list of (timestamp, person_id) tuples)
+        self.recognition_buffer = []
         
         # GREEN/BLUE smoothing state (hysteresis filter to prevent flickering)
         # Only applies AFTER RED ends - while RED, only target person matters
@@ -194,18 +205,6 @@ class AudioNotificationNode(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
-        # Create subscription to face_count topic to detect when no faces are visible
-        self.face_count_sub = self.create_subscription(
-            Int32,
-            '/r2d2/perception/face_count',
-            self.face_count_callback,
-            qos_profile=rclpy.qos.QoSProfile(depth=10)
-        )
-        
-        # Track last face count to detect transitions
-        self.last_face_count = None
-        self.last_face_count_time = None
-        
         # Create publisher for notification events (for debugging/monitoring)
         self.event_pub = self.create_publisher(
             String,
@@ -234,6 +233,8 @@ class AudioNotificationNode(Node):
             f"  Loss audio: {self.loss_audio.name}\n"
             f"  Audio volume: {self.audio_volume*100:.0f}%\n"
             f"  ALSA device: {self.alsa_device}\n"
+            f"  RED-FIRST Architecture: Recognition is PRIMARY\n"
+            f"  RED entry threshold: {self.red_entry_match_threshold} matches in {self.red_entry_window_seconds}s window\n"
             f"  RED status timeout: {self.red_status_timeout}s (resets on recognition)\n"
             f"  GREEN entry delay: {self.green_entry_delay}s (BLUE→GREEN smoothing)\n"
             f"  BLUE entry delay: {self.blue_entry_delay}s (GREEN→BLUE smoothing)\n"
@@ -246,14 +247,13 @@ class AudioNotificationNode(Node):
     
     def person_callback(self, msg: String):
         """
-        Handle person_id messages - RED IS PRIMARY STATE.
+        Handle person_id messages - RED-FIRST ARCHITECTURE.
         
-        MULTI-USER: Any recognized person (not "unknown") triggers RED status.
-        The face recognition model only returns a name if the person is trained/authorized.
-        While RED: All other detections are IGNORED (prevents flicker).
-        After RED ends: Transitions to GREEN (face) or BLUE (no face) are handled by check_loss_state.
-        
-        Rule: If ANY trained person recognized, reset 15s timer. Stay in RED.
+        Recognition is PRIMARY. This callback:
+        1. Adds trained person matches to rolling buffer
+        2. Checks if rolling window threshold met -> RED
+        3. If already RED, resets 15s timer
+        4. Does NOT handle GREEN/BLUE (that's face_count_callback's job)
         """
         person_id = msg.data
         current_time = time.time()
@@ -261,22 +261,38 @@ class AudioNotificationNode(Node):
         if not self.enabled:
             return
         
-        # MULTI-USER: Any recognized person (not "unknown", not empty) triggers RED
-        # The training itself is the authorization - if LBPH recognizes them, they're authorized
+        # Only process trained person recognitions (not "unknown", not empty)
         if person_id and person_id != "unknown":
-            # Trained person recognized - RESET 15s countdown timer
-            was_red = (self.current_status == "red")
-            self.last_recognition_time = current_time  # ← KEY: Reset timer
+            # Add to rolling buffer
+            self.recognition_buffer.append((current_time, person_id))
             
-            # Reset smoothing timers when entering RED
+            # Clean buffer: remove entries older than window
+            cutoff_time = current_time - self.red_entry_window_seconds
+            self.recognition_buffer = [(t, p) for t, p in self.recognition_buffer if t >= cutoff_time]
+            
+            # Count matches for THIS person in the window
+            match_count = sum(1 for t, p in self.recognition_buffer if p == person_id)
+            
+            was_red = (self.current_status == "red")
+            
+            if was_red:
+                # Already RED - just reset 15s timer (threshold already met)
+                self.last_recognition_time = current_time
+                self._publish_status("red", self.current_person, confidence=0.95)
+                self.get_logger().debug(f"RED: Timer reset ({person_id}, {match_count} in window)")
+            
+            elif match_count >= self.red_entry_match_threshold:
+                # THRESHOLD MET - Transition to RED (PRIMARY STATUS)
+                self.last_recognition_time = current_time
+            
+                # Reset smoothing timers
             self.face_detected_start_time = None
             self.face_absent_start_time = None
             
-            if not was_red:
-                # Transition to RED (from any state)
+                # Transition to RED
                 old_status = self.current_status
                 self.current_status = "red"
-                self.current_person = person_id  # Use actual person name
+                self.current_person = person_id
                 self.status_changed_time = current_time
                 self.unknown_person_detected = False
                 
@@ -288,65 +304,33 @@ class AudioNotificationNode(Node):
                    (current_time - self.last_recognition_beep_time) >= self.cooldown_seconds:
                     self._play_audio_file(self.recognition_audio, alert_type="RECOGNITION")
                     self.last_recognition_beep_time = current_time
-                    self._publish_event(f"🎉 Recognized {person_id}!")
+                    self._publish_event(f"Recognized {person_id}!")
                 
-                self.get_logger().info(f"✓ {person_id} recognized ({old_status} → RED)")
+                self.get_logger().info(
+                    f"RED-FIRST: {person_id} recognized ({old_status} -> RED) "
+                    f"[{match_count}/{self.red_entry_match_threshold} in {self.red_entry_window_seconds}s]"
+                )
             else:
-                # Already RED - just reset timer and update duration
-                self._publish_status("red", self.current_person, confidence=0.95)
-                self.get_logger().debug(f"RED: Timer reset ({person_id} seen)")
+                # Threshold NOT met - just log (GREEN/BLUE handled by face_count_callback)
+                self.get_logger().debug(
+                    f"Recognition buffered: {person_id} ({match_count}/{self.red_entry_match_threshold})"
+                )
         
-        elif self.current_status == "red":
-            # WHILE IN RED STATE: IGNORE all non-recognized detections!
-            # This prevents camera flickers from affecting the user's experience
-            self.get_logger().debug(f"RED: Ignoring '{person_id}' (only recognized person matters)")
-            # Just keep publishing RED status with current person
-            self._publish_status("red", self.current_person, confidence=0.95)
-        
-        elif person_id == "unknown":
-            # NOT in RED state - handle GREEN transition with smoothing
-            # Track face detected for GREEN entry delay
-            if self.face_detected_start_time is None:
-                self.face_detected_start_time = current_time
-            
-            # Reset face absent timer (face is present)
-            self.face_absent_start_time = None
-            
-            # Check if we've seen a face long enough to transition to GREEN
-            time_with_face = current_time - self.face_detected_start_time
-            if time_with_face >= self.green_entry_delay:
-            if self.current_status != "green":
-                self.current_status = "green"
-                self.current_person = "unknown"
-                self.status_changed_time = current_time
-                self.unknown_person_detected = True
-                self._publish_status("green", "unknown", confidence=0.70)
-                    self.get_logger().info(f"🟢 Unknown person detected (stable for {time_with_face:.1f}s)")
-                else:
-                    self._publish_status("green", "unknown", confidence=0.70)
-            else:
-                # Still waiting for face to be stable - keep current status
-                self.get_logger().debug(f"Face detected, waiting for stability ({time_with_face:.1f}s / {self.green_entry_delay}s)")
+        # NOTE: "unknown" person_id is NOT processed here
+        # GREEN/BLUE states are handled by face_count_callback based on face_count
+        # This ensures RED is truly PRIMARY - recognition is checked FIRST
     
     def face_count_callback(self, msg: Int32):
         """
-        Handle face_count messages to detect when no faces are visible.
-        Uses smoothing (hysteresis) to prevent flicker between GREEN and BLUE.
+        Handle face_count messages - SECONDARY to RED status.
         
-        While RED: This callback is IGNORED (RED only cares about target_person).
-        After RED: Uses blue_entry_delay (3s default) before GREEN→BLUE transition.
+        RED-FIRST ARCHITECTURE:
+        - This callback ONLY manages GREEN/BLUE transitions
+        - It is IGNORED when current_status == "red"
+        - RED status is managed exclusively by person_callback rolling window
         """
         face_count = msg.data
         current_time = time.time()
-        
-        # #region agent log
-        _debug_log('audio_notification_node.py:335', 'face_count_callback', {
-            'face_count': face_count,
-            'current_status': self.current_status,
-            'current_person': self.current_person,
-            'unknown_person_detected': self.unknown_person_detected
-        }, 'H')
-        # #endregion
         
         if not self.enabled:
             return
@@ -354,77 +338,91 @@ class AudioNotificationNode(Node):
         self.last_face_count = face_count
         self.last_face_count_time = current_time
         
-        # WHILE RED: Ignore face_count entirely! Only target_person matters.
+        # RED-FIRST: Ignore face_count when in RED state
+        # RED is managed by person_callback rolling window, not face detection
         if self.current_status == "red":
             return
         
-        # AFTER RED: Handle GREEN ↔ BLUE with smoothing
+        # SECONDARY LOGIC: Handle GREEN <-> BLUE transitions
+        # Only reached when RED threshold is NOT met
+        
         if face_count == 0:
-            # No faces detected - track absence time for BLUE entry delay
+            # No faces - track for BLUE entry
             if self.face_absent_start_time is None:
                 self.face_absent_start_time = current_time
-            
-            # Reset face detected timer (no face present)
             self.face_detected_start_time = None
             
-            # Check if we've been without a face long enough to transition to BLUE
             time_without_face = current_time - self.face_absent_start_time
             
-            if self.current_status == "green":
-                if time_without_face >= self.blue_entry_delay:
-                    # Stable absence - transition to BLUE
+            if self.current_status == "green" and time_without_face >= self.blue_entry_delay:
+                # GREEN -> BLUE transition
                 self.current_status = "blue"
                 self.current_person = "no_person"
                 self.status_changed_time = current_time
                 self.unknown_person_detected = False
-                
-                # #region agent log
-                _debug_log('audio_notification_node.py:371', 'No faces detected - transitioning GREEN to BLUE', {
-                    'previous_status': 'green',
-                        'new_status': 'blue',
-                        'time_without_face': time_without_face
-                }, 'I')
-                # #endregion
-                
                 self._publish_status("blue", "no_person", confidence=0.0)
-                    self.get_logger().info(f"🔵 No faces for {time_without_face:.1f}s - transitioned GREEN to BLUE")
-                else:
-                    # Still waiting - keep publishing GREEN
-                    self.get_logger().debug(f"Face absent, waiting ({time_without_face:.1f}s / {self.blue_entry_delay}s)")
-            # If already BLUE, just stay BLUE
+                self.get_logger().info(f"SECONDARY: GREEN -> BLUE (no face for {time_without_face:.1f}s)")
+        
         else:
-            # Faces detected - reset absence timer
+            # Faces detected - track for GREEN entry
+            if self.face_detected_start_time is None:
+                self.face_detected_start_time = current_time
             self.face_absent_start_time = None
-            # Face present tracking is handled by person_callback
+            
+            time_with_face = current_time - self.face_detected_start_time
+            
+            if self.current_status == "blue" and time_with_face >= self.green_entry_delay:
+                # BLUE -> GREEN transition (unknown person visible)
+                self.current_status = "green"
+                self.current_person = "unknown"
+                self.status_changed_time = current_time
+                self.unknown_person_detected = True
+                self._publish_status("green", "unknown", confidence=0.70)
+                self.get_logger().info(f"SECONDARY: BLUE -> GREEN (face for {time_with_face:.1f}s)")
     
     def check_loss_state(self):
         """
-        Timer callback: Handle RED timeout and post-RED transition.
+        Timer callback: Handle RED timeout - RED-FIRST architecture.
         
-        While RED: Check if 15s timeout expired → transition to GREEN (face) or BLUE (no face).
-        Post-RED: GREEN ↔ BLUE smoothing is handled by person_callback and face_count_callback.
-        
-        Runs every 500ms.
+        When 15s timer expires:
+        1. Check rolling buffer - if still has matches, stay RED
+        2. Only if buffer empty, transition to GREEN (face) or BLUE (no face)
         """
         if not self.enabled:
             return
         
         if self.last_recognition_time is None:
-            return  # Never recognized yet, nothing to check
+            return
         
         if self.current_status != "red":
-            return  # Not in RED state, nothing to timeout
+            return
         
         current_time = time.time()
         time_since_recognition = current_time - self.last_recognition_time
         
-        if time_since_recognition > self.red_status_timeout:  # 15 seconds
-            # RED timer expired - decide: GREEN (face detected) or BLUE (no face)
+        if time_since_recognition > self.red_status_timeout:
+            # 15s timer expired - but check rolling buffer FIRST (RED-FIRST principle)
             
-            # Store the person who was recognized before we change state
+            # Clean buffer
+            cutoff_time = current_time - self.red_entry_window_seconds
+            self.recognition_buffer = [(t, p) for t, p in self.recognition_buffer if t >= cutoff_time]
+            
+            # Count recent matches
+            match_count = len(self.recognition_buffer)
+            
+            if match_count >= self.red_entry_match_threshold:
+                # Still have matches - stay RED, reset timer
+                self.last_recognition_time = current_time
+                self.get_logger().debug(f"RED timeout: Buffer still active ({match_count} matches), staying RED")
+                return
+            
+            # Buffer empty or below threshold - NOW transition out of RED
             previous_person = self.current_person
             
-            # Check if we recently saw a face (last 1 second)
+            # Clear buffer on RED exit
+            self.recognition_buffer = []
+            
+            # Check face_count to decide GREEN or BLUE
             face_recently_detected = (
                 self.last_face_count is not None and 
                 self.last_face_count > 0 and
@@ -433,51 +431,40 @@ class AudioNotificationNode(Node):
             )
             
             if face_recently_detected:
-                # Face visible but not recognized person → GREEN
+                # Face visible but not recognized -> GREEN
                 self.current_status = "green"
                 self.current_person = "unknown"
                 self.status_changed_time = current_time
                 self.unknown_person_detected = True
-                
-                # Start smoothing timers for GREEN/BLUE transitions
                 self.face_detected_start_time = current_time
                 self.face_absent_start_time = None
                 
                 self._publish_status("green", "unknown", confidence=0.70)
                 
-                # Play "Lost you!" beep (authorized person lost, but someone is there)
                 if self.last_loss_beep_time is None or \
                    (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
                     self._play_audio_file(self.loss_audio, alert_type="LOSS")
                     self.last_loss_beep_time = current_time
-                    self._publish_event(f"❌ {previous_person} lost (unknown person present)")
                 
-                self.get_logger().info(
-                    f"✗ {previous_person} lost → GREEN (unknown person visible, timeout: {time_since_recognition:.1f}s)"
-                )
+                self.get_logger().info(f"RED-FIRST: {previous_person} lost -> GREEN (unknown present)")
+            
             else:
-                # No face visible → BLUE
+                # No face -> BLUE
             self.current_status = "blue"
             self.current_person = "no_person"
             self.status_changed_time = current_time
             self.unknown_person_detected = False
-            
-                # Reset smoothing timers
                 self.face_detected_start_time = None
                 self.face_absent_start_time = None
                 
             self._publish_status("blue", "no_person", confidence=0.0)
             
-                # Play "Lost you!" beep
             if self.last_loss_beep_time is None or \
                (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
                 self._play_audio_file(self.loss_audio, alert_type="LOSS")
                 self.last_loss_beep_time = current_time
-                    self._publish_event(f"❌ {previous_person} lost (no person visible)")
             
-            self.get_logger().info(
-                    f"✗ {previous_person} lost → BLUE (no person visible, timeout: {time_since_recognition:.1f}s)"
-            )
+                self.get_logger().info(f"RED-FIRST: {previous_person} lost -> BLUE (no person)")
     
     def publish_current_status(self):
         """

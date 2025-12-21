@@ -381,8 +381,9 @@ class ImageListener(Node):
         face_count_msg.data = stable_face_count
         self.face_count_publisher.publish(face_count_msg)
         
-        # Perform face recognition if enabled and face is in stable presence state
-        if self.recognition_enabled and self.face_stable_state and face_count > 0:
+        # Perform face recognition if enabled - runs on ANY raw face detection (RED-first architecture)
+        # Recognition is PRIMARY - no hysteresis gate, immediate attempt on any face
+        if self.recognition_enabled and face_count > 0:
             # Use frame skip to manage CPU load (process every Nth frame)
             self.recognition_frame_counter += 1
             if self.recognition_frame_counter >= self.recognition_frame_skip:
