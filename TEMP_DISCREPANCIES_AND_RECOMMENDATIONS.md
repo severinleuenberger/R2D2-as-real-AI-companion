@@ -7,6 +7,40 @@
 
 ---
 
+## Implementation Instructions
+
+**PURPOSE:** This document contains a complete implementation plan for restructuring the R2D2 status system so that targeted person recognition (RED) is the PRIMARY check.
+
+**TO IMPLEMENT THIS ARCHITECTURE CHANGE:**
+
+1. **READ the current source files first** to verify line numbers are still accurate:
+   - `ros2_ws/src/r2d2_perception/r2d2_perception/image_listener.py`
+   - `ros2_ws/src/r2d2_audio/r2d2_audio/audio_notification_node.py`
+   - `ros2_ws/src/r2d2_gesture/r2d2_gesture/gesture_intent_node.py`
+
+2. **Apply CHANGE 1.1** to `image_listener.py` (line ~385):
+   - Remove `face_stable_state` from the recognition condition
+
+3. **Apply CHANGES 2.1-2.7** to `audio_notification_node.py`:
+   - 2.1: Add rolling window parameters
+   - 2.2: Get parameter values
+   - 2.3: Add recognition_buffer state variable
+   - 2.4: Rewrite person_callback() with rolling window logic
+   - 2.5: Modify face_count_callback() to only handle GREEN/BLUE when not RED
+   - 2.6: Modify check_loss_state() to check buffer before exiting RED
+   - 2.7: Update logging output
+
+4. **Apply CHANGE 3.1** to `gesture_intent_node.py` (line ~58):
+   - Change watchdog timeout from 300.0 to 35.0
+
+5. **Run build commands** (see "Build and Deploy Commands" section)
+
+6. **Verify with testing checklist** (see "Testing Verification" section)
+
+**KEY PRINCIPLE:** Recognition is PRIMARY. Face detection hysteresis should NOT gate recognition. The system should recognize the targeted person as FAST as possible.
+
+---
+
 ## RED-First Complete System Flow
 
 ```mermaid
