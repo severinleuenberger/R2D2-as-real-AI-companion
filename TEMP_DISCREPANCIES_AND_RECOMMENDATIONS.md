@@ -6,47 +6,208 @@
 
 ---
 
-## Robust Targeted Person Recognition Sequence
+## Complete System Flow with Proposed Robust RED Entry Logic
 
 ```mermaid
 sequenceDiagram
-    participant Camera as "Camera Perception"
-    participant PersonRec as "Person Recognition"
-    participant StatusMgr as "Status Manager"
-    participant GestureCtrl as "Gesture Intent"
-    participant Feedback as "LED Audio"
+    participant OAK as OAK-D Camera
+    participant ImgList as image_listener
+    participant AudioNot as audio_notification_node
+    participant StatusLED as status_led_node
+    participant GestInt as gesture_intent_node
+    participant Speech as speech_node
+    participant OpenAI as OpenAI API
 
-    Note over Camera,Feedback: System in BLUE state (Idle)
+    Note over OAK,OpenAI: PHASE 1 - System Idle in BLUE State
 
-    Camera->>PersonRec: Raw frames (13 Hz)
-    PersonRec->>PersonRec: Recognition process (6.5 Hz)
-    
-    loop Rolling 1s Window
-        PersonRec->>StatusMgr: person_id: "target_person" (Match 1)
-        PersonRec->>StatusMgr: person_id: "target_person" (Match 2)
-        PersonRec->>StatusMgr: person_id: "target_person" (Match 3)
-        PersonRec->>StatusMgr: person_id: "target_person" (Match 4)
-        Note over StatusMgr: Counter = 4 (Threshold not met)
-        PersonRec->>StatusMgr: person_id: "target_person" (Match 5)
+    rect rgb(200, 220, 255)
+        Note over OAK,OpenAI: No person present - LED OFF - Gestures disabled
+        AudioNot->>StatusLED: person_status BLUE 10Hz
+        StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
     end
 
-    StatusMgr->>StatusMgr: person_status: BLUE to RED (Threshold Met)
-    Note over StatusMgr: RED timer starts 15s resets on any match
-    
-    StatusMgr->>Feedback: status_change: RED
-    Feedback->>Feedback: GPIO 17 HIGH (LED ON)
-    Feedback->>Feedback: Play Hello beep (2mp3)
-    
-    StatusMgr->>GestureCtrl: person_status: RED (Gestures Authorized)
-    
-    loop Maintain RED
-        Note over StatusMgr: Stays RED for 15s even if no matches
-        PersonRec->>StatusMgr: person_id: "target_person" (Any match)
-        Note over StatusMgr: Reset 15s Timer
+    Note over OAK,OpenAI: PHASE 2 - Person Approaches Camera
+
+    OAK->>ImgList: Raw frame 30Hz
+    ImgList->>ImgList: Downscale 640x360 - Haar Cascade
+    ImgList->>ImgList: Face detected raw
+
+    rect rgb(255, 255, 200)
+        Note over ImgList: Hysteresis 0.3s presence threshold CODE
+        ImgList->>ImgList: Wait 0.3s continuous detection
+        ImgList->>AudioNot: face_count 1 stable presence
     end
 
-    Note over StatusMgr: After 15s with no matches
-    StatusMgr->>StatusMgr: person_status: RED to BLUE/GREEN
+    ImgList->>ImgList: LBPH recognition 6.5Hz frame_skip 2
+    ImgList->>ImgList: Confidence 42 below 150 threshold CODE
+
+    Note over OAK,OpenAI: PHASE 3 - NEW Rolling Window Filter for RED Entry
+
+    rect rgb(255, 230, 200)
+        Note over AudioNot: Rolling 1s window - Need 3 matches PROPOSED
+        ImgList->>AudioNot: person_id severin Match 1
+        AudioNot->>AudioNot: Buffer add - Count 1 of 3
+        ImgList->>AudioNot: person_id severin Match 2
+        AudioNot->>AudioNot: Buffer add - Count 2 of 3
+        ImgList->>AudioNot: person_id severin Match 3
+        AudioNot->>AudioNot: Buffer add - Count 3 of 3 THRESHOLD MET
+    end
+
+    Note over OAK,OpenAI: PHASE 4 - Transition to RED State
+
+    rect rgb(255, 200, 200)
+        AudioNot->>AudioNot: State BLUE to RED
+        Note over AudioNot: RED timer starts 15s resets on recognition
+        AudioNot->>StatusLED: person_status RED
+        StatusLED->>StatusLED: GPIO 17 HIGH - LED ON
+        AudioNot->>AudioNot: Play Hello beep 2mp3 volume 0.02 CODE
+        AudioNot->>GestInt: person_status RED 10Hz continuous
+    end
+
+    Note over OAK,OpenAI: PHASE 5 - Gesture Start Conversation
+
+    rect rgb(200, 255, 200)
+        Note over GestInt: Gestures now authorized - person_status RED
+        ImgList->>ImgList: MediaPipe Hands detect hand
+        ImgList->>ImgList: SVM classify index_finger_up conf 0.87
+        ImgList->>GestInt: gesture_event index_finger_up
+
+        GestInt->>GestInt: Gate 1 - person_status RED PASS
+        GestInt->>GestInt: Gate 2 - session_active false PASS
+        GestInt->>GestInt: Gate 3 - cooldown 2s elapsed CODE PASS
+        GestInt->>Speech: start_session service call
+    end
+
+    Note over OAK,OpenAI: PHASE 6 - Speech Session Connects
+
+    rect rgb(220, 255, 220)
+        Speech->>Speech: Lifecycle Inactive to Active
+        Speech->>OpenAI: WebSocket connect wss api openai
+        OpenAI-->>Speech: Connection established
+        Speech->>Speech: Start mic stream 48kHz to 24kHz
+        Speech->>GestInt: session_status connected
+
+        GestInt->>GestInt: session_active true SPEAKING state
+        Note over GestInt: Grace period 5s ignore fist gestures
+        GestInt->>GestInt: Play Start beep 16mp3
+    end
+
+    Note over OAK,OpenAI: PHASE 7 - Active Conversation with VAD
+
+    rect rgb(230, 230, 255)
+        Note over Speech,OpenAI: Conversation Active - VAD monitoring
+
+        Speech->>OpenAI: Audio stream user speaking
+        OpenAI->>OpenAI: Whisper STT - GPT4o - TTS
+        OpenAI-->>Speech: Audio response 24kHz
+        Speech->>Speech: Resample 24kHz to 44.1kHz play
+        Speech->>GestInt: voice_activity speaking
+        Note over GestInt: VAD speaking - 60s silence timer PAUSED
+
+        Speech->>GestInt: voice_activity silent
+        Note over GestInt: VAD silent - 60s timer STARTS
+    end
+
+    Note over OAK,OpenAI: PHASE 8 - Manual Stop with Fist Gesture
+
+    rect rgb(255, 220, 255)
+        ImgList->>GestInt: gesture_event fist
+        GestInt->>GestInt: Gate 1 - person_status RED PASS
+        GestInt->>GestInt: Gate 2 - session_active true PASS
+        GestInt->>GestInt: Gate 3 - grace 5s elapsed PASS
+        GestInt->>GestInt: Gate 4 - cooldown 1s elapsed CODE PASS
+        GestInt->>Speech: stop_session service call
+
+        Speech->>OpenAI: WebSocket disconnect
+        Speech->>Speech: Lifecycle Active to Inactive
+        Speech->>GestInt: session_status disconnected
+
+        GestInt->>GestInt: session_active false IDLE state
+        GestInt->>GestInt: Play Stop beep 20mp3
+    end
+
+    Note over OAK,OpenAI: PHASE 9 - User Leaves Camera View
+
+    rect rgb(255, 240, 200)
+        ImgList->>ImgList: Face lost raw detection
+        Note over ImgList: Hysteresis 5s absence threshold CODE
+        ImgList->>ImgList: Wait 5s continuous absence
+        ImgList->>AudioNot: face_count 0 stable absence
+        ImgList->>AudioNot: person_id no_person
+    end
+
+    Note over OAK,OpenAI: PHASE 10 - RED Timeout and Return to BLUE
+
+    rect rgb(200, 220, 255)
+        Note over AudioNot: RED timer 15s expires no recognition
+        AudioNot->>AudioNot: Check face_count 0 no face
+        AudioNot->>AudioNot: State RED to BLUE
+        AudioNot->>AudioNot: Clear recognition_buffer PROPOSED
+        AudioNot->>StatusLED: person_status BLUE
+        StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+        AudioNot->>AudioNot: Play Lost beep 5mp3
+        AudioNot->>GestInt: person_status BLUE 10Hz
+
+        Note over GestInt: Watchdog timer would start 300s CODE should be 35s
+    end
+
+    Note over OAK,OpenAI: System returns to IDLE BLUE state
+```
+
+---
+
+## Timing Parameters Summary (Code Reality vs Documentation)
+
+```mermaid
+flowchart TB
+    subgraph PERCEPTION["Perception Layer"]
+        CAM[Camera 30Hz]
+        PROC[Processing 13Hz]
+        PRES[Face Presence 0.3s CODE<br>Doc says 2.0s]
+        ABS[Face Absence 5.0s]
+        REC[Recognition 6.5Hz<br>Threshold 150 CODE<br>Doc says 70]
+    end
+
+    subgraph STATUS["Status Manager"]
+        ROLL[Rolling Window 1s<br>3 matches PROPOSED]
+        RED[RED State 15s timer]
+        GREEN[GREEN Entry 2s delay]
+        BLUE[BLUE Entry 3s delay]
+    end
+
+    subgraph GESTURE["Gesture Control"]
+        START[Start Cooldown 2s CODE<br>Doc says 5s]
+        STOP[Stop Cooldown 1s CODE<br>Doc says 3s]
+        GRACE[Grace Period 5s]
+        VAD[VAD Timeout 60s]
+        WATCH[Watchdog 300s CODE<br>Doc says 35s]
+    end
+
+    subgraph AUDIO["Audio Feedback"]
+        VOL[Volume 0.02 CODE<br>Doc says 0.30]
+        HELLO[Hello 2mp3]
+        LOST[Lost 5mp3]
+        SSTART[Start 16mp3]
+        SSTOP[Stop 20mp3]
+    end
+
+    CAM --> PROC --> PRES
+    PRES --> ABS
+    PROC --> REC
+    REC --> ROLL
+    ROLL --> RED
+    RED --> GREEN
+    RED --> BLUE
+    RED --> GESTURE
+    GESTURE --> AUDIO
+
+    style PRES fill:#ffcc00
+    style REC fill:#ffcc00
+    style START fill:#ffcc00
+    style STOP fill:#ffcc00
+    style WATCH fill:#ff6666
+    style VOL fill:#ff6666
+    style ROLL fill:#90EE90
 ```
 
 ---
@@ -70,10 +231,17 @@ Cross-verification of system documentation against actual implementation code re
 - **Vulnerability:** Single-frame misidentifications can trigger false positive RED status.
 
 ### Proposed Rock Solid Logic
-- **Requirement:** 3-5 recognitions of the targeted person within a 1-second rolling window.
+- **Requirement:** 3 recognitions of the targeted person within a 1-second rolling window.
 - **Trigger:** Status only switches to RED when this threshold is met.
 - **Persistence:** Once in RED, the system stays RED for at least 15 seconds (existing logic).
 - **Reset:** Every subsequent recognition of the targeted person resets the 15-second timer.
+
+### Latency Impact Analysis
+| Scenario | Current Logic | Proposed Logic | Difference |
+|----------|--------------|----------------|------------|
+| First recognition to RED | 0ms (instant) | ~460ms (3 matches at 6.5Hz) | +460ms |
+| False positive risk | HIGH | LOW | ✅ Improved |
+| User experience | Jittery | Deliberate | ✅ Improved |
 
 ---
 
@@ -349,32 +517,51 @@ journalctl -u r2d2-audio-notification.service -f
 
 ---
 
-## Other Discrepancies (Unchanged)
+## All Discrepancies Summary
 
 ### Discrepancy 1: Audio Volume ⚠️ CRITICAL
-- **Documentation:** 0.30 (30%)
-- **Code:** 0.02 (2%)
-- **Recommendation:** Update documentation to 0.02
+| Aspect | Documentation | Code | Difference |
+|--------|--------------|------|------------|
+| Value | 0.30 (30%) | 0.02 (2%) | 15x quieter |
+| Location | Multiple docs | `audio_params.yaml`, nodes | - |
+| **Recommendation** | Update docs to 0.02 | - | - |
 
 ### Discrepancy 2: Watchdog Timeout ⚠️ CRITICAL
-- **Documentation:** 35 seconds
-- **Code:** 300.0 seconds (5 minutes)
-- **Recommendation:** Change code to 35 seconds in `gesture_intent_node.py` line 58
+| Aspect | Documentation | Code | Difference |
+|--------|--------------|------|------------|
+| Value | 35 seconds | 300 seconds | 8.5x longer |
+| Location | Multiple docs | `gesture_intent_node.py:58` | - |
+| **Recommendation** | Change code to 35s | - | 💰 Cost savings |
 
 ### Discrepancy 3: Face Presence Threshold 🟡 MODERATE
-- **Documentation:** 2.0 seconds
-- **Code:** 0.3 seconds
-- **Recommendation:** Update documentation to 0.3 seconds
+| Aspect | Documentation | Code | Difference |
+|--------|--------------|------|------------|
+| Value | 2.0 seconds | 0.3 seconds | 6.7x faster |
+| Location | Multiple docs | `image_listener.py:57` | - |
+| **Recommendation** | Update docs to 0.3s | - | ✅ Better UX |
 
 ### Discrepancy 4: Recognition Confidence Threshold 🟡 MODERATE
-- **Documentation:** 70.0
-- **Code:** 150.0
-- **Recommendation:** Update documentation to 150.0
+| Aspect | Documentation | Code | Difference |
+|--------|--------------|------|------------|
+| Value | 70.0 | 150.0 | 2.1x more lenient |
+| Location | Multiple docs | `image_listener.py:54` | - |
+| **Recommendation** | Update docs to 150.0 | - | Note: lower=stricter |
 
 ### Discrepancy 5: Gesture Cooldowns 🟢 MINOR
-- **Documentation:** 5.0s / 3.0s
-- **Code:** 2.0s / 1.0s
-- **Recommendation:** Update documentation to 2.0s / 1.0s
+| Aspect | Documentation | Code | Difference |
+|--------|--------------|------|------------|
+| Start Cooldown | 5.0 seconds | 2.0 seconds | 2.5x faster |
+| Stop Cooldown | 3.0 seconds | 1.0 seconds | 3x faster |
+| Location | Multiple docs | `gesture_intent_node.py:54-55` | - |
+| **Recommendation** | Update docs to 2.0s/1.0s | - | ✅ Better UX |
+
+### Discrepancy 6: RED Entry Logic 🔴 PROPOSED NEW
+| Aspect | Current | Proposed | Benefit |
+|--------|---------|----------|---------|
+| Trigger | Instant (1 match) | 3 matches in 1s | Eliminates false positives |
+| Latency | 0ms | ~460ms | Acceptable tradeoff |
+| Location | `audio_notification_node.py` | - | - |
+| **Recommendation** | Implement rolling window | - | ✅ Rock solid |
 
 ---
 
@@ -385,6 +572,20 @@ journalctl -u r2d2-audio-notification.service -f
 | 🔴 HIGH | `audio_notification_node.py` | Add rolling window RED entry filter | 95, 110, 126, 264-297, 237, 446, 469 |
 | 🔴 HIGH | `gesture_intent_node.py` | Change watchdog 300→35s | Line 58 |
 | 🟢 NONE | All other files | No changes required | - |
+
+---
+
+## Consistency Verification ✅
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| Rolling window at 6.5Hz recognition rate | ✅ VALID | 3 matches in 1s = ~460ms minimum |
+| RED timer 15s still resets on recognition | ✅ UNCHANGED | Only entry logic changes |
+| Downstream subscribers unaffected | ✅ VERIFIED | LED, Gesture, Database nodes unchanged |
+| Hysteresis filters still apply | ✅ UNCHANGED | 0.3s presence, 5s absence |
+| Grace period 5s still protects fist | ✅ UNCHANGED | Prevents false stop |
+| VAD 60s timeout still works | ✅ UNCHANGED | Speech auto-stop |
+| Buffer cleared on RED exit | ✅ PROPOSED | Prevents stale data |
 
 ---
 
