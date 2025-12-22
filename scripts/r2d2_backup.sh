@@ -2,15 +2,15 @@
 #
 # r2d2_backup.sh
 #
-# Purpose: Create a timestamped backup of the R2D2 Jetson system, including
-# project code, data, configuration, and training artifacts.
+# Purpose: Create a date-versioned backup of the R2D2 Jetson system to USB stick,
+# including project code, data, configuration, and training artifacts.
 #
 # Usage:
 #   bash r2d2_backup.sh
 #
 # Output:
-#   Backup archive written to ~/backups/r2d2_backup_YYYYmmdd_HHMMSS.tar.gz
-#   Retains the last 10 backups automatically.
+#   Backup written to /media/severin/R2D2_BACKUP/r2d2_backup_YYYYmmdd/
+#   Retains the last 5 backups automatically.
 #
 
 set -euo pipefail
@@ -19,21 +19,21 @@ set -euo pipefail
 # CONFIGURATION
 # ============================================================================
 
-# Backup destination directory
-BACKUP_DIR="${HOME}/backups"
+# USB stick label (must be labeled R2D2_BACKUP for auto-detection)
+USB_LABEL="R2D2_BACKUP"
+USB_MOUNT_BASE="/media/${USER}"
 
 # Retention count (how many backups to keep)
-RETENTION_COUNT=10
+RETENTION_COUNT=5
 
-# Timestamp for this backup
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/r2d2_backup_${TIMESTAMP}.tar.gz"
+# Timestamp for this backup (date only, one backup per day)
+BACKUP_DATE=$(date +%Y%m%d)
+BACKUP_FOLDER_NAME="r2d2_backup_${BACKUP_DATE}"
 
 # Project paths to back up
 PROJECT_ROOT="${HOME}/dev/r2d2"
 
 # System paths (backup from root, will be restored relative to root)
-# These are specified as absolute paths but tar will store them with root prefix stripped
 SYSTEM_UDEV_RULES="/etc/udev/rules.d/r2d2_*"
 SYSTEM_SYSTEMD_SERVICES="/etc/systemd/system/r2d2_*.service"
 
@@ -45,6 +45,7 @@ HOME_CONFIG_DIR="${HOME}/.config/r2d2"
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
@@ -60,8 +61,51 @@ log_warn() {
     echo -e "${YELLOW}[WARN]${NC} $*"
 }
 
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $*"
+}
+
 log_section() {
     echo -e "${BLUE}=== $* ===${NC}"
+}
+
+# ============================================================================
+# USB DETECTION
+# ============================================================================
+
+find_usb_stick() {
+    log_info "Looking for USB stick labeled '${USB_LABEL}'..." >&2
+    
+    # Check if USB is mounted at expected location
+    local usb_path="${USB_MOUNT_BASE}/${USB_LABEL}"
+    
+    if [[ -d "${usb_path}" ]]; then
+        log_info "Found USB stick at: ${usb_path}" >&2
+        echo "${usb_path}"
+        return 0
+    fi
+    
+    # Alternative: search all mounted volumes
+    for mount_point in "${USB_MOUNT_BASE}"/*; do
+        if [[ -d "${mount_point}" ]]; then
+            local label=$(basename "${mount_point}")
+            if [[ "${label}" == "${USB_LABEL}" ]]; then
+                log_info "Found USB stick at: ${mount_point}" >&2
+                echo "${mount_point}"
+                return 0
+            fi
+        fi
+    done
+    
+    log_error "USB stick '${USB_LABEL}' not found!" >&2
+    log_error "Please ensure:" >&2
+    log_error "  1. USB stick is plugged in" >&2
+    log_error "  2. USB stick is labeled '${USB_LABEL}'" >&2
+    log_error "" >&2
+    log_error "To relabel your USB stick:" >&2
+    log_error "  sudo fatlabel /dev/sda1 ${USB_LABEL}  # For FAT32" >&2
+    log_error "  sudo e2label /dev/sda1 ${USB_LABEL}   # For ext4" >&2
+    exit 1
 }
 
 # ============================================================================
@@ -69,15 +113,32 @@ log_section() {
 # ============================================================================
 
 main() {
-    log_section "R2D2 Jetson Backup"
+    log_section "R2D2 Jetson USB Backup"
     log_info "Starting backup at $(date)"
-    log_info "Backup destination: ${BACKUP_FILE}"
-
-    # Create backup directory if it doesn't exist
-    if [[ ! -d ${BACKUP_DIR} ]]; then
-        log_info "Creating backup directory: ${BACKUP_DIR}"
-        mkdir -p "${BACKUP_DIR}"
+    
+    # Find USB stick
+    local usb_path=$(find_usb_stick)
+    local backup_root="${usb_path}"
+    local backup_folder="${backup_root}/${BACKUP_FOLDER_NAME}"
+    
+    # Check if backup for today already exists
+    if [[ -d "${backup_folder}" ]]; then
+        log_warn "Backup folder for today already exists: ${BACKUP_FOLDER_NAME}"
+        read -p "Overwrite existing backup? (yes/no): " confirm
+        if [[ "${confirm}" != "yes" ]]; then
+            log_info "Backup cancelled"
+            exit 0
+        fi
+        log_info "Removing existing backup folder..."
+        rm -rf "${backup_folder}"
     fi
+    
+    # Create backup folder
+    log_info "Creating backup folder: ${BACKUP_FOLDER_NAME}"
+    mkdir -p "${backup_folder}"
+    
+    local backup_archive="${backup_folder}/r2d2_backup.tar.gz"
+    log_info "Backup destination: ${backup_archive}"
 
     # Create temporary directory for staging
     local temp_staging=$(mktemp -d)
@@ -175,7 +236,7 @@ Excluded:
 - ROS 2 workspace build artifacts
 
 Usage:
-See 07_BACKUP_AND_RESTORE_SETUP.md for restore instructions.
+See 004_BACKUP_AND_RESTORE.md for restore instructions.
 EOF
 
     # Create the backup archive
@@ -183,29 +244,34 @@ EOF
     log_info "This may take a few minutes..."
 
     cd "${temp_staging}"
-    tar -czf "${BACKUP_FILE}" \
+    tar -czf "${backup_archive}" \
         home_staging/ \
         etc_staging/ \
         BACKUP_METADATA.txt \
         2>&1 | head -20
 
-    if [[ ! -f ${BACKUP_FILE} ]]; then
-        log_warn "ERROR: Backup file was not created!"
+    if [[ ! -f ${backup_archive} ]]; then
+        log_error "Backup file was not created!"
         exit 1
     fi
 
-    local backup_size=$(du -h "${BACKUP_FILE}" | cut -f1)
+    # Copy metadata alongside archive
+    cp BACKUP_METADATA.txt "${backup_folder}/BACKUP_METADATA.txt"
+
+    local backup_size=$(du -h "${backup_archive}" | cut -f1)
     log_info "Backup created successfully: ${backup_size}"
-    log_info "File: ${BACKUP_FILE}"
+    log_info "Location: ${backup_folder}"
 
     # Cleanup old backups
-    cleanup_old_backups
+    cleanup_old_backups "${backup_root}"
 
     log_section "Backup Complete"
     log_info "Backup finished at $(date)"
-    log_info "Archive: ${BACKUP_FILE}"
-    log_info "Size: ${backup_size}"
+    log_info "Folder: ${BACKUP_FOLDER_NAME}"
+    log_info "Archive: r2d2_backup.tar.gz (${backup_size})"
+    log_info "USB Location: ${usb_path}"
     echo ""
+    log_info "You can now safely eject the USB stick"
 }
 
 # ============================================================================
@@ -213,9 +279,10 @@ EOF
 # ============================================================================
 
 cleanup_old_backups() {
+    local backup_root="$1"
     log_info "Cleaning up old backups (keeping last ${RETENTION_COUNT})..."
 
-    local backup_count=$(ls -1 "${BACKUP_DIR}"/r2d2_backup_*.tar.gz 2>/dev/null | wc -l)
+    local backup_count=$(find "${backup_root}" -maxdepth 1 -type d -name "r2d2_backup_*" 2>/dev/null | wc -l)
     
     if [[ ${backup_count} -le ${RETENTION_COUNT} ]]; then
         log_info "Backup count (${backup_count}) is within retention limit"
@@ -226,9 +293,10 @@ cleanup_old_backups() {
     log_info "Found ${backup_count} backups, removing oldest ${excess}..."
 
     # Sort by modification time (oldest first) and remove excess
-    ls -1t "${BACKUP_DIR}"/r2d2_backup_*.tar.gz | tail -n "${excess}" | while read -r old_backup; do
+    find "${backup_root}" -maxdepth 1 -type d -name "r2d2_backup_*" -printf "%T@ %p\n" | \
+        sort -n | head -n "${excess}" | cut -d' ' -f2- | while read -r old_backup; do
         log_info "Removing old backup: $(basename ${old_backup})"
-        rm -f "${old_backup}"
+        rm -rf "${old_backup}"
     done
 
     log_info "Cleanup complete"

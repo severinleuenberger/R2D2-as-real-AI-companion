@@ -2,14 +2,14 @@
 #
 # r2d2_restore.sh
 #
-# Purpose: Restore a backup archive to a fresh Jetson that has already been
+# Purpose: Restore a backup from USB stick to a fresh Jetson that has already been
 # set up with r2d2_setup.sh.
 #
 # Usage:
-#   bash r2d2_restore.sh [path/to/backup.tar.gz]
-#   bash r2d2_restore.sh --yes [path/to/backup.tar.gz]  (skip confirmation)
+#   bash r2d2_restore.sh [backup_folder_or_archive]
+#   bash r2d2_restore.sh --yes [backup_folder_or_archive]  (skip confirmation)
 #
-# If no path is provided, uses the latest backup from ~/backups/.
+# If no path is provided, uses the latest backup from USB stick.
 #
 
 set -euo pipefail
@@ -21,7 +21,10 @@ set -euo pipefail
 TARGET_USER="${TARGET_USER:-severin}"
 TARGET_HOME="/home/${TARGET_USER}"
 
-BACKUP_DIR="${TARGET_HOME}/backups"
+# USB stick label (must be labeled R2D2_BACKUP)
+USB_LABEL="R2D2_BACKUP"
+USB_MOUNT_BASE="/media/${TARGET_USER}"
+
 PROJECT_ROOT="${TARGET_HOME}/dev/r2d2"
 ROS2_WS="${PROJECT_ROOT}/ros2_ws"
 
@@ -30,7 +33,8 @@ SYSTEMD_SERVICES_DIR="/etc/systemd/system"
 
 # Flags
 SKIP_CONFIRMATION=false
-BACKUP_FILE=""
+BACKUP_PATH=""
+BACKUP_ARCHIVE=""
 
 # Colors
 GREEN='\033[0;32m'
@@ -77,20 +81,83 @@ ensure_user_exists() {
     fi
 }
 
-find_latest_backup() {
-    if [[ ! -d ${BACKUP_DIR} ]]; then
-        log_error "Backup directory not found: ${BACKUP_DIR}"
-        exit 1
-    fi
-
-    local latest=$(ls -1t "${BACKUP_DIR}"/r2d2_backup_*.tar.gz 2>/dev/null | head -1)
+find_usb_stick() {
+    log_info "Looking for USB stick labeled '${USB_LABEL}'..." >&2
     
-    if [[ -z ${latest} ]]; then
-        log_error "No backups found in ${BACKUP_DIR}"
+    # Check if USB is mounted at expected location
+    local usb_path="${USB_MOUNT_BASE}/${USB_LABEL}"
+    
+    if [[ -d "${usb_path}" ]]; then
+        log_info "Found USB stick at: ${usb_path}" >&2
+        echo "${usb_path}"
+        return 0
+    fi
+    
+    # Alternative: search all mounted volumes
+    for mount_point in "${USB_MOUNT_BASE}"/*; do
+        if [[ -d "${mount_point}" ]]; then
+            local label=$(basename "${mount_point}")
+            if [[ "${label}" == "${USB_LABEL}" ]]; then
+                log_info "Found USB stick at: ${mount_point}" >&2
+                echo "${mount_point}"
+                return 0
+            fi
+        fi
+    done
+    
+    log_error "USB stick '${USB_LABEL}' not found!" >&2
+    log_error "Please ensure:" >&2
+    log_error "  1. USB stick is plugged in" >&2
+    log_error "  2. USB stick is labeled '${USB_LABEL}'" >&2
+    exit 1
+}
+
+find_latest_backup() {
+    local usb_path=$(find_usb_stick)
+    
+    # Find most recent backup folder
+    local latest_folder=$(find "${usb_path}" -maxdepth 1 -type d -name "r2d2_backup_*" -printf "%T@ %p\n" 2>/dev/null | \
+        sort -rn | head -1 | cut -d' ' -f2-)
+    
+    if [[ -z "${latest_folder}" ]]; then
+        log_error "No backups found on USB stick!"
+        log_error "Searched in: ${usb_path}"
         exit 1
     fi
+    
+    local archive="${latest_folder}/r2d2_backup.tar.gz"
+    
+    if [[ ! -f "${archive}" ]]; then
+        log_error "Backup folder found but archive missing: ${archive}"
+        exit 1
+    fi
+    
+    echo "${archive}"
+}
 
-    echo "${latest}"
+resolve_backup_path() {
+    local input_path="$1"
+    
+    # If it's a directory, look for the archive inside
+    if [[ -d "${input_path}" ]]; then
+        local archive="${input_path}/r2d2_backup.tar.gz"
+        if [[ -f "${archive}" ]]; then
+            echo "${archive}"
+            return 0
+        else
+            log_error "Backup folder found but archive missing: ${archive}"
+            exit 1
+        fi
+    fi
+    
+    # If it's a file, use it directly
+    if [[ -f "${input_path}" ]]; then
+        echo "${input_path}"
+        return 0
+    fi
+    
+    log_error "Backup not found: ${input_path}"
+    exit 1
 }
 
 parse_arguments() {
@@ -101,7 +168,7 @@ parse_arguments() {
                 shift
                 ;;
             *)
-                BACKUP_FILE="$1"
+                BACKUP_PATH="$1"
                 shift
                 ;;
         esac
@@ -118,7 +185,7 @@ confirm_restore() {
     echo -e "${RED}This will restore files from the backup to your home directory and system.${NC}"
     echo -e "${RED}Existing files will be overwritten.${NC}"
     echo ""
-    echo "Backup file: ${BACKUP_FILE}"
+    echo "Backup archive: ${BACKUP_ARCHIVE}"
     echo "Target user: ${TARGET_USER}"
     echo "Target home: ${TARGET_HOME}"
     echo ""
@@ -135,7 +202,7 @@ confirm_restore() {
 # ============================================================================
 
 main() {
-    log_section "R2D2 Jetson Restore"
+    log_section "R2D2 Jetson USB Restore"
     log_info "Starting restore at $(date)"
 
     check_root
@@ -144,21 +211,24 @@ main() {
     # Parse arguments
     parse_arguments "$@"
 
-    # If no backup specified, find the latest
-    if [[ -z ${BACKUP_FILE} ]]; then
-        log_info "No backup specified, finding latest..."
-        BACKUP_FILE=$(find_latest_backup)
-        log_info "Using latest backup: ${BACKUP_FILE}"
+    # Determine backup archive to use
+    if [[ -z ${BACKUP_PATH} ]]; then
+        log_info "No backup specified, finding latest on USB stick..."
+        BACKUP_ARCHIVE=$(find_latest_backup)
+        log_info "Using latest backup: ${BACKUP_ARCHIVE}"
+    else
+        log_info "Resolving backup path: ${BACKUP_PATH}"
+        BACKUP_ARCHIVE=$(resolve_backup_path "${BACKUP_PATH}")
     fi
 
     # Validate backup file exists
-    if [[ ! -f ${BACKUP_FILE} ]]; then
-        log_error "Backup file not found: ${BACKUP_FILE}"
+    if [[ ! -f ${BACKUP_ARCHIVE} ]]; then
+        log_error "Backup archive not found: ${BACKUP_ARCHIVE}"
         exit 1
     fi
 
-    log_info "Backup file: ${BACKUP_FILE}"
-    log_info "Backup size: $(du -h ${BACKUP_FILE} | cut -f1)"
+    log_info "Backup archive: ${BACKUP_ARCHIVE}"
+    log_info "Backup size: $(du -h ${BACKUP_ARCHIVE} | cut -f1)"
 
     # Ask for confirmation
     confirm_restore
@@ -170,11 +240,12 @@ main() {
     log_section "Extracting Backup"
     log_info "Extracting to temporary directory..."
     
-    tar -xzf "${BACKUP_FILE}" -C "${temp_extract}"
+    tar -xzf "${BACKUP_ARCHIVE}" -C "${temp_extract}"
     log_info "Extraction complete"
 
     # Display backup metadata
     if [[ -f ${temp_extract}/BACKUP_METADATA.txt ]]; then
+        echo ""
         log_info "Backup metadata:"
         cat "${temp_extract}/BACKUP_METADATA.txt" | sed 's/^/  /'
         echo ""
