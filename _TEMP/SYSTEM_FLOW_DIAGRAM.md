@@ -28,14 +28,14 @@ sequenceDiagram
         Note over ImgList,AudioNot: IMMEDIATE Recognition - No 0.3s gate
         ImgList->>ImgList: LBPH recognition 6.5Hz starts IMMEDIATELY
         ImgList->>ImgList: Confidence check against 150 threshold
-        ImgList->>AudioNot: person_id severin or unknown
+        ImgList->>AudioNot: person_id target_person or unknown
     end
 
     Note over OAK,OpenAI: PHASE 2 - Rolling Window Filter - RED Entry Decision
 
     rect rgb(255, 230, 200)
         Note over AudioNot: Rolling 1s window - Need 3 matches for RED
-        AudioNot->>AudioNot: Buffer add person_id severin
+        AudioNot->>AudioNot: Buffer add person_id target_person
         AudioNot->>AudioNot: Count matches in 1s window
         
         alt Match count >= 3 in 1s
@@ -155,7 +155,7 @@ sequenceDiagram
 ## Notes
 
 - **RED-First Architecture:** Recognition is PRIMARY, runs immediately on any face
-- **Multi-User:** Any trained person triggers RED (not hardcoded to "severin")
+- **Multi-User Support:** Any trained person triggers RED (person_id resolved from PersonRegistry)
 - **Rolling Window:** Prevents false positives (3 matches required)
 - **VAD Protection:** 60s silence timeout prevents premature disconnects
 - **Watchdog:** 35s auto-stop for cost optimization
