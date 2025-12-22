@@ -416,11 +416,15 @@ python3 train_manager.py
 |-----------|---------|---------|-----------------|
 | `red_entry_match_threshold` | 3 | Matches required in rolling window | audio_params.yaml |
 | `red_entry_window_seconds` | 1.0s | Rolling window duration | audio_params.yaml |
-| `red_status_timeout_seconds` | 15.0s | RED timer (resets on match) | audio_params.yaml |
-| `green_entry_delay` | 2.0s | BLUE→GREEN smoothing | audio_params.yaml |
-| `blue_entry_delay` | 3.0s | GREEN→BLUE smoothing | audio_params.yaml |
-| `cooldown_seconds` | 2.0s | Min between same alert type | audio_params.yaml |
-| `recognition_cooldown_after_loss_seconds` | 5.0s | Quiet period after loss | audio_params.yaml |
+| `red_status_timeout_seconds` | 15.0s | RED timer (resets on match) | Code default* |
+| `green_entry_delay` | 2.0s | BLUE→GREEN smoothing | Hardcoded** |
+| `blue_entry_delay` | 3.0s | GREEN→BLUE smoothing | Hardcoded** |
+| `cooldown_seconds` | 2.0s | Min between same alert type | Code default* |
+| `recognition_cooldown_after_loss_seconds` | 5.0s | Quiet period after loss | Code default* |
+
+**Notes:**
+- *Code default* = Declared as ROS parameter with default value (lines 87-99 in `audio_notification_node.py`). Can be overridden in `audio_params.yaml`.
+- **Hardcoded** = Not exposed as ROS parameter (lines 143-144 in `audio_notification_node.py`). Requires code modification to change.
 
 **State Timeline Example:**
 ```
@@ -645,20 +649,24 @@ target_person_gesture_name: "target_person"
 
 **Audio Notification:**
 ```yaml
-# RED-first architecture
+# RED-first architecture (configurable via audio_params.yaml)
 red_entry_match_threshold: 3
 red_entry_window_seconds: 1.0
 
-# Timers
-red_status_timeout_seconds: 15.0
-green_entry_delay: 2.0
-blue_entry_delay: 3.0
+# Timers (code defaults - can be overridden in audio_params.yaml)
+red_status_timeout_seconds: 15.0        # ROS parameter
+green_entry_delay: 2.0                   # HARDCODED (not configurable)
+blue_entry_delay: 3.0                    # HARDCODED (not configurable)
 
-# Audio
+# Audio (code defaults - can be overridden in audio_params.yaml)
 audio_volume: 0.02
 cooldown_seconds: 2.0
 recognition_cooldown_after_loss_seconds: 5.0
+recognition_audio_file: "Voicy_R2-D2 - 2.mp3"
+loss_audio_file: "Voicy_R2-D2 - 5.mp3"
 ```
+
+**Note:** Parameters marked as "HARDCODED" are not ROS parameters and require code modification to change. See "Future Improvements" section for details.
 
 **Gesture Intent:**
 ```yaml
@@ -831,24 +839,39 @@ System Ready (~5-7 seconds total)
 ## Configuration Files
 
 **Primary Config:** `ros2_ws/src/r2d2_audio/config/audio_params.yaml`
+
+**Current minimal config (only parameters that override defaults):**
 ```yaml
-# RED-first architecture parameters
-red_entry_match_threshold: 3
-red_entry_window_seconds: 1.0
+/**:
+  ros__parameters:
+    # Global audio volume
+    audio_volume: 0.02
+    
+    # RED-first architecture parameters
+    red_entry_match_threshold: 3
+    red_entry_window_seconds: 1.0
+```
 
-# Status timers
-red_status_timeout_seconds: 15.0
-green_entry_delay: 2.0
-blue_entry_delay: 3.0
-
-# Audio
-audio_volume: 0.02
-cooldown_seconds: 2.0
-recognition_cooldown_after_loss_seconds: 5.0
-
-# Audio files
-recognition_audio_file: "Voicy_R2-D2 - 2.mp3"
-loss_audio_file: "Voicy_R2-D2 - 5.mp3"
+**Complete config (with all optional parameters that can be overridden):**
+```yaml
+/**:
+  ros__parameters:
+    # Global audio volume
+    audio_volume: 0.02
+    
+    # RED-first architecture parameters (configurable)
+    red_entry_match_threshold: 3
+    red_entry_window_seconds: 1.0
+    
+    # Optional: Override code defaults if needed
+    red_status_timeout_seconds: 15.0
+    cooldown_seconds: 2.0
+    recognition_cooldown_after_loss_seconds: 5.0
+    recognition_audio_file: "Voicy_R2-D2 - 2.mp3"
+    loss_audio_file: "Voicy_R2-D2 - 5.mp3"
+    
+    # Note: green_entry_delay and blue_entry_delay are HARDCODED
+    # See "Future Improvements" section below
 ```
 
 **Gesture Config:** `ros2_ws/src/r2d2_gesture/config/gesture_params.yaml`
@@ -864,14 +887,65 @@ audio_volume: 0.02
 
 **To modify config:**
 ```bash
-# Edit config file
+# 1. Edit config file (use any editor - nano, vim, or Cursor IDE)
 nano ~/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml
 
-# Rebuild package
+# 2. Rebuild package (REQUIRED - config files are installed during build)
 cd ~/dev/r2d2/ros2_ws
 colcon build --packages-select r2d2_audio
 
-# Restart service
+# 3. Restart service
+sudo systemctl restart r2d2-audio-notification.service
+```
+
+---
+
+## Future Improvements
+
+### Making GREEN/BLUE Entry Delays Configurable
+
+**Current State:** `green_entry_delay` and `blue_entry_delay` are hardcoded in the code (lines 143-144 of `audio_notification_node.py`) and cannot be changed via config file.
+
+**Current values:**
+```python
+self.green_entry_delay = 2.0   # Seconds of face before BLUE→GREEN
+self.blue_entry_delay = 3.0    # Seconds of no face before GREEN→BLUE
+```
+
+**To make them configurable:**
+
+1. **Modify `audio_notification_node.py`** (around lines 99-100, after other parameter declarations):
+
+```python
+# Add these parameter declarations
+self.declare_parameter('green_entry_delay', 2.0)
+self.declare_parameter('blue_entry_delay', 3.0)
+```
+
+2. **Replace hardcoded values** (lines 143-144):
+
+```python
+# Change from:
+self.green_entry_delay = 2.0
+self.blue_entry_delay = 3.0
+
+# To:
+self.green_entry_delay = self.get_parameter('green_entry_delay').value
+self.blue_entry_delay = self.get_parameter('blue_entry_delay').value
+```
+
+3. **Add to `audio_params.yaml`** (optional, for non-default values):
+
+```yaml
+green_entry_delay: 2.0
+blue_entry_delay: 3.0
+```
+
+4. **Rebuild and restart:**
+
+```bash
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_audio
 sudo systemctl restart r2d2-audio-notification.service
 ```
 
