@@ -20,11 +20,16 @@ import re
 
 # Configuration
 LOG_DIR = Path("/var/log/freeze_logs")
-LOG_INTERVAL = 10  # seconds between logs
+LOG_INTERVAL = 60  # seconds between logs
 DISK_WARN_THRESHOLD_GB = 1  # warn if free space below this
 DISK_WARN_THRESHOLD_PERCENT = 92  # warn if disk usage above this percentage
 DISK_WARN_COOLDOWN_SECONDS = 3600  # 1 hour between audio warnings
 DISK_WARN_SOUND = "/usr/local/share/r2d2/sounds/disk_warning.mp3"
+
+# Thermal thresholds for Jetson Orin Nano (official specs)
+TEMP_WARN_THRESHOLD = 76  # Warning at 76°C (early detection for freeze diagnosis)
+TEMP_CRITICAL_THRESHOLD = 99  # Critical at 99°C (max operating temp)
+TEMP_WARN_COOLDOWN_SECONDS = 300  # 5 minutes between thermal warnings
 
 # Log files
 HARDWARE_LOG = LOG_DIR / "hardware.log"
@@ -42,6 +47,7 @@ class FreezeMonitor:
         self.start_time = datetime.now()
         self.log_counter = 0
         self.last_disk_warning = 0  # timestamp of last disk warning sound
+        self.last_temp_warning = 0  # timestamp of last temperature warning
         
     def get_timestamp(self):
         """Get ISO formatted timestamp"""
@@ -75,7 +81,7 @@ class FreezeMonitor:
                                         SUMMARY_LOG,
                                         f"⚠️ DISK SPACE WARNING: {usage_percent}% used ({available_gb}GB free)!"
                                     )
-                                    self.play_warning_sound()
+                                    self.play_warning_sound("disk")
                                     self.last_disk_warning = current_time
                             
                             # Also check absolute GB threshold
@@ -91,7 +97,7 @@ class FreezeMonitor:
         except Exception as e:
             return True  # Continue logging even if check fails
     
-    def play_warning_sound(self):
+    def play_warning_sound(self, alert_type="disk"):
         """Play R2-D2 warning sound"""
         try:
             # Try multiple audio players in order of preference
@@ -106,7 +112,7 @@ class FreezeMonitor:
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL
                     )
-                    self.log_to_file(SUMMARY_LOG, f"🔊 Playing disk space warning sound")
+                    self.log_to_file(SUMMARY_LOG, f"🔊 Playing {alert_type} warning sound")
                     break
                 except FileNotFoundError:
                     continue
@@ -228,8 +234,11 @@ class FreezeMonitor:
         return processes
     
     def get_thermal_info(self):
-        """Get thermal zone temperatures"""
+        """Get thermal zone temperatures and check for overheat"""
         thermal_info = {}
+        max_temp = 0.0
+        max_zone = ""
+        
         try:
             thermal_zones = Path('/sys/class/thermal')
             if thermal_zones.exists():
@@ -237,9 +246,36 @@ class FreezeMonitor:
                     try:
                         zone_type = (zone / 'type').read_text().strip()
                         temp = int((zone / 'temp').read_text().strip())
-                        thermal_info[zone_type] = f"{temp/1000:.1f}°C"
+                        temp_celsius = temp / 1000.0
+                        thermal_info[zone_type] = f"{temp_celsius:.1f}°C"
+                        
+                        # Track maximum temperature
+                        if temp_celsius > max_temp:
+                            max_temp = temp_celsius
+                            max_zone = zone_type
                     except Exception:
                         pass
+                
+                # Check for overheat conditions (every cycle, i.e., every 60 seconds)
+                if max_temp >= TEMP_CRITICAL_THRESHOLD:
+                    current_time = time.time()
+                    if current_time - self.last_temp_warning > TEMP_WARN_COOLDOWN_SECONDS:
+                        self.log_to_file(
+                            SUMMARY_LOG,
+                            f"🔥 CRITICAL TEMPERATURE: {max_zone} at {max_temp:.1f}°C (limit: {TEMP_CRITICAL_THRESHOLD}°C)!"
+                        )
+                        self.play_warning_sound("thermal")
+                        self.last_temp_warning = current_time
+                elif max_temp >= TEMP_WARN_THRESHOLD:
+                    current_time = time.time()
+                    if current_time - self.last_temp_warning > TEMP_WARN_COOLDOWN_SECONDS:
+                        self.log_to_file(
+                            SUMMARY_LOG,
+                            f"⚠️ HIGH TEMPERATURE WARNING: {max_zone} at {max_temp:.1f}°C (warning: {TEMP_WARN_THRESHOLD}°C)"
+                        )
+                        self.play_warning_sound("thermal")
+                        self.last_temp_warning = current_time
+                        
         except Exception as e:
             thermal_info['error'] = str(e)
         
@@ -360,8 +396,8 @@ class FreezeMonitor:
             self.log_processes()
             self.log_summary()
             
-            # Periodically check disk space (every 10 cycles)
-            if self.log_counter % 10 == 0:
+            # Periodically check disk space (every 20 cycles = 1200 seconds)
+            if self.log_counter % 20 == 0:
                 self.check_disk_space()
                 
         except Exception as e:

@@ -27,7 +27,9 @@ Comprehensive real-time monitoring system that logs hardware metrics, kernel mes
 
 1. **freeze_monitor.py** - Python monitoring script
    - Location: `/home/severin/freeze_monitor.py`
-   - Logs every 10 seconds
+   - Logs every 60 seconds
+   - Temperature checks every 60 seconds with alerts
+   - Disk space checks every 1200 seconds (20 minutes)
    - Monitors: tegrastats, thermal zones, memory, CPU, kernel messages, processes
 
 2. **freeze-monitor.service** - Systemd service
@@ -130,9 +132,13 @@ sudo systemctl enable freeze-monitor
 - OOM (Out of Memory) killer messages in kernel log
 
 ### Thermal Issues
-- Temperatures above 85°C
+- Temperatures at or above 76°C (warning threshold - early detection)
+- Temperatures at or above 99°C (critical - max operating temp)
+- System shutdown at 105°C (automatic hardware protection)
 - Thermal throttling warnings
 - Sudden temperature spikes
+
+**Note:** Audio alerts will play when temperature ≥ 76°C, throttled to once per 5 minutes.
 
 ### GPU/Hardware Issues
 - NVIDIA GPU errors
@@ -174,18 +180,48 @@ sudo systemctl enable freeze-monitor
 **Monitoring Started:** December 16, 2025 at 21:22:07 CET  
 **Service Status:** Active and running  
 **Log Location:** `/var/log/freeze_logs/`  
-**Log Interval:** 10 seconds  
+**Log Interval:** 60 seconds (disk space: 1200 seconds)  
 **Auto-start:** Enabled (starts on boot)
 
 **Baseline Metrics:**
 - Memory: 6-7% used (~1.9GB / 7.5GB)
 - CPU Load: 0.7-0.8 (1-minute average)
 - Temperature: 34-42°C (normal operating temp)
+  - Warning threshold: 76°C (early detection)
+  - Critical threshold: 99°C (max operating)
+  - Shutdown: 105°C (automatic)
 - Disk Usage: 91% (as of Dec 18, 2025)
 
-**Audio Warning:**
-- R2-D2 sound plays when disk usage ≥ 92%
-- Throttled to once per hour to prevent spam
+**Audio Warnings:**
+- R2-D2 sound plays when disk usage ≥ 92% (throttled to once per hour)
+- R2-D2 sound plays when temperature ≥ 76°C (throttled to once per 5 minutes)
+
+---
+
+## Thermal Monitoring
+
+**Jetson Orin Nano Official Thermal Specifications:**
+- **Maximum Operating Temperature:** 99°C (SoC)
+- **Automatic Shutdown:** 105°C (hardware protection)
+- **Performance Throttling:** May begin before 99°C
+
+**Monitoring Configuration:**
+- **Check Interval:** Every 60 seconds (every monitoring cycle)
+- **Warning Threshold:** 76°C (early detection for freeze diagnosis)
+- **Critical Threshold:** 99°C (at max operating temp)
+- **Alert Cooldown:** 5 minutes between audio warnings
+
+**Why 76°C Warning Threshold?**
+- Normal operating range: 30-50°C
+- 76°C indicates elevated thermal activity that may correlate with freeze events
+- Provides early warning for diagnostic purposes
+- Still well below critical operating limits
+
+**Alert Behavior:**
+- At 76°C+: Warning message logged + R2-D2 sound alert
+- At 99°C+: Critical message logged + R2-D2 sound alert
+- Cooldown prevents audio spam during sustained high temps
+- All temperature readings logged regardless of threshold
 
 ---
 
@@ -199,8 +235,8 @@ The monitoring system includes safeguards:
 - Compression of rotated logs
 - Disk space warnings when < 1GB free
 
-**Expected Log Growth:** ~50-100MB per day (all logs combined)  
-**Total with rotation:** ~150-300MB (3 days of logs)
+**Expected Log Growth:** ~10-20MB per day (all logs combined, with 60s interval)  
+**Total with rotation:** ~30-60MB (3 days of logs)
 
 ---
 
@@ -229,8 +265,9 @@ If disk space is a concern, edit the interval in the monitoring script:
 
 ```bash
 sudo nano /home/severin/freeze_monitor.py
-# Find: LOG_INTERVAL = 10
-# Change to: LOG_INTERVAL = 30  # or 60 for less frequent logging
+# Find: LOG_INTERVAL = 60
+# Change to desired interval (e.g., 30 for more frequent, 120 for less frequent)
+# Also adjust disk space check: self.log_counter % 20 (for 1200 seconds)
 sudo systemctl restart freeze-monitor
 ```
 
