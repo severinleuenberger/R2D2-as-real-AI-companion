@@ -101,7 +101,7 @@ def generate_launch_description():
     
     gesture_skip_arg = DeclareLaunchArgument(
         'gesture_frame_skip',
-        default_value='5',
+        default_value='2',
         description='Process gesture recognition every N frames to manage CPU load'
     )
     

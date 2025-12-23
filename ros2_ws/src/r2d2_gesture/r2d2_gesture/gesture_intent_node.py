@@ -76,7 +76,8 @@ class GestureIntentNode(Node):
         
         # Audio feedback paths
         audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
-        self.start_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 16.mp3'
+        self.gesture_ack_sound = audio_assets_dir / 'Voicy_R2-D2 - 12.mp3'  # Immediate acknowledgment
+        self.start_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 16.mp3'   # Session ready
         self.stop_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 20.mp3'
         
         # State tracking
@@ -298,6 +299,10 @@ class GestureIntentNode(Node):
             
             # Trigger start session - Enter SPEAKING state
             self.get_logger().info('🤚 Index finger up detected → Starting conversation')
+            
+            # Play immediate acknowledgment beep (before service call)
+            self._play_audio_feedback(self.gesture_ack_sound)
+            
             self._enter_speaking_state()
             self.last_trigger_time = current_time
         

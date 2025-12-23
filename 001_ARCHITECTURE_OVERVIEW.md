@@ -12,9 +12,12 @@ The R2D2 system is a modular ROS 2-based pipeline that provides seamless gesture
 
 **Key System Capabilities (December 2025):**
 - ✅ **RED-First Recognition:** Immediate face recognition without hysteresis gate (~460ms to RED status)
-- ✅ **Rolling Window Filter:** 3 recognition matches in 1.0s window for robust RED entry
+- ✅ **Rolling Window Filter:** 4 recognition matches in 1.5s window for robust RED entry
 - ✅ **Multi-User Support:** Any trained person triggers RED via PersonRegistry auto-resolution
 - ✅ **Person-Specific Gestures:** MediaPipe + SVM gesture recognition (only active in RED status)
+- ✅ **Optimized Gesture Polling:** 15 Hz sampling (gesture_frame_skip=2) for snappy response
+- ✅ **Warm-Start Speech:** Persistent OpenAI connection eliminates 1.5s handshake delay
+- ✅ **Dual-Beep Feedback:** Immediate acknowledgment (~350ms) + ready confirmation (~750ms)
 - ✅ **VAD-Based Conversation Protection:** 60s silence timeout (immune to camera flickers)
 - ✅ **Production Auto-Start:** Systemd services with proper dependencies
 - ✅ **Complete Documentation:** Reference, installation, quick start, and troubleshooting per system

@@ -12,12 +12,12 @@
 
     # RED-first architecture parameters (audio_notification_node)
     # Rolling window filter for person recognition
-    red_entry_match_threshold: 3    # Number of recognition matches required in window
+    red_entry_match_threshold: 4    # Number of recognition matches required in window
                                      # Higher = more stable, slower response
                                      # Lower = faster response, more false positives
                                      # Default: 3 matches
     
-    red_entry_window_seconds: 1.0   # Rolling window duration (seconds)
+    red_entry_window_seconds: 1.5   # Rolling window duration (seconds)
                                      # At 6.5Hz recognition rate, 1.0s = ~6 frames
                                      # 3 matches in 1.0s = ~460ms to trigger RED
                                      # Default: 1.0 seconds

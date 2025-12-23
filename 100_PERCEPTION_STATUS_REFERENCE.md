@@ -240,6 +240,7 @@ r2d2_audio/audio_notification_node
 
 **Performance:**
 - Recognition rate: 6.5 Hz (every 2nd frame with skip=2)
+- Gesture rate: 15 Hz (every 2nd frame with skip=2, optimized Dec 2025)
 - Latency: ~20ms per recognition
 - Accuracy: 90-95% with good training data
 
@@ -265,10 +266,10 @@ Face Detection → Recognition IMMEDIATELY → Rolling Window Filter
 
 **Rolling Window Logic:**
 - Buffer stores recent recognitions with timestamps
-- Requires 3 matches within 1.0s window for RED status
-- At 6.5Hz recognition rate, 1.0s = ~6 frames available
-- 3 matches in 1.0s = ~460ms to trigger RED
-- Configuration: `red_entry_match_threshold: 3`, `red_entry_window_seconds: 1.0`
+- Requires 4 matches within 1.5s window for RED status (updated Dec 2025)
+- At 6.5Hz recognition rate, 1.5s = ~10 frames available
+- 4 matches in 1.5s = ~615ms to trigger RED
+- Configuration: `red_entry_match_threshold: 4`, `red_entry_window_seconds: 1.5`
 
 ### Training System
 
@@ -322,7 +323,7 @@ python3 train_manager.py
 
 **Performance:**
 - Recognition rate: Variable (controlled by gesture_frame_skip parameter)
-- Default skip: 5 frames (process every 5th frame = ~6 FPS at 30 FPS input)
+- Default skip: 2 frames (process every 2nd frame = ~15 Hz at 30 FPS input, optimized Dec 2025)
 - Latency: 100-200ms (detection → event → action)
 - Accuracy: 70-90% with good training data
 - CPU usage: 5-8% (MediaPipe Hands + SVM inference)
@@ -414,8 +415,8 @@ python3 train_manager.py
 
 | Parameter | Default | Purpose | Config Location |
 |-----------|---------|---------|-----------------|
-| `red_entry_match_threshold` | 3 | Matches required in rolling window | audio_params.yaml |
-| `red_entry_window_seconds` | 1.0s | Rolling window duration | audio_params.yaml |
+| `red_entry_match_threshold` | 4 | Matches required in rolling window | audio_params.yaml |
+| `red_entry_window_seconds` | 1.5s | Rolling window duration | audio_params.yaml |
 | `red_status_timeout_seconds` | 15.0s | RED timer (resets on match) | Code default* |
 | `green_entry_delay` | 2.0s | BLUE→GREEN smoothing | Hardcoded** |
 | `blue_entry_delay` | 3.0s | GREEN→BLUE smoothing | Hardcoded** |
@@ -860,8 +861,8 @@ System Ready (~5-7 seconds total)
     audio_volume: 0.02
     
     # RED-first architecture parameters (configurable)
-    red_entry_match_threshold: 3
-    red_entry_window_seconds: 1.0
+    red_entry_match_threshold: 4
+    red_entry_window_seconds: 1.5
     
     # Optional: Override code defaults if needed
     red_status_timeout_seconds: 15.0

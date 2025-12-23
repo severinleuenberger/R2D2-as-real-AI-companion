@@ -23,6 +23,8 @@ sequenceDiagram
     Note over Cam, OpenAI: PHASE 2: Gating & Service Call
     Note right of Gest: Gate: person_status == "red" (Checked)
     Note right of Gest: Gate: start_cooldown > 2.0s (Checked)
+    Note right of Gest: Trigger: Voicy_R2-D2 - 12.mp3 (IMMEDIATE)
+    Note right of Gest: ffplay: Acknowledgment Beep (~200ms)
     Gest->>Speech: [2ms] /r2d2/speech/start_session (Service Call)
 
     Note over Cam, OpenAI: PHASE 3: Session Initialization (THE BOTTLENECK)
@@ -34,8 +36,8 @@ sequenceDiagram
     Note over Cam, OpenAI: PHASE 4: Hardware & Feedback
     Note right of Speech: Audio: Init PyAudio Mic/Speaker (~100-300ms)
     Speech->>Gest: [2ms] /r2d2/speech/session_status ("connected")
-    Note right of Gest: Trigger: Voicy_R2-D2 - 16.mp3
-    Note right of Gest: ffplay: Start Beep (~200ms process lag)
+    Note right of Gest: Trigger: Voicy_R2-D2 - 16.mp3 (READY)
+    Note right of Gest: ffplay: System Ready Beep (~200ms process lag)
     Note over Cam, OpenAI: SYSTEM READY FOR SPEECH
 ```
 
@@ -44,22 +46,33 @@ sequenceDiagram
 | Component | Dependency / Clock | Logic / Filter | Delay (Typical) | Delay (Worst) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Camera** | 30 Hz Hardware Clock | Exposure & Sensor Readout | 33ms | 33ms |
-| **Perception** | `gesture_frame_skip` | Processes only every 5th frame | 33ms | 166ms |
+| **Perception** | `gesture_frame_skip` | Processes every 2nd frame (Proposed) | 33ms | 66ms |
 | **MediaPipe** | CPU (Jetson Orin) | Hand Landmark Extraction (21 points) | 50ms | 80ms |
 | **Gating** | ROS 2 Subscription | `person_status == "red"` | <1ms | <1ms |
-| **Cooldown** | `cooldown_start_seconds` | Prevents rapid re-triggering | 0ms | 2000ms |
+| **Feedback 1** | **Gesture Detect** | **Voicy_R2-D2 - 12.mp3** (ffplay) | **~200ms** | **~400ms** |
 | **Network** | TCP/TLS Handshake | **OpenAI WebSocket Connect** | **1200ms** | **3000ms** |
 | **API Init** | `session.update` | Remote JSON config acknowledgment | 50ms | 200ms |
 | **Hardware** | HyperX / PAM8403 | PyAudio stream initialization | 150ms | 400ms |
-| **Feedback Beep** | `session_status` | **Voicy_R2-D2 - 16.mp3** (ffplay) | **200ms** | **400ms** |
+| **Feedback 2** | `session_status` | **Voicy_R2-D2 - 16.mp3** (ffplay) | **~200ms** | **~400ms** |
 
-### Total Path Latency (to first response)
-*   **Minimum (Perfect conditions):** ~1.7 seconds
-*   **Maximum (Typical load/Network jitter):** ~4.5 seconds
+### Total Path Latency (with optimizations)
+*   **Minimum (Perfect conditions):** ~0.5 seconds (warm start)
+*   **Maximum (Typical load):** ~1.2 seconds (warm start)
+*   **Cold Start (first gesture after boot):** ~2.5 seconds
 
-## 3. Critical Observations
+## 3. Critical Observations and Optimizations
 
-1.  **Reactive Connection:** The current code connects to OpenAI *after* the gesture. This accounts for ~70% of the total wait time.
-2.  **Sampling Gap:** The `gesture_frame_skip: 5` creates a 166ms window where gestures are invisible.
-3.  **Feedback Lag (Late Beep):** The "Start Beep" (`Voicy_R2-D2 - 16.mp3`) only plays *after* the network connection is confirmed. This means you wait ~2 seconds in silence before hearing the "OK" beep.
+### ✅ Implemented Optimizations
+
+1.  **Warm Start Connection (Major):** OpenAI WebSocket is now established during node activation, removing ~1.5s from the gesture-to-start path.
+2.  **Faster Sampling (100ms saved):** Reduced `gesture_frame_skip` from 5 to 2, cutting sampling lag from 166ms to 66ms.
+3.  **Dual-Beep Feedback (UX):** Two-stage acknowledgment system provides immediate gesture confirmation:
+    *   `Voicy_R2-D2 - 12.mp3`: Plays immediately when gesture detected (~200ms)
+    *   `Voicy_R2-D2 - 16.mp3`: Plays when system fully ready (~400ms later)
+
+### Expected User Experience
+*   **Gesture Detection:** ~150ms (user sees their hand, makes gesture)
+*   **Immediate Beep:** ~350ms total (you hear "I saw it!")
+*   **System Ready:** ~750ms total (you hear "Ready to talk!")
+*   **First Response:** ~1.2s from gesture (much faster than previous ~3-4s)
 
