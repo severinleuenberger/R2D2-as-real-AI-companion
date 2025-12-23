@@ -286,8 +286,8 @@ class AudioNotificationNode(Node):
                 self.last_recognition_time = current_time
             
                 # Reset smoothing timers
-            self.face_detected_start_time = None
-            self.face_absent_start_time = None
+                self.face_detected_start_time = None
+                self.face_absent_start_time = None
             
                 # Transition to RED
                 old_status = self.current_status
@@ -450,19 +450,19 @@ class AudioNotificationNode(Node):
             
             else:
                 # No face -> BLUE
-            self.current_status = "blue"
-            self.current_person = "no_person"
-            self.status_changed_time = current_time
-            self.unknown_person_detected = False
+                self.current_status = "blue"
+                self.current_person = "no_person"
+                self.status_changed_time = current_time
+                self.unknown_person_detected = False
                 self.face_detected_start_time = None
                 self.face_absent_start_time = None
                 
-            self._publish_status("blue", "no_person", confidence=0.0)
+                self._publish_status("blue", "no_person", confidence=0.0)
             
-            if self.last_loss_beep_time is None or \
-               (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
-                self._play_audio_file(self.loss_audio, alert_type="LOSS")
-                self.last_loss_beep_time = current_time
+                if self.last_loss_beep_time is None or \
+                   (current_time - self.last_loss_beep_time) >= self.cooldown_seconds:
+                    self._play_audio_file(self.loss_audio, alert_type="LOSS")
+                    self.last_loss_beep_time = current_time
             
                 self.get_logger().info(f"RED-FIRST: {previous_person} lost -> BLUE (no person)")
     
