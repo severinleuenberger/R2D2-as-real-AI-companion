@@ -62,17 +62,33 @@ sequenceDiagram
 
 ## 3. Critical Observations and Optimizations
 
-### ✅ Implemented Optimizations
+### ✅ Implemented Optimizations (December 23, 2025 - COMPLETE)
 
-1.  **Warm Start Connection (Major):** OpenAI WebSocket is now established during node activation, removing ~1.5s from the gesture-to-start path.
+1.  **Warm Start Connection (Major):** OpenAI WebSocket is now established during node activation (`on_activate`), removing ~1.5s from the gesture-to-start path. Audio streaming starts only on service call.
 2.  **Faster Sampling (100ms saved):** Reduced `gesture_frame_skip` from 5 to 2, cutting sampling lag from 166ms to 66ms.
 3.  **Dual-Beep Feedback (UX):** Two-stage acknowledgment system provides immediate gesture confirmation:
-    *   `Voicy_R2-D2 - 12.mp3`: Plays immediately when gesture detected (~200ms)
-    *   `Voicy_R2-D2 - 16.mp3`: Plays when system fully ready (~400ms later)
+    *   `Voicy_R2-D2 - 12.mp3`: Plays immediately when gesture detected (~200ms) - in `gesture_intent_node.py`
+    *   `Voicy_R2-D2 - 16.mp3`: Plays when system fully ready (~400ms later) - in `gesture_intent_node.py`
 
 ### Expected User Experience
 *   **Gesture Detection:** ~150ms (user sees their hand, makes gesture)
 *   **Immediate Beep:** ~350ms total (you hear "I saw it!")
 *   **System Ready:** ~750ms total (you hear "Ready to talk!")
 *   **First Response:** ~1.2s from gesture (much faster than previous ~3-4s)
+
+### Implementation Status: ✅ PRODUCTION READY
+
+**All optimizations implemented and deployed:**
+- ✅ Warm-start connection in `r2d2_speech_ros/speech_node.py`
+- ✅ Dual-beep feedback in `r2d2_gesture/gesture_intent_node.py`
+- ✅ `gesture_frame_skip=2` in `r2d2_camera_perception.launch.py`
+- ✅ All packages rebuilt and installed (December 23, 2025)
+- ✅ Ready for production after reboot
+
+**To activate:**
+```bash
+sudo reboot
+```
+
+After reboot, the system will automatically start with all optimizations active.
 

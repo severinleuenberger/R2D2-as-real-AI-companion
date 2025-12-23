@@ -31,10 +31,10 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
              ├─ Brightness computation → /r2d2/perception/brightness (13 Hz)
              ├─ Haar Cascade face detection → /r2d2/perception/face_count (13 Hz, hysteresis)
              ├─ LBPH face recognition → /r2d2/perception/person_id (6.5 Hz, NO hysteresis)
-             └─ MediaPipe+SVM gesture recognition → /r2d2/perception/gesture_event (gated by RED)
+             └─ MediaPipe+SVM gesture recognition → /r2d2/perception/gesture_event (15 Hz, gated by RED)
              ↓
              r2d2_audio package (audio_notification_node):
-             ├─ Rolling Window Filter: 3 matches in 1.0s → RED status
+             ├─ Rolling Window Filter: 4 matches in 1.5s → RED status
              ├─ State Machine: RED/GREEN/BLUE with 15s RED timer
              ├─ Audio feedback: "Hello!" (recognition), "Lost you!" (loss)
              └─ Status publishing: /r2d2/audio/person_status (10 Hz JSON)
@@ -57,9 +57,9 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 **System Integration State Machines:**
 
 **🔴 RED Status (Recognized):**
-- Entry: 3 recognition matches within 1.0s rolling window
+- Entry: 4 recognition matches within 1.5s rolling window
 - Behavior: LED ON, "Hello!" beep (2%), 15s timer (resets on each match)
-- Gestures: ENABLED (index finger up, fist)
+- Gestures: ENABLED (index finger up, fist) - 15 Hz sampling
 - Exit: 15s timer expires without matches → GREEN (face) or BLUE (no face)
 
 **🟢 GREEN Status (Unknown Person):**
