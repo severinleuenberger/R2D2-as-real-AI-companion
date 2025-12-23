@@ -25,7 +25,7 @@ from r2d2_speech.realtime import RealtimeClient, EventRouter, TranscriptHandler
 from r2d2_speech.utils import AudioStreamManager
 
 # Import ROS2 bridge
-from r2d2_speech_ros.ros2_bridge import ROS2TranscriptHandler, ROS2StatusPublisher, ROS2VADPublisher, ros2_params_to_config
+from .ros2_bridge import ROS2TranscriptHandler, ROS2StatusPublisher, ros2_params_to_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,8 +50,8 @@ class SpeechNode(LifecycleNode):
         self.declare_parameter('mic_sample_rate', 24000)
         self.declare_parameter('sink_device', 'default')
         self.declare_parameter('db_path', str(Path.home() / 'dev' / 'r2d2' / 'r2d2_speech' / 'data' / 'conversations.db'))
-        self.declare_parameter('auto_start', False)  # Wait for gesture trigger
-        self.declare_parameter('instructions', 'You are the R2D2 robot from the Star Wars Movie. Speak with a slightly synthetic, system-like delivery. Use short, precise sentences. Fast-paced, efficient cadence. Recognize emotions internally, but keep vocal emotional inflection minimal. Clear, clipped articulation. Avoid unnecessary pauses. Sound efficient and machine-like.')
+        self.declare_parameter('auto_start', True)
+        self.declare_parameter('instructions', 'You are a helpful assistant.')
         
         # State
         self.config: Optional[Dict[str, Any]] = None
@@ -62,7 +62,10 @@ class SpeechNode(LifecycleNode):
         self.transcript_handler: Optional[TranscriptHandler] = None
         self.ros2_transcript_handler: Optional[ROS2TranscriptHandler] = None
         self.status_publisher: Optional[ROS2StatusPublisher] = None
-        self.vad_publisher: Optional[ROS2VADPublisher] = None
+        
+        # Persistent connection state
+        self.connection_ready: bool = False  # WebSocket connected and session configured
+        self.streaming_active: bool = False  # Audio streaming in progress
         
         # Asyncio integration
         self.asyncio_loop: Optional[asyncio.AbstractEventLoop] = None
@@ -75,10 +78,6 @@ class SpeechNode(LifecycleNode):
         self.prompt_sub = None
         self.start_session_srv = None
         self.stop_session_srv = None
-        
-        # Status tracking and periodic publishing
-        self.current_status = "inactive"  # Track current status for periodic publishing
-        self.status_timer = None  # Timer for periodic status updates
         
         self.get_logger().info("Speech Node initialized")
     
@@ -108,7 +107,6 @@ class SpeechNode(LifecycleNode):
             
             # Create ROS2 interfaces
             self.status_publisher = ROS2StatusPublisher(self)
-            self.vad_publisher = ROS2VADPublisher(self)
             
             self.command_sub = self.create_subscription(
                 String, '/r2d2/speech/commands', self._command_callback, 10)
@@ -128,27 +126,24 @@ class SpeechNode(LifecycleNode):
             return TransitionCallbackReturn.FAILURE
     
     def on_activate(self, state: State) -> TransitionCallbackReturn:
-        """Activate: start speech system"""
+        """Activate: establish persistent connection and prepare audio"""
         self.get_logger().info("Activating...")
         
         try:
             self._start_asyncio_loop()
             
+            # Establish persistent connection (warm start)
             auto_start = self.get_parameter('auto_start').value
             if auto_start:
-                success = self._run_in_asyncio_loop(self._start_speech_system())
+                success = self._run_in_asyncio_loop(self._establish_connection())
                 if not success:
-                    self.get_logger().error("Failed to start speech system")
+                    self.get_logger().error("Failed to establish connection")
                     return TransitionCallbackReturn.FAILURE
-                self.get_logger().info("Speech system started")
+                self.get_logger().info("✓ Persistent connection established (warm start)")
             else:
                 self.get_logger().info("Auto-start disabled")
             
-            self._publish_and_update_status("active")
-            
-            # Start periodic status publishing (every 5 seconds)
-            self.status_timer = self.create_timer(5.0, self._periodic_status_callback)
-            
+            self.status_publisher.publish_status("active")
             self.get_logger().info("Activation complete")
             return TransitionCallbackReturn.SUCCESS
             
@@ -157,21 +152,18 @@ class SpeechNode(LifecycleNode):
             return TransitionCallbackReturn.FAILURE
     
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:
-        """Deactivate: stop streaming"""
+        """Deactivate: stop streaming and disconnect"""
         self.get_logger().info("Deactivating...")
         
         try:
-            # Stop periodic status publishing
-            if self.status_timer:
-                self.status_timer.cancel()
-                self.status_timer = None
-            
-            if self.client and self.client.connected:
-                self._run_in_asyncio_loop(self._stop_speech_system())
+            if self.streaming_active:
+                self._run_in_asyncio_loop(self._stop_streaming())
+            if self.connection_ready:
+                self._run_in_asyncio_loop(self._disconnect_client())
             self._stop_asyncio_loop()
             
             if self.status_publisher:
-                self._publish_and_update_status("inactive")
+                self.status_publisher.publish_status("inactive")
             
             self.get_logger().info("Deactivation complete")
             return TransitionCallbackReturn.SUCCESS
@@ -210,27 +202,18 @@ class SpeechNode(LifecycleNode):
         self.get_logger().warn("Shutdown requested")
         
         try:
-            if self.client and self.client.connected:
-                self._run_in_asyncio_loop(self._stop_speech_system())
+            if self.streaming_active:
+                self._run_in_asyncio_loop(self._stop_streaming())
+            if self.connection_ready:
+                self._run_in_asyncio_loop(self._disconnect_client())
             self._stop_asyncio_loop()
             return TransitionCallbackReturn.SUCCESS
         except Exception as e:
             self.get_logger().error(f"Shutdown failed: {e}")
             return TransitionCallbackReturn.FAILURE
     
-    def _publish_and_update_status(self, status: str, session_id: Optional[str] = None):
-        """Update current status and publish it"""
-        self.current_status = status
-        if self.status_publisher:
-            self.status_publisher.publish_status(status, session_id)
-    
-    def _periodic_status_callback(self):
-        """Periodically publish current status for late-joining subscribers"""
-        if self.status_publisher:
-            self.status_publisher.publish_status(self.current_status, self.session_id)
-    
-    async def _start_speech_system(self) -> bool:
-        """Start the speech system"""
+    async def _establish_connection(self) -> bool:
+        """Establish persistent WebSocket connection (warm start)"""
         try:
             from datetime import datetime
             
@@ -246,42 +229,59 @@ class SpeechNode(LifecycleNode):
                 voice=self.config['realtime_voice'])
             
             await self.client.connect()
-            self.get_logger().info("Connected to API")
+            self.get_logger().info("✓ Connected to OpenAI API")
             
             instructions = self.get_parameter('instructions').value
             await self.client.create_session(instructions=instructions, temperature=0.8)
-            self.get_logger().info("Session created")
+            self.get_logger().info("✓ Session configured")
             
+            # Initialize audio hardware
             self.audio_manager = AudioStreamManager(self.config, self.client)
-            self.get_logger().info(f"Audio: {self.audio_manager.device_info['name']}")
+            self.get_logger().info(f"✓ Audio: {self.audio_manager.device_info['name']}")
             
             self.audio_manager.start_playback()
-            self.get_logger().info("Playback started")
+            self.get_logger().info("✓ Playback ready")
             
+            # Initialize transcript handlers
             self.transcript_handler = TranscriptHandler(self.config['db_path'], self.session_id)
             self.ros2_transcript_handler = ROS2TranscriptHandler(self.transcript_handler, self)
             
             self.event_router = EventRouter(
                 self.client, self.ros2_transcript_handler,
-                audio_playback=self.audio_manager.playback,
-                vad_publisher=self.vad_publisher)
+                audio_playback=self.audio_manager.playback)
+            
+            self.connection_ready = True
+            self.get_logger().info("✓ Persistent connection established")
+            return True
+            
+        except Exception as e:
+            self.get_logger().error(f"Connection failed: {e}")
+            return False
+    
+    async def _start_streaming(self) -> bool:
+        """Start audio streaming on existing connection"""
+        try:
+            if not self.connection_ready:
+                self.get_logger().error("Cannot start streaming: connection not ready")
+                return False
             
             self.event_task = asyncio.create_task(self.event_router.start_listening())
             await self.audio_manager.start()
             self.speech_task = asyncio.create_task(self._stream_audio_loop())
             
-            self.get_logger().info("✓ Speech system running")
-            self._publish_and_update_status("connected", self.session_id)
+            self.streaming_active = True
+            self.get_logger().info("✓ Streaming started")
+            self.status_publisher.publish_status("connected", self.session_id)
             return True
             
         except Exception as e:
-            self.get_logger().error(f"Start failed: {e}")
+            self.get_logger().error(f"Streaming start failed: {e}")
             return False
     
-    async def _stop_speech_system(self) -> None:
-        """Stop the speech system"""
+    async def _stop_streaming(self) -> None:
+        """Stop audio streaming (keep connection alive)"""
         try:
-            self.get_logger().info("Stopping...")
+            self.get_logger().info("Stopping streaming...")
             
             if self.speech_task:
                 self.speech_task.cancel()
@@ -298,20 +298,42 @@ class SpeechNode(LifecycleNode):
                 except asyncio.CancelledError:
                     pass
             
-            if self.audio_manager:
-                if self.audio_manager.is_running:
-                    await self.audio_manager.stop()
-                if self.audio_manager.playback:
-                    self.audio_manager.stop_playback()
+            if self.audio_manager and self.audio_manager.is_running:
+                await self.audio_manager.stop()
+            
+            self.streaming_active = False
+            self.status_publisher.publish_status("disconnected")
+            self.get_logger().info("✓ Streaming stopped")
+            
+        except Exception as e:
+            self.get_logger().error(f"Stop streaming error: {e}")
+    
+    async def _disconnect_client(self) -> None:
+        """Disconnect WebSocket and cleanup"""
+        try:
+            if self.audio_manager and self.audio_manager.playback:
+                self.audio_manager.stop_playback()
             
             if self.client and self.client.connected:
                 await self.client.disconnect()
             
-            self._publish_and_update_status("disconnected")
-            self.get_logger().info("Stopped")
+            self.connection_ready = False
+            self.get_logger().info("✓ Disconnected")
             
         except Exception as e:
-            self.get_logger().error(f"Stop error: {e}")
+            self.get_logger().error(f"Disconnect error: {e}")
+    
+    async def _start_speech_system(self) -> bool:
+        """Legacy method: establish connection and start streaming"""
+        success = await self._establish_connection()
+        if not success:
+            return False
+        return await self._start_streaming()
+    
+    async def _stop_speech_system(self) -> None:
+        """Legacy method: stop streaming and disconnect"""
+        await self._stop_streaming()
+        await self._disconnect_client()
     
     async def _stream_audio_loop(self) -> None:
         """Continuous audio streaming"""
@@ -383,47 +405,38 @@ class SpeechNode(LifecycleNode):
             self.get_logger().warn("Not connected")
     
     def _start_session_callback(self, request, response):
-        """Service: start session"""
+        """Service: start session (start streaming on existing connection)"""
         self.get_logger().info("Service: start_session")
         try:
-            # Check if audio system is actually running, not just if client is connected
-            audio_running = (self.audio_manager and 
-                           hasattr(self.audio_manager, 'is_running') and 
-                           self.audio_manager.is_running)
-            
-            if self.client and self.client.connected and audio_running:
-                # Session already fully running - publish status so subscribers know it's active
-                if self.status_publisher:
-                    self._publish_and_update_status("connected", self.session_id)
+            if self.streaming_active:
                 response.success = True
-                response.message = "Already running"
-            else:
-                # Either not connected or audio not running - start the system
-                self.get_logger().info("Starting speech system (client connected: {}, audio running: {})".format(
-                    self.client.connected if self.client else False, audio_running))
+                response.message = "Already streaming"
+            elif not self.connection_ready:
+                # Fallback: establish connection if not ready
                 success = self._run_in_asyncio_loop(self._start_speech_system())
                 response.success = success
-                response.message = "Started" if success else "Failed"
+                response.message = "Started (cold start)" if success else "Failed"
+            else:
+                # Warm start: just begin streaming
+                success = self._run_in_asyncio_loop(self._start_streaming())
+                response.success = success
+                response.message = "Started (warm start)" if success else "Failed"
         except Exception as e:
-            self.get_logger().error(f"Start session error: {e}")
             response.success = False
             response.message = str(e)
         return response
     
     def _stop_session_callback(self, request, response):
-        """Service: stop session"""
+        """Service: stop session (stop streaming, keep connection)"""
         self.get_logger().info("Service: stop_session")
         try:
-            if self.client and self.client.connected:
-                self._run_in_asyncio_loop(self._stop_speech_system())
+            if self.streaming_active:
+                self._run_in_asyncio_loop(self._stop_streaming())
                 response.success = True
-                response.message = "Stopped"
+                response.message = "Stopped (connection maintained)"
             else:
-                # No active session - publish inactive status so subscribers know
-                if self.status_publisher:
-                    self._publish_and_update_status("inactive")
                 response.success = True
-                response.message = "No active session"
+                response.message = "No active streaming"
         except Exception as e:
             response.success = False
             response.message = str(e)
@@ -448,4 +461,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
 
