@@ -34,6 +34,7 @@ sequenceDiagram
     Note over Cam, OpenAI: PHASE 4: Hardware & Feedback
     Note right of Speech: Audio: Init PyAudio Mic/Speaker (~100-300ms)
     Speech->>Gest: [2ms] /r2d2/speech/session_status ("connected")
+    Note right of Gest: Trigger: Voicy_R2-D2 - 16.mp3
     Note right of Gest: ffplay: Start Beep (~200ms process lag)
     Note over Cam, OpenAI: SYSTEM READY FOR SPEECH
 ```
@@ -50,9 +51,9 @@ sequenceDiagram
 | **Network** | TCP/TLS Handshake | **OpenAI WebSocket Connect** | **1200ms** | **3000ms** |
 | **API Init** | `session.update` | Remote JSON config acknowledgment | 50ms | 200ms |
 | **Hardware** | HyperX / PAM8403 | PyAudio stream initialization | 150ms | 400ms |
-| **Feedback** | `ffplay` process | Audio file load & playback | 200ms | 400ms |
+| **Feedback Beep** | `session_status` | **Voicy_R2-D2 - 16.mp3** (ffplay) | **200ms** | **400ms** |
 
-### Total Path Latency
+### Total Path Latency (to first response)
 *   **Minimum (Perfect conditions):** ~1.7 seconds
 *   **Maximum (Typical load/Network jitter):** ~4.5 seconds
 
@@ -60,5 +61,5 @@ sequenceDiagram
 
 1.  **Reactive Connection:** The current code connects to OpenAI *after* the gesture. This accounts for ~70% of the total wait time.
 2.  **Sampling Gap:** The `gesture_frame_skip: 5` creates a 166ms window where gestures are invisible.
-3.  **Feedback Lag:** The "Start Beep" happens after the connection is confirmed, making the system feel "dead" while it is actually connecting.
+3.  **Feedback Lag (Late Beep):** The "Start Beep" (`Voicy_R2-D2 - 16.mp3`) only plays *after* the network connection is confirmed. This means you wait ~2 seconds in silence before hearing the "OK" beep.
 
