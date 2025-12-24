@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 R2D2 Minimal System Monitor
-Shows: Time | Status | Person | Gesture | Faces
+Shows: Time | Status | Person | Gesture | Faces | Speech | Phase
 """
 
 import rclpy
@@ -9,7 +9,6 @@ from rclpy.node import Node
 from std_msgs.msg import String, Int32
 import json
 from datetime import datetime
-import sys
 
 class MinimalMonitor(Node):
     def __init__(self):
@@ -17,9 +16,10 @@ class MinimalMonitor(Node):
         
         # State
         self.status = "BLUE"
-        self.person = "none"
+        self.person = "no_person"
         self.gesture = "--"
         self.faces = 0
+        self.speech_active = False
         self.last_gesture_time = None
         
         # Subscriptions
@@ -29,15 +29,17 @@ class MinimalMonitor(Node):
                                 self.gesture_callback, 10)
         self.create_subscription(Int32, '/r2d2/perception/face_count', 
                                 self.face_callback, 10)
+        self.create_subscription(String, '/r2d2/speech/session_status', 
+                                self.speech_callback, 10)
         
-        # Timer to refresh display (even if no updates)
+        # Timer to refresh display
         self.create_timer(0.5, self.display)
         
-        print("\n" + "="*80)
+        print("\n" + "="*90)
         print("R2D2 MINIMAL MONITOR")
-        print("="*80)
-        print("Format: TIME | STATUS | Person | Gesture | Faces")
-        print("="*80 + "\n")
+        print("="*90)
+        print("TIME     | STATUS  | Person     | Gest | Faces | Speech | Phase")
+        print("="*90 + "\n")
     
     def status_callback(self, msg):
         try:
@@ -49,11 +51,37 @@ class MinimalMonitor(Node):
             pass
     
     def gesture_callback(self, msg):
-        self.gesture = msg.data
+        # Convert gesture names to symbols
+        gesture_map = {
+            'index_finger_up': '☝️',
+            'fist': '✊'
+        }
+        self.gesture = gesture_map.get(msg.data, msg.data)
         self.last_gesture_time = datetime.now()
     
     def face_callback(self, msg):
         self.faces = msg.data
+    
+    def speech_callback(self, msg):
+        try:
+            data = json.loads(msg.data)
+            # "connected" = active conversation with OpenAI
+            self.speech_active = (data.get('status', '') == 'connected')
+        except:
+            pass
+    
+    def get_phase(self):
+        """Determine current system phase based on state."""
+        if self.status == "BLUE":
+            return "Phase 1: Waiting"
+        elif self.status == "GREEN":
+            return "Phase 3: Unknown"
+        elif self.status == "RED":
+            if self.speech_active:
+                return "Phase 6: Talking"
+            else:
+                return "Phase 4: Ready"
+        return "Phase ?: --"
     
     def display(self):
         # Clear gesture if it's more than 2 seconds old
@@ -71,12 +99,13 @@ class MinimalMonitor(Node):
         
         # Format output
         timestamp = datetime.now().strftime("%H:%M:%S")
-        person_str = f"Person: {self.person:10s}"
-        gesture_str = f"Gesture: {self.gesture:20s}"
-        faces_str = f"Faces: {self.faces}"
+        person_str = f"{self.person:10s}"
+        gesture_str = f"{self.gesture:4s}"
+        speech_str = "🎙️ ON " if self.speech_active else "🔇 OFF"
+        phase_str = self.get_phase()
         
         # Print with carriage return (overwrites line)
-        output = f"{timestamp} | {status_display} | {person_str} | {gesture_str} | {faces_str}"
+        output = f"{timestamp} | {status_display} | {person_str} | {gesture_str} | {self.faces}     | {speech_str} | {phase_str}"
         print(f"\r{output}", end='', flush=True)
 
 def main():
@@ -93,4 +122,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
