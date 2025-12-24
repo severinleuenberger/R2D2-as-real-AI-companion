@@ -11,7 +11,7 @@ Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/
 Environment="PYTHONUNBUFFERED=1"
 
 # Source ROS 2 setup and launch speech node
-ExecStart=/bin/bash /home/severin/dev/r2d2/start_speech_node.sh
+ExecStart=/bin/bash /home/severin/dev/r2d2/scripts/start/start_speech_node.sh
 
 # Restart policy
 Restart=on-failure

@@ -10,7 +10,7 @@ Group=severin
 WorkingDirectory=/home/severin/dev/r2d2
 
 # Use the startup script (direct node launch)
-ExecStart=/home/severin/dev/r2d2/start_heartbeat.sh
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_heartbeat.sh
 
 # Auto-restart on failure
 Restart=always
