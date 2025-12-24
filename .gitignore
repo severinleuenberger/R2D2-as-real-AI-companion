@@ -22,6 +22,8 @@ data/face_recognition/*/
 !data/face_recognition/models/
 
 # Temporary files
+_temp/  # Lowercase temp folder (use uppercase _TEMP/ for tracked scratch work)
+TEMP_*.md  # Root-level temporary markdown files
 *.swp
 *.swo
 *.bak
