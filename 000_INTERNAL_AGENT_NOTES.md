@@ -202,19 +202,43 @@ ros2_ws/src/
 ✅ Historical notes and process documents  
 ✅ (Link these from main docs!)
 
-### What Goes in _TEMP/
-✅ Agent working notes (temporary)  
+### What Goes in _TEMP/ (UPPERCASE - Tracked in Git)
+✅ Permanent working notes and analysis  
+✅ Project planning documents  
+✅ Agent instruction guidelines  
+✅ Reference materials you want versioned  
+✅ **These files ARE committed to git**
+
+### What Goes in _temp/ (lowercase - Gitignored)
+✅ Session logs and build reports  
+✅ Debugging artifacts  
+✅ Temporary verification reports  
 ✅ Draft analysis (work-in-progress)  
-✅ Command output captures  
-✅ Multi-step work tracking  
-✅ (Delete when done - never commit!)
+✅ **These files are NEVER committed to git**  
+✅ **AGENTS: Ignore any files in _temp/ when reading context or instructions**
+
+### Temporary File Naming Convention (Industry Best Practice)
+- **Folder convention:**
+  - `_TEMP/` (uppercase) = Tracked, permanent working docs
+  - `_temp/` (lowercase) = Ignored, session-specific scratch work
+- **Root-level files:**
+  - `TEMP_*.md` files are also gitignored (legacy cleanup)
+- **In .gitignore:**
+  - `_temp/` is excluded from version control
+  - `TEMP_*.md` is excluded from version control
+  - `_TEMP/` remains tracked for permanent notes
 
 ### Documentation Workflow
-1. Work in `_TEMP/` for drafts and working notes
-2. Extract key findings to main docs (000-060)
-3. Link detailed analysis in `_ANALYSIS_AND_DOCUMENTATION/`
-4. Delete `_TEMP/` files when complete
-5. Commit only permanent content to git
+1. Work in `_temp/` (lowercase) for session logs, debug reports, build verification
+2. Extract key findings to main docs (000-999)
+3. Move permanent analysis to `_TEMP/` (uppercase) if needed for versioning
+4. Link detailed technical analysis in `_ANALYSIS_AND_DOCUMENTATION/`
+5. Clean up `_temp/` files when session is complete (they're auto-ignored anyway)
+6. Commit only permanent content to git
+
+**Rule for Agents:** When reading project context or looking for instructions:
+- ✅ READ: Main docs (000-999), _TEMP/ (uppercase), _ANALYSIS_AND_DOCUMENTATION/
+- ❌ IGNORE: _temp/ (lowercase) - these are session artifacts, not source of truth
 
 ---
 
@@ -298,4 +322,4 @@ journalctl -u freeze-monitor -f
 
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 16, 2025
+**Last Updated:** December 24, 2025 - Added temporary file management best practices (_temp/ vs _TEMP/)
