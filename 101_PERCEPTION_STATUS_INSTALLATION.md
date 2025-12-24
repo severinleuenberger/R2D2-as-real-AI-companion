@@ -478,7 +478,7 @@ Wants=r2d2-audio-notification.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/home/severin/dev/r2d2/start_camera_perception.sh
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_camera_perception.sh
 ExecStop=/usr/bin/pkill -f "ros2 launch.*r2d2_camera_perception"
 User=severin
 WorkingDirectory=/home/severin/dev/r2d2
@@ -502,7 +502,7 @@ After=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/home/severin/dev/r2d2/start_audio_service.sh
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_audio_service.sh
 ExecStop=/usr/bin/pkill -f "ros2 launch.*audio_notification"
 User=severin
 WorkingDirectory=/home/severin/dev/r2d2
@@ -526,7 +526,7 @@ Requires=r2d2-camera-perception.service
 
 [Service]
 Type=exec
-ExecStart=/home/severin/dev/r2d2/start_gesture_intent.sh
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_gesture_intent.sh
 User=severin
 WorkingDirectory=/home/severin/dev/r2d2
 Restart=on-failure

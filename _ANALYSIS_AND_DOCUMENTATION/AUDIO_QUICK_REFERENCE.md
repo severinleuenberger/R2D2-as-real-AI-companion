@@ -78,7 +78,7 @@ sudo nano /etc/systemd/system/r2d2-audio-notification.service
 
 Find `ExecStart` line and change to:
 ```ini
-ExecStart=/home/severin/dev/r2d2/start_audio_service.sh audio_volume:=0.3
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_audio_service.sh audio_volume:=0.3
 ```
 
 Then:
