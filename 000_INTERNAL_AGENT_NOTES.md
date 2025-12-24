@@ -625,6 +625,121 @@ journalctl -u freeze-monitor -f
 
 ---
 
+## File Location Rules & Documentation Hierarchy
+
+### System Scripts in /home/severin/ (DO NOT MOVE)
+
+These scripts MUST remain in `/home/severin/` as they are referenced by systemd services and autostart:
+
+**Freeze Monitor System:**
+- `/home/severin/freeze_monitor.py` - Main monitor script (freeze-monitor.service)
+- `/home/severin/install_freeze_monitor.sh` - Installer
+- `/home/severin/apply_3day_retention.sh` - Log retention config
+- `/home/severin/apply_14day_retention.sh` - Log retention config
+
+**Display Configuration:**
+- `/home/severin/set-lg-resolution.sh` - Autostart display config (referenced in ~/.config/autostart/)
+- `/home/severin/set-3440x1440.sh` - Resolution helper
+
+**GPU Utilities:**
+- `/home/severin/r2d2-gpu-run.sh` - GPU container helper (documented in 007)
+- `/home/severin/test_gpu_speech.sh` - GPU test script
+
+⚠️ **DO NOT MOVE THESE FILES** - They are active system components with hardcoded references.
+
+### Documentation Hierarchy (STRICTLY ENFORCED)
+
+#### Project Root (dev/r2d2/)
+```
+dev/r2d2/
+├── README.md (EXCEPTION - GitHub standard)
+├── 000-999_*.md (Authoritative main documentation)
+└── docs/ (Supplementary documentation organized by category)
+```
+
+#### Numbered Documentation (000-999)
+- **Purpose:** Authoritative, high-level documentation
+- **Naming:** `NNN_DESCRIPTIVE_NAME.md` (e.g., `005_SYSTEMD_SERVICES_REFERENCE.md`)
+- **Location:** Project root only
+- **Rules:**
+  - Use lowercase with underscores
+  - Keep focused and well-organized
+  - Reference supplementary docs in `docs/` when needed
+
+#### Supplementary Documentation (docs/)
+```
+docs/
+├── hardware/       # Wiring diagrams, hardware guides
+│   └── led_wiring.md
+├── troubleshooting/ # Detailed troubleshooting guides
+│   ├── tailscale_vpn.md (consolidated from 5 files)
+│   └── freeze_monitor.md
+├── setup/          # Detailed setup and installation guides
+│   └── gpu_acceleration.md (consolidated from 4 files)
+├── reference/      # Best practices, reference materials
+│   └── jetson_best_practices.md
+├── photos/         # Build photos and images
+└── tools/          # Tool-specific documentation
+```
+
+#### Scripts Organization
+```
+scripts/
+├── start/          # Service startup scripts (referenced by systemd)
+├── install/        # Installation scripts
+│   ├── freeze_monitor/
+│   └── display/
+├── util/           # Helper utilities
+└── deprecated/     # Archived/obsolete scripts
+    └── troubleshooting/
+```
+
+#### Other Folders
+- **`_ARCHIVE/`** - Historical documentation, archived files (git-tracked)
+- **`_TEMP/`** - Work-in-progress, scratch files (gitignored)
+- **`_ANALYSIS_AND_DOCUMENTATION/`** - Quick reference docs (max 15 files)
+- **`tools/`** - Active monitoring and utility scripts
+- **`ros2_ws/`** - ROS 2 workspace (standard structure)
+- **`data/`** - Training data, models
+
+### Rules for AI Agents
+
+#### BEFORE Creating Any .md File:
+1. Is it authoritative documentation? → `NNN_NAME.md` in project root
+2. Is it hardware/wiring? → `docs/hardware/`
+3. Is it troubleshooting? → `docs/troubleshooting/`
+4. Is it setup/installation? → `docs/setup/`
+5. Is it reference/best practices? → `docs/reference/`
+6. Is it implementation history? → `_ARCHIVE/`
+7. Is it work-in-progress? → `_TEMP/` (gitignored)
+
+#### BEFORE Creating Any Script:
+1. Does it start a service? → `scripts/start/`
+2. Is it for installation/setup? → `scripts/install/{category}/`
+3. Is it a utility/helper? → `scripts/util/`
+4. Is it obsolete/debug only? → `scripts/deprecated/`
+
+#### Consolidation Rules:
+- ✅ Consolidate redundant docs (e.g., 4 GPU docs → 1)
+- ✅ Use consistent naming (lowercase_underscore.md)
+- ✅ Organize by function in subdirectories
+- ❌ Never create loose files in `/home/severin/`
+- ❌ Never create multiple docs for same topic
+- ❌ Never skip proper folder organization
+
+### Verification Checklist
+
+Before committing documentation changes:
+- [ ] No project files in `/home/severin/` (except system scripts above)
+- [ ] All numbered docs follow `NNN_NAME.md` pattern
+- [ ] Supplementary docs organized in `docs/{category}/`
+- [ ] Scripts organized in `scripts/{function}/`
+- [ ] No redundant documentation (consolidated if needed)
+- [ ] Cross-references updated and valid
+- [ ] README.md reflects current state
+
+---
+
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 24, 2025 - Simplified to single temp folder (_TEMP/) for untracked scratch work
+**Last Updated:** December 24, 2025 - Added file location rules and documentation hierarchy
