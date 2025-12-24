@@ -44,6 +44,164 @@ git push origin main
 
 ---
 
+## 🚀 MANDATORY FEATURE COMPLETION CHECKLIST
+
+⚠️ **CRITICAL: DO NOT SKIP PHASE 2 (PRODUCTION INSTALLATION)**
+
+A feature is NOT complete until it survives a reboot and works automatically.
+
+**Common Mistake:** Testing with `ros2 launch` manually works, but service was never installed/enabled, so after reboot the system is broken.
+
+**Rule:** If you create or modify a systemd service, you MUST:
+1. Copy it to `/etc/systemd/system/`
+2. Enable it with `systemctl enable`
+3. Test that it auto-starts after `sudo reboot`
+
+### When to Use This Checklist
+
+Use this checklist for:
+- ✅ New ROS 2 nodes or packages
+- ✅ New or modified systemd services
+- ✅ Changes to auto-start behavior
+- ✅ New hardware integrations
+
+Skip this checklist for:
+- ❌ Documentation-only changes
+- ❌ Configuration parameter tweaks (no service changes)
+- ❌ Bug fixes that don't change service structure
+
+### Phase 1: Development & Testing
+
+- [ ] Feature implemented and tested manually
+- [ ] All ROS 2 packages built successfully (`colcon build`)
+- [ ] No linter errors or Python syntax errors
+- [ ] Manual testing confirms functionality (`ros2 launch` or `ros2 run`)
+- [ ] Code changes committed to git (but not pushed yet)
+
+### Phase 2: Production Installation (SYSTEMD SERVICES)
+
+**If your feature involves a systemd service, ALL of these are MANDATORY:**
+
+- [ ] Service file created/updated in project root (`~/dev/r2d2/*.service`)
+- [ ] **Service file copied to `/etc/systemd/system/`**
+  ```bash
+  sudo cp ~/dev/r2d2/r2d2-your-service.service /etc/systemd/system/
+  ```
+- [ ] **`systemctl daemon-reload` executed**
+  ```bash
+  sudo systemctl daemon-reload
+  ```
+- [ ] **`systemctl enable <service>` executed**
+  ```bash
+  sudo systemctl enable r2d2-your-service.service
+  ```
+- [ ] **`systemctl start <service>` executed**
+  ```bash
+  sudo systemctl start r2d2-your-service.service
+  ```
+- [ ] **Verify service is enabled:**
+  ```bash
+  systemctl is-enabled r2d2-your-service.service  # Must return: enabled
+  ```
+- [ ] **Verify service is running:**
+  ```bash
+  systemctl status r2d2-your-service.service  # Must show: active (running)
+  ```
+
+### Phase 3: Verification
+
+- [ ] Service survives restart:
+  ```bash
+  sudo systemctl restart r2d2-your-service.service
+  systemctl status r2d2-your-service.service  # Still active (running)?
+  ```
+- [ ] **FOR CRITICAL SERVICES: Test with reboot**
+  ```bash
+  sudo reboot
+  ```
+- [ ] After reboot, verify service auto-started:
+  ```bash
+  systemctl status r2d2-your-service.service  # Should be active (running)
+  journalctl -u r2d2-your-service.service -n 50  # Check startup logs
+  ```
+- [ ] Functional testing confirms feature works after reboot
+- [ ] Monitor system for 2-5 minutes to ensure stability
+
+### Phase 4: Documentation
+
+- [ ] Installation steps documented in relevant `NNN_*.md` file
+- [ ] Service management commands added to documentation
+- [ ] Auto-start behavior documented (which services auto-start, which are manual)
+- [ ] Troubleshooting section updated if needed
+- [ ] Update `000_INTERNAL_AGENT_NOTES.md` if new patterns emerged
+
+### Phase 5: Git & Deployment
+
+- [ ] All changes committed with descriptive message
+  ```bash
+  git add .
+  git commit -m "feat: descriptive message about feature"
+  ```
+- [ ] Branch verified (must be `main` unless explicitly told otherwise)
+  ```bash
+  git branch  # Must show: * main
+  ```
+- [ ] Working tree is clean
+  ```bash
+  git status  # Should show: nothing to commit, working tree clean
+  ```
+- [ ] Pushed to GitHub
+  ```bash
+  git push origin main
+  ```
+- [ ] Verified on GitHub web interface (commit appears in history)
+
+### Checklist Example: Adding a New ROS 2 Service
+
+```bash
+# Phase 1: Development
+cd ~/dev/r2d2/ros2_ws
+colcon build --packages-select r2d2_your_package
+source install/setup.bash
+ros2 launch r2d2_your_package your_launch.py  # Test manually
+
+# Phase 2: Production Installation
+sudo cp ~/dev/r2d2/r2d2-your-service.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable r2d2-your-service.service
+sudo systemctl start r2d2-your-service.service
+systemctl is-enabled r2d2-your-service.service  # Verify: enabled
+systemctl status r2d2-your-service.service      # Verify: active (running)
+
+# Phase 3: Verification
+sudo reboot
+# After reboot:
+systemctl status r2d2-your-service.service      # Verify: auto-started
+# Test functionality works
+
+# Phase 4: Documentation
+# Update relevant documentation files
+
+# Phase 5: Git
+git add .
+git commit -m "feat: add your-service with auto-start"
+git push origin main
+```
+
+### Why This Checklist Exists
+
+**Real incident (Dec 24, 2025):**
+- Services were developed and tested manually ✅
+- All functionality worked perfectly ✅
+- System rebooted 🔄
+- **Everything stopped working** ❌
+- Root cause: Services were never enabled for auto-start
+- Solution: Had to manually install and enable all services
+
+**This checklist prevents that from happening again.**
+
+---
+
 ## 🖥️ Execution Environment (READ THIS FIRST!)
 
 ### WHERE ARE WE?
