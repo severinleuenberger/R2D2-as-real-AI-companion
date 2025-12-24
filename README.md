@@ -4,9 +4,9 @@
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
 
-**Current Status:** Phase 1 Complete + Phase 2 Speech Operational — ~95% complete  
-**Latest:** Gesture-controlled speech-to-speech fully operational (December 18, 2025)  
-**Next:** Fine-tune face detection stability for reliable "Lost you!" beeps  
+**Current Status:** Phase 2 Speech COMPLETE — System fully operational  
+**Latest:** Documentation reorganization complete (December 24, 2025)  
+**Next:** Phase 3 Navigation & Movement planning  
 **Project Timeline:** 4 phases, 280-300 hours total (7 weeks full-time, 3-4 months part-time)
 
 ---
@@ -111,13 +111,16 @@ Comprehensive guides organized by audience and use case. **Start here:**
 
 ### For Phase 1 (Current) Developers
 - **[000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
-- **[002_HOW_TO_INSTRUCT_CLAUDE.md](002_HOW_TO_INSTRUCT_CLAUDE.md)** — Guidelines for working with AI agents on this project
 
 ### Technical Depth (Phase 1 Subsystems)
 | Component | Document | Purpose |
 |-----------|----------|---------|
 | **Foundations** | [000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md) | Critical git rules, environment setup, hardware constants |
 | **Architecture** | [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System design, software stack, ROS 2 topics |
+| **System Services** | [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) | All 10 R2D2 systemd services, dependencies, troubleshooting |
+| **Monitoring** | [006_SYSTEM_STATUS_AND_MONITORING.md](006_SYSTEM_STATUS_AND_MONITORING.md) | Status monitoring, minimal_monitor.py, system health |
+| **GPU Acceleration** | [007_GPU_ACCELERATION_REFERENCE.md](007_GPU_ACCELERATION_REFERENCE.md) | GPU setup, container usage, 20-50x performance improvement |
+| **Jetson Optimization** | [008_JETSON_OPTIMIZATION_GUIDE.md](008_JETSON_OPTIMIZATION_GUIDE.md) | Power management, thermal, memory optimization |
 | **System Setup** | [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) | Jetson flashing, ROS 2 installation, workspace setup |
 | **Camera Integration** | [041_CAMERA_SETUP_DOCUMENTATION.md](041_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
 | **Perception & Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | Perception pipeline, brightness metrics, LBPH training, real-time recognition |
@@ -362,7 +365,7 @@ The iconic R2-D2 is being rebuilt with modern robotics hardware and AI compute.
 | **Compute** | NVIDIA Jetson AGX Orin 64GB | AI brain (12-core ARM, 504-GPU cores, 100W TDP) | ✅ Mounted & Running |
 | **Camera** | Luxonis OAK-D Lite Auto Focus | Vision (1920×1080 @ 30 FPS, depth + IMU) | ✅ Integrated |
 | **Audio Input** | HyperX QuadCast S USB | Voice capture (44.1kHz stereo) | ✅ Working |
-| **Audio Output** | PAM8403 Amplifier + Speaker | Voice synthesis playback | ❌ Hardware Issue |
+| **Audio Output** | PAM8403 Amplifier + Speaker | Voice synthesis playback | ✅ Working |
 | **Drive** | DeAgostini DC Motors (2×) | Leg & dome motors with encoders | ⏳ Not yet integrated |
 | **Motor Control** | Pololu MC33926 (2×) | H-bridge drivers for DC motors | ✅ Assembled |
 | **Power** | 4S LiPo 5000 mAh (14.8V) | Main battery system | ✅ Charged & Ready |
@@ -463,24 +466,43 @@ If things don't work:
 ```
 r2d2/
 ├── README.md                              # This file
-├── 000_INTERNAL_AGENT_NOTES.md             # ARM quirks, DepthAI setup, performance baselines
+├── 000_INTERNAL_AGENT_NOTES.md             # Internal guidelines, git rules, environment
 ├── 001_ARCHITECTURE_OVERVIEW.md            # System design, data flow, integration patterns
-├── 002_HOW_TO_INSTRUCT_CLAUDE.md           # How to ask Claude for R2D2 task help
 ├── 003_JETSON_FLASHING_AND_DISPLAY_SETUP.md # Hardware setup procedures
 ├── 004_BACKUP_AND_RESTORE.md              # Backup/restore procedures
+├── 005_SYSTEMD_SERVICES_REFERENCE.md      # All R2D2 systemd services
+├── 006_SYSTEM_STATUS_AND_MONITORING.md    # Monitoring tools and scripts
+├── 007_GPU_ACCELERATION_REFERENCE.md      # GPU acceleration setup
+├── 008_JETSON_OPTIMIZATION_GUIDE.md       # Jetson optimization best practices
 ├── 010_PROJECT_GOALS_AND_SETUP.md         # 4-phase roadmap, success metrics
 ├── 041_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
 ├── 040_FACE_RECOGNITION_COMPLETE.md       # Perception pipeline + Face recognition system
-├── 050_AUDIO_SETUP_AND_CONFIGURATION.md   # Audio system setup
-├── 060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md # Audio integration
-├── OPERATIONS_CHECKLIST.md                # Daily startup, monitoring, troubleshooting
-├── INTEGRATION_GUIDE.md                   # How to add Phase 2-4 features (template + examples)
-├── COMPUTE_COST_ANALYSIS.md               # Performance profiles
+├── 050-999_*.md                           # Feature-specific documentation
+│
+├── docs/                                  # Supplementary documentation
+│   ├── hardware/                          # Hardware wiring guides
+│   ├── troubleshooting/                   # Troubleshooting guides
+│   ├── setup/                             # Detailed setup guides
+│   ├── reference/                         # Best practices and reference
+│   ├── photos/                            # Build progress photos
+│   └── tools/                             # Tool-specific documentation
+│
+├── scripts/                               # Utility scripts
+│   ├── start/                             # Service startup scripts
+│   ├── install/                           # Installation scripts
+│   ├── util/                              # Helper utilities
+│   └── deprecated/                        # Archived scripts
+│
+├── tools/                                 # Monitoring and utility tools
+│   └── minimal_monitor.py                 # System status monitor
 │
 ├── ros2_ws/                               # ROS 2 Humble workspace
 │   ├── src/
 │   │   ├── r2d2_camera/                  # Camera node
 │   │   ├── r2d2_perception/              # Perception node
+│   │   ├── r2d2_speech/                  # Speech processing
+│   │   ├── r2d2_gesture/                 # Gesture recognition
+│   │   ├── r2d2_audio/                   # Audio notifications
 │   │   ├── r2d2_hello/                   # Heartbeat + beep
 │   │   └── r2d2_bringup/                 # Launch files
 │   ├── build/ install/ log/              # (generated, gitignored)
@@ -489,8 +511,7 @@ r2d2/
 │   └── face_recognition/models/          # Trained LBPH models
 │
 ├── tests/                                 # Component test scripts
-├── docs/photos/                           # Build progress photos
-└── scripts/                               # Utility scripts
+└── _ARCHIVE/                              # Historical documentation
 ```
 
 ---
@@ -528,13 +549,13 @@ See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) → "Hardwa
 
 ## 🎯 What's Next?
 
-1. **This week:** Complete Phase 1 documentation
-2. **Next week:** Begin Phase 2 (speech-to-text) prototype
-3. **Next month:** Full speech + LLM pipeline
-4. **Q2 2026:** Navigation and autonomous movement
+1. **Current:** Documentation reorganization complete
+2. **This week:** Phase 3 Navigation planning
+3. **Next month:** SLAM mapping and autonomous movement
+4. **Q2 2026:** Full navigation system with obstacle avoidance
 5. **Q3 2026+:** Memory, personality, and deployment
 
-See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) for the complete Phase 1 roadmap and Phase 2-4 timeline.
+See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) for the complete Phase 3-4 timeline.
 
 ---
 

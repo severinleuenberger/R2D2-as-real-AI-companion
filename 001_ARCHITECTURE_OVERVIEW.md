@@ -76,6 +76,98 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 
 ---
 
+## System Components Map (December 2025)
+
+### Complete Service & Package Overview
+
+The R2D2 system consists of **10 systemd services**, **8 ROS 2 packages**, and **14 startup scripts** organized by function.
+
+**For complete service documentation, see:** `005_SYSTEMD_SERVICES_REFERENCE.md`
+
+#### Systemd Services (7 enabled, 3 disabled)
+
+```
+Auto-Start Services (Enabled):
+├── r2d2-camera-perception.service     (launches r2d2_bringup package)
+├── r2d2-audio-notification.service    (launches r2d2_audio package)
+├── r2d2-gesture-intent.service        (launches r2d2_gesture package)
+├── r2d2-speech-node.service           (launches r2d2_speech package)
+├── r2d2-heartbeat.service             (system health monitoring)
+├── r2d2-powerbutton.service           (physical button handler)
+└── r2d2-wake-api.service              (minimal API mode)
+
+On-Demand Services (Disabled):
+├── r2d2-rosbridge.service             (WebSocket bridge for web UI)
+├── r2d2-web-dashboard.service         (FastAPI + web interface)
+└── r2d2-camera-stream.service         (MJPEG stream - conflicts with camera-perception!)
+```
+
+#### ROS 2 Packages
+
+```
+ros2_ws/src/
+├── r2d2_camera/          Camera driver (OAK-D Lite via DepthAI SDK)
+├── r2d2_perception/      Face & gesture recognition (image_listener node)
+├── r2d2_audio/           Audio feedback, LED control, status machine
+├── r2d2_gesture/         Gesture intent control (start/stop speech)
+├── r2d2_speech/          OpenAI Realtime API conversation system
+├── r2d2_common/          Shared utilities (PersonConfig, PersonRegistry)
+├── r2d2_bringup/         Launch files (system orchestration)
+└── r2d2_hello/           Legacy hello world example
+```
+
+#### Startup Scripts (Organized by Function)
+
+```
+scripts/start/
+├── start_audio_notification.sh      (r2d2-audio-notification service)
+├── start_speech_node.sh             (r2d2-speech-node service) ✅ Fixed Dec 24
+├── start_gesture_intent.sh          (r2d2-gesture-intent service)
+├── start_heartbeat.sh               (r2d2-heartbeat service)
+├── start_rosbridge.sh               (r2d2-rosbridge service)
+├── start_camera_stream.sh           (r2d2-camera-stream service)
+├── launch_gesture_intent.sh         (alternative launcher)
+├── launch_ros2_speech.sh            (alternative launcher)
+├── start_audio_service.sh           (simplified audio launcher)
+├── start_audio_service_now.sh       (immediate audio test)
+├── START_FULL_SYSTEM.sh             (manual full startup)
+└── START_SPEECH_NODE.sh             (alternative speech launcher)
+
+Other script locations:
+├── web_dashboard/scripts/start_web_dashboard.sh  (web UI)
+└── /usr/local/bin/r2d2_power_button.py          (power button)
+```
+
+#### Service Dependencies & Boot Order
+
+```
+Boot Sequence (Auto-Start Services):
+1. network.target
+2. ├─ r2d2-audio-notification      (independent)
+   ├─ r2d2-speech-node             (independent)
+   ├─ r2d2-heartbeat               (independent)
+   ├─ r2d2-powerbutton             (independent)
+   └─ r2d2-wake-api                (independent)
+3. └─ r2d2-camera-perception       (Wants: audio-notification)
+4.    └─ r2d2-gesture-intent       (Requires: camera-perception)
+
+Total Boot Time: ~5-7 seconds to full operational state
+```
+
+#### Critical Service Rules
+
+**⚠️ Mutual Exclusions:**
+- `r2d2-camera-perception` and `r2d2-camera-stream` are **MUTUALLY EXCLUSIVE**
+- Both require exclusive OAK-D Lite camera access
+- Never enable both for auto-start!
+
+**Service Path Updates (December 2025):**
+- ✅ **r2d2-speech-node:** Fixed Dec 24, 2025 (now points to `scripts/start/start_speech_node.sh`)
+- ⚠️ **4 services still need updates:** audio-notification, heartbeat, rosbridge, camera-stream
+- See `005_SYSTEMD_SERVICES_REFERENCE.md` for complete path audit
+
+---
+
 ## 1. System-Level Architecture
 
 ### 1.1 Hardware Components

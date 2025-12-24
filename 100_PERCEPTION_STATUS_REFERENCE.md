@@ -31,6 +31,8 @@ The R2D2 Perception and Status System provides comprehensive person recognition,
 
 ## Complete System Flow
 
+**Quick Monitor:** Run `python3 ~/dev/r2d2/tools/minimal_monitor.py` for a real-time one-line display of Time, Status, Person, Gesture, Faces, Speech, and Phase.
+
 The following sequence diagram shows the complete end-to-end flow from camera input through recognition, gestures, speech, and back to idle state:
 
 ```mermaid

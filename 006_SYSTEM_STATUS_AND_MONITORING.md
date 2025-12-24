@@ -34,7 +34,62 @@
 
 ## Monitoring Tools
 
-### 1. Gesture & Speech Monitor (Real-time)
+### 1. Minimal Monitor (One-Line Display) - RECOMMENDED
+
+**New in December 2025** - The most comprehensive single-line monitoring tool!
+
+For a clean, real-time status display showing the complete system state:
+
+```bash
+python3 ~/dev/r2d2/tools/minimal_monitor.py
+```
+
+**Shows (all in one line):**
+- **Time:** Current time (HH:MM:SS)
+- **Status:** RED/GREEN/BLUE with color-coded emoji (🔴/🟢/🔵)
+- **Person:** Recognized person name (e.g., "severin") or "unknown" or "no_person"
+- **Gesture:** Last gesture detected with emoji (☝️ for index_finger_up, ✊ for fist) - clears after 2s
+- **Faces:** Number of faces currently detected
+- **Speech:** Speech system status (🎙️ ON / 🔇 OFF)
+- **Phase:** Current system phase (1-8) based on Complete System Flow
+
+**Example output:**
+```
+================================================================================
+R2D2 MINIMAL MONITOR
+================================================================================
+TIME     | STATUS  | Person     | Gest | Faces | Speech | Phase
+================================================================================
+
+12:30:15 | 🔵 BLUE  | no_person  | --   | 0     | 🔇 OFF | Phase 1: Waiting
+12:30:20 | 🔴 RED   | severin    | --   | 1     | 🔇 OFF | Phase 4: Ready
+12:30:23 | 🔴 RED   | severin    | ☝️   | 1     | 🎙️ ON  | Phase 6: Talking
+12:31:05 | 🔴 RED   | severin    | ✊   | 1     | 🔇 OFF | Phase 4: Ready
+```
+
+**Phase Detection:**
+- **Phase 1: Waiting** - BLUE status, no person
+- **Phase 3: Unknown** - GREEN status, unknown person detected
+- **Phase 4: Ready** - RED status, recognized person, speech OFF
+- **Phase 6: Talking** - RED status, active speech session
+
+**Topics Subscribed:**
+- `/r2d2/audio/person_status` (String JSON) - Person recognition status
+- `/r2d2/perception/gesture_event` (String) - Gesture events
+- `/r2d2/perception/face_count` (Int32) - Face detection count
+- `/r2d2/speech/session_status` (String JSON) - Speech session state
+
+**Update Rate:** Refreshes every 0.5 seconds
+
+**Exit:** Press Ctrl+C to stop
+
+**Location:** `tools/minimal_monitor.py`
+
+**Reference:** See Phase documentation in `100_PERCEPTION_STATUS_REFERENCE.md` (lines 36-163)
+
+---
+
+### 2. Gesture & Speech Monitor (Real-time)
 
 Watch gestures and speech status in real-time:
 
@@ -48,7 +103,7 @@ Shows:
 - Speech session status
 - Requirements for gestures to work
 
-### 2. Quick Status Check
+### 3. Quick Status Check
 
 Get a quick overview of all systems:
 

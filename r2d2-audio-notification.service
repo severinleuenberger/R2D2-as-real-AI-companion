@@ -10,7 +10,7 @@ Group=severin
 WorkingDirectory=/home/severin/dev/r2d2
 
 # Use the startup script (direct node launch - avoids launch_ros libexec issue)
-ExecStart=/home/severin/dev/r2d2/start_audio_notification.sh
+ExecStart=/home/severin/dev/r2d2/scripts/start/start_audio_notification.sh
 
 # Auto-restart on failure
 Restart=on-failure
