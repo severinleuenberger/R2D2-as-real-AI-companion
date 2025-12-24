@@ -34,7 +34,31 @@
 
 ## Monitoring Tools
 
-### 1. Gesture & Speech Monitor (Real-time)
+### 1. Minimal Monitor (One-Line Display)
+
+For a clean, single-line status display:
+
+```bash
+python3 /home/severin/dev/r2d2/tools/minimal_monitor.py
+```
+
+**Shows:**
+- Current time (HH:MM:SS)
+- Status (RED/GREEN/BLUE with color)
+- Person name or "unknown" or "none"
+- Last gesture detected (clears after 2s)
+- Number of faces detected
+
+**Example output:**
+```
+10:15:23 | 🔴 RED   | Person: severin  | Gesture: index_finger_up | Faces: 1
+```
+
+Press Ctrl+C to exit.
+
+---
+
+### 2. Gesture & Speech Monitor (Real-time)
 
 Watch gestures and speech status in real-time:
 
@@ -48,7 +72,7 @@ Shows:
 - Speech session status
 - Requirements for gestures to work
 
-### 2. Quick Status Check
+### 3. Quick Status Check
 
 Get a quick overview of all systems:
 
