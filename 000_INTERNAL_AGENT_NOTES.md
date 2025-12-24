@@ -556,6 +556,28 @@ systemctl is-enabled <service-name>
 
 ## For Future Agents Reading This
 
+### Recent Fixes & Important History
+
+**December 24, 2025 - Speech Service Path Fix:**
+- **Issue:** Speech system wouldn't start after index finger gesture (Phase 4 → Phase 5 blocked)
+- **Root Cause:** `r2d2-speech-node.service` ExecStart pointed to old path `/home/severin/dev/r2d2/start_speech_node.sh`
+- **Solution:** Updated to correct path `/home/severin/dev/r2d2/scripts/start/start_speech_node.sh`
+- **Context:** Scripts were moved to `scripts/start/` during December 2025 documentation cleanup, but service files were not all updated
+- **Status:** Fixed and working. gesture_intent_node now successfully calls start_session service.
+- **Remaining:** 4 other services still need path updates (audio-notification, heartbeat, rosbridge, camera-stream)
+
+**December 24, 2025 - Documentation Reorganization:**
+- Moved `SYSTEM_STATUS_AND_MONITORING.md` to `006_SYSTEM_STATUS_AND_MONITORING.md` (official 000-999 series)
+- Created `005_SYSTEMD_SERVICES_REFERENCE.md` (complete service documentation)
+- Updated `001_ARCHITECTURE_OVERVIEW.md` with System Components Map
+- Documented `tools/minimal_monitor.py` (comprehensive one-line monitoring tool)
+- All changes on branch: `cleanup/docs-2025-12-24`
+
+**December 2025 - Script Organization:**
+- All startup scripts moved to `scripts/start/` directory
+- Systemd service files need ExecStart path updates to match
+- See `005_SYSTEMD_SERVICES_REFERENCE.md` for complete path audit
+
 ### What You Need to Know From This File
 - Critical git rules (always use main branch)
 - Environment setup order (DepthAI → bashrc → ROS2)

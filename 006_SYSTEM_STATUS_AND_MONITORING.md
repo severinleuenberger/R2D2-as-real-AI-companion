@@ -34,27 +34,58 @@
 
 ## Monitoring Tools
 
-### 1. Minimal Monitor (One-Line Display)
+### 1. Minimal Monitor (One-Line Display) - RECOMMENDED
 
-For a clean, single-line status display:
+**New in December 2025** - The most comprehensive single-line monitoring tool!
+
+For a clean, real-time status display showing the complete system state:
 
 ```bash
-python3 /home/severin/dev/r2d2/tools/minimal_monitor.py
+python3 ~/dev/r2d2/tools/minimal_monitor.py
 ```
 
-**Shows:**
-- Current time (HH:MM:SS)
-- Status (RED/GREEN/BLUE with color)
-- Person name or "unknown" or "none"
-- Last gesture detected (clears after 2s)
-- Number of faces detected
+**Shows (all in one line):**
+- **Time:** Current time (HH:MM:SS)
+- **Status:** RED/GREEN/BLUE with color-coded emoji (🔴/🟢/🔵)
+- **Person:** Recognized person name (e.g., "severin") or "unknown" or "no_person"
+- **Gesture:** Last gesture detected with emoji (☝️ for index_finger_up, ✊ for fist) - clears after 2s
+- **Faces:** Number of faces currently detected
+- **Speech:** Speech system status (🎙️ ON / 🔇 OFF)
+- **Phase:** Current system phase (1-8) based on Complete System Flow
 
 **Example output:**
 ```
-10:15:23 | 🔴 RED   | Person: severin  | Gesture: index_finger_up | Faces: 1
+================================================================================
+R2D2 MINIMAL MONITOR
+================================================================================
+TIME     | STATUS  | Person     | Gest | Faces | Speech | Phase
+================================================================================
+
+12:30:15 | 🔵 BLUE  | no_person  | --   | 0     | 🔇 OFF | Phase 1: Waiting
+12:30:20 | 🔴 RED   | severin    | --   | 1     | 🔇 OFF | Phase 4: Ready
+12:30:23 | 🔴 RED   | severin    | ☝️   | 1     | 🎙️ ON  | Phase 6: Talking
+12:31:05 | 🔴 RED   | severin    | ✊   | 1     | 🔇 OFF | Phase 4: Ready
 ```
 
-Press Ctrl+C to exit.
+**Phase Detection:**
+- **Phase 1: Waiting** - BLUE status, no person
+- **Phase 3: Unknown** - GREEN status, unknown person detected
+- **Phase 4: Ready** - RED status, recognized person, speech OFF
+- **Phase 6: Talking** - RED status, active speech session
+
+**Topics Subscribed:**
+- `/r2d2/audio/person_status` (String JSON) - Person recognition status
+- `/r2d2/perception/gesture_event` (String) - Gesture events
+- `/r2d2/perception/face_count` (Int32) - Face detection count
+- `/r2d2/speech/session_status` (String JSON) - Speech session state
+
+**Update Rate:** Refreshes every 0.5 seconds
+
+**Exit:** Press Ctrl+C to stop
+
+**Location:** `tools/minimal_monitor.py`
+
+**Reference:** See Phase documentation in `100_PERCEPTION_STATUS_REFERENCE.md` (lines 36-163)
 
 ---
 
