@@ -43,8 +43,8 @@ class MinimalMonitor(Node):
         try:
             data = json.loads(msg.data)
             self.status = data.get('status', 'unknown').upper()
-            identity = data.get('person_identity', {})
-            self.person = identity.get('name', 'unknown') if identity else 'none'
+            # person_identity is a string directly: "severin" | "unknown" | "no_person"
+            self.person = data.get('person_identity', 'unknown')
         except:
             pass
     
