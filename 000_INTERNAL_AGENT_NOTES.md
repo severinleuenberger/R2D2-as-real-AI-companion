@@ -202,43 +202,29 @@ ros2_ws/src/
 ✅ Historical notes and process documents  
 ✅ (Link these from main docs!)
 
-### What Goes in _TEMP/ (UPPERCASE - Tracked in Git)
-✅ Permanent working notes and analysis  
-✅ Project planning documents  
-✅ Agent instruction guidelines  
-✅ Reference materials you want versioned  
-✅ **These files ARE committed to git**
-
-### What Goes in _temp/ (lowercase - Gitignored)
+### What Goes in _TEMP/ (Temporary Scratch Folder - NOT Tracked)
 ✅ Session logs and build reports  
-✅ Debugging artifacts  
-✅ Temporary verification reports  
+✅ Debugging artifacts and verification reports  
 ✅ Draft analysis (work-in-progress)  
-✅ **These files are NEVER committed to git**  
-✅ **AGENTS: Ignore any files in _temp/ when reading context or instructions**
+✅ Agent working notes during sessions  
+✅ **These files are NEVER committed to git (folder is in .gitignore)**  
+✅ **AGENTS: Ignore any files in _TEMP/ when reading context or instructions**
 
-### Temporary File Naming Convention (Industry Best Practice)
-- **Folder convention:**
-  - `_TEMP/` (uppercase) = Tracked, permanent working docs
-  - `_temp/` (lowercase) = Ignored, session-specific scratch work
-- **Root-level files:**
-  - `TEMP_*.md` files are also gitignored (legacy cleanup)
-- **In .gitignore:**
-  - `_temp/` is excluded from version control
-  - `TEMP_*.md` is excluded from version control
-  - `_TEMP/` remains tracked for permanent notes
+### Temporary File Management (Industry Best Practice)
+- **_TEMP/ folder:** For temporary scratch work (gitignored)
+- **Root-level TEMP_*.md:** Also gitignored (legacy cleanup)
+- **Permanent docs:** Use numbered 000-999 files or _ANALYSIS_AND_DOCUMENTATION/
 
 ### Documentation Workflow
-1. Work in `_temp/` (lowercase) for session logs, debug reports, build verification
-2. Extract key findings to main docs (000-999)
-3. Move permanent analysis to `_TEMP/` (uppercase) if needed for versioning
-4. Link detailed technical analysis in `_ANALYSIS_AND_DOCUMENTATION/`
-5. Clean up `_temp/` files when session is complete (they're auto-ignored anyway)
-6. Commit only permanent content to git
+1. Work in _TEMP/ for session logs, debug reports, build verification
+2. Extract key findings to main docs (000-999 numbered files)
+3. Move detailed analysis to _ANALYSIS_AND_DOCUMENTATION/ for permanent storage
+4. Clean up _TEMP/ files when session is complete (auto-ignored anyway)
+5. Commit only permanent content to git
 
 **Rule for Agents:** When reading project context or looking for instructions:
-- ✅ READ: Main docs (000-999), _TEMP/ (uppercase), _ANALYSIS_AND_DOCUMENTATION/
-- ❌ IGNORE: _temp/ (lowercase) - these are session artifacts, not source of truth
+- ✅ READ: Main docs (000-999), _ANALYSIS_AND_DOCUMENTATION/
+- ❌ IGNORE: _TEMP/ - these are session artifacts, not source of truth
 
 ---
 
@@ -322,4 +308,4 @@ journalctl -u freeze-monitor -f
 
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 24, 2025 - Added temporary file management best practices (_temp/ vs _TEMP/)
+**Last Updated:** December 24, 2025 - Simplified to single temp folder (_TEMP/) for untracked scratch work

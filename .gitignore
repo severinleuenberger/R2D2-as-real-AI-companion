@@ -21,8 +21,8 @@ tests/audio/*.wav
 data/face_recognition/*/
 !data/face_recognition/models/
 
-# Temporary files
-_temp/  # Lowercase temp folder (use uppercase _TEMP/ for tracked scratch work)
+# Temporary scratch folder (for session logs, build reports, debugging)
+_TEMP/
 TEMP_*.md  # Root-level temporary markdown files
 *.swp
 *.swo
