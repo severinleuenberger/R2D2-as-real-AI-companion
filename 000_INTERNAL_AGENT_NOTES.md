@@ -44,6 +44,69 @@ git push origin main
 
 ---
 
+## 🖥️ Execution Environment (READ THIS FIRST!)
+
+### WHERE ARE WE?
+
+**YOU ARE EXECUTING DIRECTLY ON THE JETSON AGX ORIN**
+
+- ✅ All commands run **ON the Jetson itself** (not via SSH)
+- ✅ The Jetson is **BOTH** the development machine AND deployment target
+- ✅ Terminal commands execute in the local Jetson shell
+- ✅ `/home/severin/dev/r2d2` is the local workspace on Jetson storage
+- ✅ All systemd services run locally on the Jetson
+
+### What This Means For You
+
+**File paths are local:**
+- `~/dev/r2d2/` = `/home/severin/dev/r2d2/` on Jetson's NVMe SSD
+- No need for `scp`, `ssh`, or remote file transfer
+- Direct file access via standard file operations
+
+**Services are local:**
+- `systemctl` manages services on this Jetson
+- `ros2` commands execute on this Jetson
+- `tegrastats` shows THIS machine's stats
+
+**You have full access:**
+- Root privileges available via `sudo`
+- Direct hardware access (camera, GPIO, I2S audio)
+- Real-time sensor data from local devices
+
+### Remote Access Context (For Understanding Only)
+
+**Tailscale VPN is configured but NOT used by agents:**
+- Allows Windows laptop to access Jetson for monitoring
+- Used for web dashboard access from remote location
+- **Agents do NOT connect via Tailscale** - you're already on the Jetson
+- Think of it like a security camera - allows viewing, but camera runs independently
+
+**The Jetson operates autonomously:**
+- All ROS 2 nodes run locally
+- Speech processing happens on local GPU
+- Face recognition uses local camera
+- No cloud dependency for core functions (except OpenAI API for speech)
+
+### Quick Environment Check
+
+If you're ever unsure, these commands confirm you're on the Jetson:
+
+```bash
+# Check hostname (should show: r2d2)
+hostname
+
+# Check architecture (should show: aarch64)
+uname -m
+
+# Check NVIDIA GPU (should show: Orin)
+tegrastats | head -n 1
+
+# Check project location
+pwd  # Should be somewhere under /home/severin/
+```
+
+---
+
 ## Quick Command Reference
 
 ### Environment Setup (CORRECT ORDER MATTERS!)
