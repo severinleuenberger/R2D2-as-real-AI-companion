@@ -175,19 +175,75 @@ For R2D2 robotics application, you'll likely run in 25-50W mode during active op
 
 ### 2.3 Audio Connections (J511 Header)
 
-#### Audio Output Signal Chain
+#### J511 Audio Header - Complete Pinout
+
+**Official Jetson Nano/AGX Orin Carrier Board J511 Pin Layout:**
+
+```
+TOP VIEW (Looking down at the board):
+
+Pin 1 marker (triangle/square) is at top-left
+
+        ╔═══════════════════════════╗
+Row A:  ║ 1    3    5    7    9     ║
+        ║                            ║
+Row B:  ║ 2    4    6    8   10     ║
+        ╚═══════════════════════════╝
+```
+
+**Complete Pin Assignments (Official Documentation):**
+
+| Pin | Signal Name | Type | Function | R2D2 Usage |
+|-----|-------------|------|----------|------------|
+| 1 | IN1P | Input | Microphone #1 input | Not used |
+| 2 | **AGND** | **GND** | **Audio Ground** | **✅ Connected to PAM8403 GND** |
+| 3 | IN2P | Input | Microphone #2 input | Not used |
+| 4 | LRCK2/GPIO4/PDM_SDA | Input | Audio dongle detection | Not used |
+| **5** | **HPO_R** | **Output** | **Headphone RIGHT channel** | **⚠️ SHOULD USE (correct)** |
+| 6 | MIC_IN_DET | Input | Jack/Microphone detect | Not used |
+| 7 | SENSE_SEND | NA | Pulled to analog GND | Not used |
+| 8 | Key | – | – | – |
+| **9** | **HPO_L** | **Output** | **Headphone LEFT channel** | **✅ Currently connected to PAM8403 RIN** |
+| 10 | BCLK2/GPIO3/PDM_SCL | Input | – | Not used |
+
+#### Audio Output Signal Chain (Current Wiring)
 ```
 Jetson J511 Pin 9 (HPO_L - I2S Left Channel)
     ↓ (2-wire audio cable)
-PAM8403 3W Stereo Amplifier (Input: I2S, Power: External)
-    ↓ (2-wire speaker cable)
+PAM8403 3W Stereo Amplifier (RIN Input - Right Channel Input)
+    ↓ (2-wire speaker cable via R+/R- outputs)
 8Ω Speaker (Output)
 ```
 
-**J511 Audio Header Pinout:**
+**⚠️ Hardware Note - Channel Mismatch:**
+
+The current wiring connects:
+- **Jetson J511 Pin 9 (HPO_L - LEFT channel)** → **PAM8403 RIN (RIGHT channel input)**
+- This creates a LEFT→RIGHT channel mismatch
+
+**For correct wiring (future hardware fix):**
+```
+Jetson J511 Pin 2 (AGND) ──────→ PAM8403 GND (Audio ground reference)
+Jetson J511 Pin 5 (HPO_R) ─────→ PAM8403 RIN (RIGHT channel audio)
+PAM8403 R+ and R− ─────────────→ 8Ω Speaker
+```
+
+**Why This Matters:**
+- PAM8403 has TWO separate inputs: **LIN** (Left Input) and **RIN** (Right Input)
+- Speaker is connected to **RIGHT outputs (R+/R−)**
+- Audio source should match: **RIGHT channel (Pin 5)** → **RIN** → **Right speaker**
+- Current setup: LEFT channel (Pin 9) → RIN → causes channel swap
+
+**Current Status:** ✅ Audio works (LEFT channel playing through right speaker path)  
+**Future Fix:** Move wire from Pin 9 → Pin 5 for correct channel matching  
+**Impact:** Low priority - mono audio works correctly, only matters for stereo content
+
+**J511 Audio Header Pinout Reference:**
 | Pin | Signal | Function | Connected To |
 |-----|--------|----------|--------------|
-| 9 | HPO_L | I2S Audio Output (Left Channel) | PAM8403 Amplifier Input |
+| 2 | AGND | Audio Ground | PAM8403 GND ✅ |
+| 5 | HPO_R | I2S Right Channel | Should connect to PAM8403 RIN (future fix) |
+| 9 | HPO_L | I2S Left Channel | Currently connected to PAM8403 RIN ✅ |
 
 **Configuration:**
 - **ALSA Device:** `hw:1,0`
