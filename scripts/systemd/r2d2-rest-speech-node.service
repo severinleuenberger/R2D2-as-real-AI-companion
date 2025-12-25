@@ -1,0 +1,29 @@
+[Unit]
+Description=R2D2 REST Speech Node Service (Intelligent Mode)
+After=network.target r2d2-speech-node.service
+Documentation=file:///home/severin/dev/r2d2/204_SPEECH_SYSTEM_VOICE_CONFIGURATION.md
+
+[Service]
+Type=simple
+User=severin
+WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
+Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Source ROS 2 setup and launch REST speech node
+ExecStart=/bin/bash /home/severin/dev/r2d2/scripts/start/start_rest_speech_node.sh
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-rest-speech
+
+[Install]
+WantedBy=multi-user.target
+
