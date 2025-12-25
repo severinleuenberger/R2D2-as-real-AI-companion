@@ -44,3 +44,17 @@ vpn_config/*.backup
 
 # Python virtual environments
 r2d2_speech_env/
+
+# Environment variables and secrets (SECURITY)
+.env
+*.env
+.env.*
+.env.local
+
+# SQLite database files (user data, not for sharing)
+*.db
+*.sqlite
+*.sqlite3
+
+# R2D2 config directory (if accidentally created in repo)
+.r2d2/
