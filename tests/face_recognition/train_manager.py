@@ -794,9 +794,10 @@ class TrainingManager:
         # Step 1: Capture gestures
         print('STEP 1: Capture Gesture Images')
         print('-' * 70)
-        print('You will capture two gestures:')
-        print('  • Index finger up (pointing upward)')
-        print('  • Fist (all fingers closed)')
+        print('You will capture three gestures:')
+        print('  • Index finger up (pointing upward) - starts Fast Mode')
+        print('  • Fist (all fingers closed) - stops conversation')
+        print('  • Open hand (palm facing camera) - starts Intelligent Mode')
         print()
         proceed = input('Ready to capture? (y/n): ').strip().lower()
         if proceed == 'y':
