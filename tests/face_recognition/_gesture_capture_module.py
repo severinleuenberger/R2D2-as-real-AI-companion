@@ -176,17 +176,20 @@ class GestureCaptureModule:
         thumb_ip = hand_landmarks.landmark[3]
         
         # All 4 fingers extended (tip y < mcp y, since y increases downward)
-        index_extended = index_tip.y < index_mcp.y - 0.03
-        middle_extended = middle_tip.y < middle_mcp.y - 0.03
-        ring_extended = ring_tip.y < ring_mcp.y - 0.03
-        pinky_extended = pinky_tip.y < pinky_mcp.y - 0.03
+        # Using relaxed threshold (0.0) - just needs tip above MCP
+        index_extended = index_tip.y < index_mcp.y
+        middle_extended = middle_tip.y < middle_mcp.y
+        ring_extended = ring_tip.y < ring_mcp.y
+        pinky_extended = pinky_tip.y < pinky_mcp.y
         
-        # Thumb extended (tip x further from palm than IP joint)
-        # Works for both left and right hands by checking distance from wrist
+        # Thumb extended - more lenient check
+        # Just check that thumb tip is reasonably far from wrist
         wrist = hand_landmarks.landmark[0]
-        thumb_extended = abs(thumb_tip.x - wrist.x) > abs(thumb_ip.x - wrist.x)
+        thumb_extended = abs(thumb_tip.x - wrist.x) > 0.05 or abs(thumb_tip.y - wrist.y) > 0.1
         
-        return index_extended and middle_extended and ring_extended and pinky_extended and thumb_extended
+        # Require at least 4 out of 5 fingers extended (more forgiving)
+        fingers_extended = sum([index_extended, middle_extended, ring_extended, pinky_extended, thumb_extended])
+        return fingers_extended >= 4
     
     def show_instruction(self, gesture_name, instruction_text):
         """Display clear instruction with visual separation."""
