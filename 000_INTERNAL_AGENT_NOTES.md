@@ -694,15 +694,21 @@ git push origin main    # Push
 1. ✅ `r2d2-camera-perception.service` (camera + face + gesture recognition)
 2. ✅ `r2d2-audio-notification.service` (audio alerts + LED + logger)
 3. ✅ `r2d2-gesture-intent.service` (gesture-to-speech control)
-4. ✅ `r2d2-heartbeat.service` (system health monitoring)
-5. ✅ `tailscaled.service` (VPN access)
-6. ⚠️ `r2d2-powerbutton.service` (optional - if physical button installed)
+4. ✅ `r2d2-speech-node.service` (Fast Mode - OpenAI Realtime API, ~1s latency)
+5. ✅ `r2d2-rest-speech-node.service` (Intelligent Mode - REST APIs with o1-preview, ~3-5s latency)
+6. ✅ `r2d2-heartbeat.service` (system health monitoring)
+7. ✅ `tailscaled.service` (VPN access)
+8. ⚠️ `r2d2-powerbutton.service` (optional - if physical button installed)
+
+**Dual-Mode Speech System (December 2025):**
+- **Fast Mode** (index finger ☝️): OpenAI Realtime API, chatty personality, ~1s response
+- **Intelligent Mode** (open hand 🖐️): REST APIs (Whisper→o1-preview→TTS), wise personality, ~3-5s response
+- **Stop** (fist ✊): Stops active conversation
 
 **Services that remain on-demand (manual start):**
 1. ❌ `r2d2-rosbridge.service` (web dashboard WebSocket bridge)
 2. ❌ `r2d2-web-dashboard.service` (FastAPI REST API + UI)
 3. ❌ `r2d2-camera-stream.service` (MJPEG video stream - **device conflict with camera-perception**)
-4. ❌ `r2d2-speech.service` (Phase 2 speech system - high cost, infrequent use)
 
 **Resource Usage Summary:**
 - **Auto-start services:** 16-26% CPU, ~400 MB RAM (core functionality)
@@ -778,6 +784,19 @@ systemctl is-enabled <service-name>
 ## For Future Agents Reading This
 
 ### Recent Fixes & Important History
+
+**December 25, 2025 - Dual-Mode Gesture Speech System:**
+- **Feature:** Two speech modes triggered by different gestures
+- **Fast Mode** (☝️ index finger): OpenAI Realtime API, chatty personality, ~1s latency
+- **Intelligent Mode** (🖐️ open hand): REST APIs (Whisper→o1-preview→TTS), wise personality, ~3-5s latency
+- **New Components:**
+  - `r2d2_speech/rest_api/rest_speech_client.py` - Turn-based STT→LLM→TTS pipeline
+  - `rest_speech_node.py` - ROS2 lifecycle node for Intelligent Mode
+  - `r2d2-rest-speech-node.service` - Systemd service (auto-start enabled)
+- **Updated:** gesture_intent_node routes open_hand to REST speech services
+- **Training:** 3-gesture model (index_finger_up, fist, open_hand)
+- **Branch:** `feature/dual-mode-gesture-speech`
+- **Config:** `speech_params.yaml` has personality configs for both modes
 
 **December 24, 2025 - Speech Service Path Fix:**
 - **Issue:** Speech system wouldn't start after index finger gesture (Phase 4 → Phase 5 blocked)
