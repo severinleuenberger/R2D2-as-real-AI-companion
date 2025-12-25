@@ -53,8 +53,9 @@ class MinimalMonitor(Node):
     def gesture_callback(self, msg):
         # Convert gesture names to symbols
         gesture_map = {
-            'index_finger_up': '☝️',
-            'fist': '✊'
+            'index_finger_up': '☝️',   # Fast Mode
+            'fist': '✊',              # Stop
+            'open_hand': '🖐️'          # Intelligent Mode
         }
         self.gesture = gesture_map.get(msg.data, msg.data)
         self.last_gesture_time = datetime.now()
