@@ -49,7 +49,7 @@ class GestureCaptureModule:
         self.base_output_dir.mkdir(parents=True, exist_ok=True)
         
         # Gesture classes to capture
-        self.gestures = ['index_finger_up', 'fist']
+        self.gestures = ['index_finger_up', 'fist', 'open_hand']
         
         self.frame_count = 0
         self.total_saved = 0
@@ -148,6 +148,46 @@ class GestureCaptureModule:
         
         return index_curled and middle_curled and ring_curled and pinky_curled
     
+    def validate_open_hand(self, hand_landmarks):
+        """
+        Check if gesture is an open hand (all fingers extended, palm visible).
+        
+        Args:
+            hand_landmarks: MediaPipe hand landmarks
+            
+        Returns:
+            bool: True if open hand detected (all 5 fingers extended)
+        """
+        # All finger tips should be above their MCPs (fingers extended)
+        index_tip = hand_landmarks.landmark[8]
+        index_mcp = hand_landmarks.landmark[5]
+        
+        middle_tip = hand_landmarks.landmark[12]
+        middle_mcp = hand_landmarks.landmark[9]
+        
+        ring_tip = hand_landmarks.landmark[16]
+        ring_mcp = hand_landmarks.landmark[13]
+        
+        pinky_tip = hand_landmarks.landmark[20]
+        pinky_mcp = hand_landmarks.landmark[17]
+        
+        # Thumb landmarks
+        thumb_tip = hand_landmarks.landmark[4]
+        thumb_ip = hand_landmarks.landmark[3]
+        
+        # All 4 fingers extended (tip y < mcp y, since y increases downward)
+        index_extended = index_tip.y < index_mcp.y - 0.03
+        middle_extended = middle_tip.y < middle_mcp.y - 0.03
+        ring_extended = ring_tip.y < ring_mcp.y - 0.03
+        pinky_extended = pinky_tip.y < pinky_mcp.y - 0.03
+        
+        # Thumb extended (tip x further from palm than IP joint)
+        # Works for both left and right hands by checking distance from wrist
+        wrist = hand_landmarks.landmark[0]
+        thumb_extended = abs(thumb_tip.x - wrist.x) > abs(thumb_ip.x - wrist.x)
+        
+        return index_extended and middle_extended and ring_extended and pinky_extended and thumb_extended
+    
     def show_instruction(self, gesture_name, instruction_text):
         """Display clear instruction with visual separation."""
         print('\n' + '='*70)
@@ -202,6 +242,8 @@ class GestureCaptureModule:
                         is_valid = self.validate_index_finger_up(hand_landmarks)
                     elif gesture_name == 'fist':
                         is_valid = self.validate_fist(hand_landmarks)
+                    elif gesture_name == 'open_hand':
+                        is_valid = self.validate_open_hand(hand_landmarks)
                     
                     if is_valid:
                         valid_gestures += 1
@@ -240,7 +282,7 @@ class GestureCaptureModule:
         print('\n' + '='*70)
         print(f'GESTURE TRAINING DATA CAPTURE FOR: {self.person_name.upper()}')
         print('='*70)
-        print('\nYou will be guided through 2 gesture capture stages.')
+        print('\nYou will be guided through 3 gesture capture stages.')
         print('Each stage: 15 seconds of video capture.')
         print('Hand detection and gesture validation are automatic.')
         print('\nAt each stage, you\'ll be asked to press ENTER before starting.')
@@ -267,6 +309,16 @@ class GestureCaptureModule:
                 'Hold hand steady in front of camera (arm\'s length).\n'
                 'Slowly move hand: left/right, up/down for variation.\n'
                 'Keep fist closed throughout the capture.'
+            )
+            
+            # Gesture 3: Open hand
+            self.capture_gesture(
+                'open_hand',
+                'Show your OPEN HAND (palm facing camera, all fingers extended).\n'
+                'Spread all 5 fingers apart - like a "stop" or "high five" gesture.\n'
+                'Hold hand steady in front of camera (arm\'s length).\n'
+                'Slowly move hand: left/right, up/down for variation.\n'
+                'Keep all fingers extended and spread throughout the capture.'
             )
             
             # Summary

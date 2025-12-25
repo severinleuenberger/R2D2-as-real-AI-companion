@@ -165,8 +165,9 @@ class GestureTestingModule:
         print('\nInstructions:')
         print('  1. Hold your hand in front of the camera')
         print('  2. Make the trained gestures:')
-        print('     • Index finger up (pointing upward)')
-        print('     • Fist (all fingers closed)')
+        print('     • Index finger up (pointing upward) - starts fast speech mode')
+        print('     • Fist (all fingers closed) - stops any speech mode')
+        print('     • Open hand (palm facing camera, all fingers spread) - starts intelligent mode')
         print('  3. Switch between gestures during the test')
         print('  4. The system will show detected gesture and confidence')
         print()
@@ -223,9 +224,11 @@ class GestureTestingModule:
                     
                     # Print EVERY detection with color coding
                     if gesture_name == "index_finger_up":
-                        print(f'[{timestamp}] \033[1;32m👆 INDEX FINGER UP\033[0m (confidence: {confidence:.2f})')
+                        print(f'[{timestamp}] \033[1;32m☝️  INDEX FINGER UP\033[0m (confidence: {confidence:.2f})')
                     elif gesture_name == "fist":
                         print(f'[{timestamp}] \033[1;31m✊ FIST\033[0m (confidence: {confidence:.2f})')
+                    elif gesture_name == "open_hand":
+                        print(f'[{timestamp}] \033[1;36m🖐️  OPEN HAND\033[0m (confidence: {confidence:.2f})')
                     else:
                         print(f'[{timestamp}] {gesture_name.upper()} (confidence: {confidence:.2f})')
                     

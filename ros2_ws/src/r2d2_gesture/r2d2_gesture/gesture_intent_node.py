@@ -124,7 +124,7 @@ class GestureIntentNode(Node):
             10
         )
         
-        # Create service clients
+        # Create service clients for Fast Mode (Realtime API)
         self.start_session_client = self.create_client(
             Trigger,
             '/r2d2/speech/start_session'
@@ -134,6 +134,26 @@ class GestureIntentNode(Node):
             Trigger,
             '/r2d2/speech/stop_session'
         )
+        
+        # Create service clients for Intelligent Mode (REST APIs)
+        self.start_intelligent_client = self.create_client(
+            Trigger,
+            '/r2d2/speech/intelligent/start_session'
+        )
+        
+        self.process_intelligent_turn_client = self.create_client(
+            Trigger,
+            '/r2d2/speech/intelligent/process_turn'
+        )
+        
+        self.stop_intelligent_client = self.create_client(
+            Trigger,
+            '/r2d2/speech/intelligent/stop_session'
+        )
+        
+        # Intelligent mode state
+        self.intelligent_mode_active = False
+        self.intelligent_mode_processing = False
         
         # Create watchdog timer (checks every 10 seconds)
         if self.auto_shutdown_enabled:
@@ -331,6 +351,34 @@ class GestureIntentNode(Node):
             self.get_logger().info('✊ Fist detected → Stopping conversation')
             self._exit_speaking_state(reason="user_fist_gesture")
             self.last_trigger_time = current_time
+        
+        elif gesture_name == "open_hand":
+            # Open hand gesture: trigger Intelligent Mode (REST APIs with o1-preview)
+            # This is a turn-based interaction (record → STT → LLM → TTS → playback)
+            
+            if self.session_active:
+                self.get_logger().warn('❌ Open hand ignored: fast mode session active (use fist to stop first)')
+                return
+            
+            if self.intelligent_mode_processing:
+                self.get_logger().warn('❌ Open hand ignored: already processing intelligent mode turn')
+                return
+            
+            if time_since_last < self.cooldown_start:
+                self.get_logger().warn(
+                    f'❌ Open hand ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_start}s)'
+                )
+                return
+            
+            # Trigger intelligent mode turn
+            self.get_logger().info('🖐️  Open hand detected → Starting Intelligent Mode turn')
+            
+            # Play immediate acknowledgment beep
+            self._play_audio_feedback(self.gesture_ack_sound)
+            
+            self._process_intelligent_turn()
+            self.last_trigger_time = current_time
+        
         else:
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')
     
@@ -510,6 +558,56 @@ class GestureIntentNode(Node):
         Audio feedback is handled by session_status_callback.
         """
         self._call_service(self.stop_session_client, 'stop_session')
+    
+    def _process_intelligent_turn(self):
+        """
+        Process one turn in Intelligent Mode.
+        
+        This triggers a complete conversation turn:
+        Record → Whisper STT → o1-preview LLM → TTS → Playback
+        
+        The process_turn service handles everything, including recording.
+        """
+        self.intelligent_mode_processing = True
+        self.intelligent_mode_active = True
+        
+        # Start session if not already started
+        if not self.start_intelligent_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Intelligent mode service not available')
+            self.intelligent_mode_processing = False
+            return
+        
+        # Process turn (includes recording, STT, LLM, TTS, playback)
+        if not self.process_intelligent_turn_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Intelligent mode process_turn service not available')
+            self.intelligent_mode_processing = False
+            return
+        
+        request = Trigger.Request()
+        future = self.process_intelligent_turn_client.call_async(request)
+        
+        # Add callback to handle completion
+        future.add_done_callback(self._intelligent_turn_callback)
+    
+    def _intelligent_turn_callback(self, future):
+        """
+        Handle intelligent mode turn completion.
+        
+        Args:
+            future: Future object from service call
+        """
+        self.intelligent_mode_processing = False
+        
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(f'✅ Intelligent turn complete: {response.message}')
+                # Play completion beep
+                self._play_audio_feedback(self.stop_beep_sound)
+            else:
+                self.get_logger().warn(f'⚠️  Intelligent turn failed: {response.message}')
+        except Exception as e:
+            self.get_logger().error(f'❌ Intelligent turn error: {e}')
 
 
 def main(args=None):

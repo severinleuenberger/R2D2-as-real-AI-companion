@@ -60,10 +60,11 @@ class GestureTrainingModule:
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
         # Gesture classes
-        self.gestures = ['index_finger_up', 'fist']
+        self.gestures = ['index_finger_up', 'fist', 'open_hand']
         self.gesture_to_label = {
             'index_finger_up': 0,
-            'fist': 1
+            'fist': 1,
+            'open_hand': 2
         }
         
         # Initialize MediaPipe Hands

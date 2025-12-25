@@ -1,20 +1,67 @@
 /**:
   ros__parameters:
-    # OpenAI API Configuration
+    # ============================================================
+    # OpenAI API Configuration (shared)
+    # ============================================================
     openai_api_key: ''  # Leave empty to load from ~/.r2d2/.env
+    
+    # ============================================================
+    # Fast Mode (Realtime API) - index_finger gesture
+    # Low latency (~1s), conversational, chatty personality
+    # ============================================================
     realtime_model: 'gpt-4o-realtime-preview-2024-12-17'
     realtime_voice: 'sage'
+    instructions: >
+      You are R2-D2, the chatty astromech droid from Star Wars.
+      Speak with quick, efficient delivery. Use short, punchy sentences.
+      Be friendly and responsive. Keep interactions light and conversational.
+      Sound slightly robotic but warm. React quickly to what the user says.
+      Express personality through playful beeps translated to words.
     
-    # Audio Configuration
+    # ============================================================
+    # Intelligent Mode (REST APIs) - open_hand gesture
+    # Higher latency (~3-5s), thoughtful, wise personality
+    # ============================================================
+    intelligent_model: 'o1-preview'  # Most intelligent model
+    intelligent_instructions: >
+      You are R2-D2, the wise and experienced astromech droid.
+      Take time to think carefully before responding.
+      Provide insightful, well-reasoned answers with depth.
+      Draw on your decades of experience serving the Skywalkers.
+      Be helpful and thorough, but maintain your distinctive personality.
+      Speak with wisdom and gravitas. You've seen much in your long service.
+      When appropriate, reference your adventures and the lessons learned.
+    intelligent_temperature: 0.7  # Note: o1 models ignore this parameter
+    
+    # STT Configuration (Intelligent Mode)
+    stt_model: 'whisper-1'
+    
+    # TTS Configuration (Intelligent Mode)
+    tts_model: 'tts-1'  # Use 'tts-1-hd' for higher quality
+    tts_voice: 'nova'   # Options: alloy, echo, fable, onyx, nova, shimmer
+    tts_speed: 1.0      # 0.25 to 4.0
+    
+    # Audio Recording (Intelligent Mode)
+    silence_threshold: 500.0    # RMS threshold for silence detection
+    silence_duration: 1.5       # Seconds of silence to stop recording
+    
+    # ============================================================
+    # Audio Hardware Configuration (shared)
+    # ============================================================
     mic_device: ''  # Empty for auto-detection
+    mic_device_index: 0  # PyAudio device index
     mic_native_sample_rate: 48000
     mic_sample_rate: 24000
     sink_device: 'default'
+    output_device: 'default'
     
-    # Database
+    # ============================================================
+    # Database (shared)
+    # ============================================================
     db_path: '/home/severin/dev/r2d2/r2d2_speech/data/conversations.db'
     
-    # Session
+    # ============================================================
+    # Session Behavior
+    # ============================================================
     auto_start: false  # Wait for gesture trigger (not auto-start on boot)
-    instructions: 'Default behavior: You are an astromech droid robot. Speak with a synthetic, system-like delivery. Use short, precise sentences. Fast-paced, efficient cadence. Keep vocal emotional inflection minimal. Clear, clipped articulation. Avoid unnecessary pauses. Sound efficient and machine-like.'
 
