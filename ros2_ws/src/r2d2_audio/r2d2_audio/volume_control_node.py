@@ -11,9 +11,11 @@ Hardware:
   - Jetson AGX Orin I2C bus
 
 Publishes:
-  - /r2d2/audio/master_volume (std_msgs/Float32): Master volume 0.0-1.0
+  - /r2d2/audio/master_volume (std_msgs/Float32): Master volume 0.0-max_volume_cap
 
 Features:
+  - Calibration-based ADC mapping (loads from ~/.r2d2/adc_calibration.json)
+  - Maximum volume cap (0.7) based on baseline tests to prevent distortion
   - Exponential smoothing to prevent jitter
   - Dead zones at min/max positions
   - Volume persistence across restarts
@@ -29,7 +31,7 @@ from std_msgs.msg import Float32
 import json
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 # Try to import ADC library (may not be available without hardware)
 try:
@@ -41,13 +43,28 @@ try:
 except ImportError:
     ADC_AVAILABLE = False
 
+# Calibration file paths
+CALIBRATION_FILE = Path.home() / '.r2d2' / 'adc_calibration.json'
+VOLUME_STATE_FILE = Path.home() / '.r2d2' / 'volume_state.json'
+
+# Default calibration values (16-bit ADC range)
+DEFAULT_ADC_MIN = 0
+DEFAULT_ADC_MAX = 26400  # ~80% of 32767 (typical for 3.3V reference)
+
+# Maximum volume cap based on baseline tests (distortion starts at 0.7-1.0)
+MAX_VOLUME_CAP = 0.7
+
 
 class VolumeControlNode(Node):
     """
     ROS 2 node for reading physical volume knob and publishing master volume.
     
     Reads from ADS1115 ADC connected to B5K potentiometer and converts
-    analog reading to volume percentage (0.0-1.0).
+    analog reading to volume percentage (0.0 - max_volume_cap).
+    
+    Uses calibration data from ~/.r2d2/adc_calibration.json to map ADC
+    values to volume. Volume is capped at MAX_VOLUME_CAP (0.7) based on
+    baseline tests to prevent audio distortion.
     
     Publishes to /r2d2/audio/master_volume for all audio nodes to subscribe.
     """
@@ -66,9 +83,11 @@ class VolumeControlNode(Node):
         self.declare_parameter('smoothing_alpha', 0.2)  # EMA alpha (0.0-1.0)
         self.declare_parameter('min_change_threshold', 0.01)  # 1% minimum change
         self.declare_parameter('dead_zone_low', 0.05)  # 0-5% ADC → 0.0 volume
-        self.declare_parameter('dead_zone_high', 0.05)  # 95-100% ADC → 1.0 volume
-        self.declare_parameter('master_volume_default', 0.5)  # Default if no ADC
-        self.declare_parameter('persistence_file', str(Path.home() / '.r2d2' / 'volume_state.json'))
+        self.declare_parameter('dead_zone_high', 0.05)  # 95-100% ADC → max volume
+        self.declare_parameter('master_volume_default', 0.35)  # Default if no ADC (middle of range)
+        self.declare_parameter('max_volume_cap', MAX_VOLUME_CAP)  # Max volume to prevent distortion
+        self.declare_parameter('persistence_file', str(VOLUME_STATE_FILE))
+        self.declare_parameter('calibration_file', str(CALIBRATION_FILE))
         self.declare_parameter('hardware_enabled', True)  # Set False for testing without hardware
         
         # Get parameters
@@ -82,8 +101,15 @@ class VolumeControlNode(Node):
         self.dead_zone_low = self.get_parameter('dead_zone_low').value
         self.dead_zone_high = self.get_parameter('dead_zone_high').value
         self.default_volume = self.get_parameter('master_volume_default').value
+        self.max_volume_cap = self.get_parameter('max_volume_cap').value
         self.persistence_file = Path(self.get_parameter('persistence_file').value)
+        self.calibration_file = Path(self.get_parameter('calibration_file').value)
         self.hardware_enabled = self.get_parameter('hardware_enabled').value
+        
+        # Calibration values (loaded from file or defaults)
+        self.adc_min = DEFAULT_ADC_MIN
+        self.adc_max = DEFAULT_ADC_MAX
+        self.calibration_loaded = False
         
         # State variables
         self.current_volume = self.default_volume
@@ -92,6 +118,9 @@ class VolumeControlNode(Node):
         self.adc: Optional[ADS.ADS1115] = None
         self.adc_channel_obj: Optional[AnalogIn] = None
         self.hardware_working = False
+        
+        # Load calibration data
+        self._load_calibration()
         
         # Load persisted volume
         self._load_volume_state()
@@ -123,6 +152,9 @@ class VolumeControlNode(Node):
             f"Volume Control Node initialized:\n"
             f"  Hardware: {'ENABLED' if self.hardware_enabled else 'DISABLED'}\n"
             f"  ADC Working: {self.hardware_working}\n"
+            f"  Calibration: {'LOADED' if self.calibration_loaded else 'DEFAULTS'}\n"
+            f"  ADC Range: {self.adc_min} - {self.adc_max}\n"
+            f"  Max Volume Cap: {self.max_volume_cap:.2f}\n"
             f"  I2C Bus: {self.i2c_bus}\n"
             f"  ADC Address: 0x{self.adc_address:02X}\n"
             f"  Poll Rate: {self.poll_rate} Hz\n"
@@ -176,11 +208,11 @@ class VolumeControlNode(Node):
         """Timer callback: read ADC and publish volume if changed."""
         if self.hardware_working and self.adc_channel_obj is not None:
             try:
-                # Read raw ADC value (0-65535 for 16-bit)
+                # Read raw ADC value (0-32767 for signed 16-bit from ADS1115)
                 raw_value = self.adc_channel_obj.value
                 
-                # Normalize to 0.0-1.0
-                normalized = raw_value / 65535.0
+                # Map using calibration values
+                normalized = self._map_adc_to_normalized(raw_value)
                 
                 # Apply smoothing
                 if self.smoothing_enabled:
@@ -193,7 +225,7 @@ class VolumeControlNode(Node):
                         )
                     normalized = self.smoothed_adc
                 
-                # Apply dead zones
+                # Apply dead zones and max volume cap
                 volume = self._apply_dead_zones(normalized)
                 
                 # Update current volume
@@ -206,36 +238,62 @@ class VolumeControlNode(Node):
         # Publish if changed significantly
         self._publish_volume(self.current_volume)
     
+    def _map_adc_to_normalized(self, raw_value: int) -> float:
+        """
+        Map raw ADC value to normalized 0.0-1.0 using calibration.
+        
+        Uses calibration values (adc_min, adc_max) to map the raw ADC
+        reading to a normalized value.
+        
+        Args:
+            raw_value: Raw ADC value from ADS1115
+        
+        Returns:
+            Normalized value (0.0-1.0)
+        """
+        # Clamp to calibrated range
+        clamped = max(self.adc_min, min(self.adc_max, raw_value))
+        
+        # Avoid division by zero
+        adc_range = self.adc_max - self.adc_min
+        if adc_range <= 0:
+            return 0.0
+        
+        # Linear mapping
+        normalized = (clamped - self.adc_min) / adc_range
+        return max(0.0, min(1.0, normalized))
+    
     def _apply_dead_zones(self, normalized: float) -> float:
         """
-        Apply dead zones to normalized ADC value.
+        Apply dead zones to normalized ADC value and cap at max volume.
         
         Maps:
-        - 0.0 to dead_zone_low → 0.0
-        - dead_zone_low to (1.0 - dead_zone_high) → 0.0 to 1.0 (linear)
-        - (1.0 - dead_zone_high) to 1.0 → 1.0
+        - 0.0 to dead_zone_low → 0.0 (mute)
+        - dead_zone_low to (1.0 - dead_zone_high) → 0.0 to max_volume_cap (linear)
+        - (1.0 - dead_zone_high) to 1.0 → max_volume_cap
         
         Args:
             normalized: Normalized ADC value (0.0-1.0)
         
         Returns:
-            Volume value with dead zones applied (0.0-1.0)
+            Volume value with dead zones applied (0.0 - max_volume_cap)
         """
         if normalized <= self.dead_zone_low:
             return 0.0
         elif normalized >= (1.0 - self.dead_zone_high):
-            return 1.0
+            return self.max_volume_cap
         else:
-            # Linear mapping between dead zones
+            # Linear mapping between dead zones to 0.0 - max_volume_cap
             active_range = 1.0 - self.dead_zone_low - self.dead_zone_high
-            return (normalized - self.dead_zone_low) / active_range
+            fraction = (normalized - self.dead_zone_low) / active_range
+            return fraction * self.max_volume_cap
     
     def _publish_volume(self, volume: float, force: bool = False):
         """
         Publish volume if it has changed significantly.
         
         Args:
-            volume: Volume to publish (0.0-1.0)
+            volume: Volume to publish (0.0 - max_volume_cap)
             force: Publish even if unchanged
         """
         # Check if change is significant
@@ -244,8 +302,8 @@ class VolumeControlNode(Node):
             if change < self.min_change:
                 return
         
-        # Clamp to valid range
-        volume = max(0.0, min(1.0, volume))
+        # Clamp to valid range (0.0 to max_volume_cap)
+        volume = max(0.0, min(self.max_volume_cap, volume))
         
         # Publish
         msg = Float32()
@@ -258,6 +316,46 @@ class VolumeControlNode(Node):
         self._save_volume_state(volume)
         
         self.get_logger().debug(f"Published volume: {volume:.3f}")
+    
+    def _load_calibration(self):
+        """
+        Load ADC calibration data from file.
+        
+        Calibration file is created by test_adc_calibration.py --calibrate
+        and contains the min/max ADC values for the potentiometer.
+        """
+        if self.calibration_file.exists():
+            try:
+                with open(self.calibration_file, 'r') as f:
+                    calibration = json.load(f)
+                
+                if calibration.get('calibrated', False):
+                    self.adc_min = calibration.get('adc_min', DEFAULT_ADC_MIN)
+                    self.adc_max = calibration.get('adc_max', DEFAULT_ADC_MAX)
+                    
+                    # Override max_volume if specified in calibration
+                    if 'max_volume' in calibration:
+                        self.max_volume_cap = calibration['max_volume']
+                    
+                    self.calibration_loaded = True
+                    self.get_logger().info(
+                        f"Loaded ADC calibration from {self.calibration_file}\n"
+                        f"  ADC Range: {self.adc_min} - {self.adc_max}\n"
+                        f"  Max Volume: {self.max_volume_cap}"
+                    )
+                else:
+                    self.get_logger().warn(
+                        f"Calibration file exists but not calibrated. "
+                        f"Run: python3 test_adc_calibration.py --calibrate"
+                    )
+            except Exception as e:
+                self.get_logger().warn(f"Could not load calibration: {e}")
+        else:
+            self.get_logger().info(
+                f"No calibration file found at {self.calibration_file}\n"
+                f"Using defaults: ADC {self.adc_min}-{self.adc_max}, max vol {self.max_volume_cap}\n"
+                f"Run: python3 test_adc_calibration.py --calibrate"
+            )
     
     def _load_volume_state(self):
         """Load volume state from persistence file."""

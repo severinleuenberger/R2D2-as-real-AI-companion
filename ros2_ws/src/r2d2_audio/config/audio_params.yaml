@@ -9,12 +9,21 @@
     # =================================================================
     # The master volume multiplies with local volume settings
     # Final volume = master_volume * local_audio_volume
+    # 
+    # BASELINE TEST RESULTS (2025-12-27):
+    # - Distortion starts at volume 0.7-1.0 for most audio sources
+    # - Max safe volume capped at 0.7 to prevent distortion
+    # - Optimal range: 0.05 - 0.3 for notification beeps
     
-    master_volume_default: 0.5  # Default master volume on startup (0.0-1.0)
-                                 # This is overridden by the physical knob position
-                                 # 0.0 = mute (knob fully CCW)
-                                 # 0.5 = 50% (knob at center)
-                                 # 1.0 = 100% (knob fully CW)
+    master_volume_default: 0.35  # Default master volume on startup (0.0-0.7)
+                                  # This is overridden by the physical knob position
+                                  # 0.0 = mute (knob fully CCW)
+                                  # 0.35 = middle of safe range (knob at center)
+                                  # 0.7 = max safe (knob fully CW)
+    
+    max_volume_cap: 0.7  # Maximum volume cap to prevent distortion
+                          # Based on baseline test results (2025-12-27)
+                          # Hardware limitation: distortion above 0.7
     
     # =================================================================
     # PER-SOURCE VOLUME MULTIPLIERS (relative to master)
@@ -29,13 +38,16 @@
     # =================================================================
     # LOCAL AUDIO VOLUME (per-node default)
     # =================================================================
-    audio_volume: 0.02  # Local volume for audio feedback (0.0-1.0)
+    # UPDATED based on baseline test results (2025-12-27):
+    # - Old default: 0.02 (too quiet)
+    # - New default: 0.1 (clearly audible, optimal range 0.05-0.3)
+    audio_volume: 0.1   # Local volume for audio feedback (0.0-1.0)
                         # This is the "content volume" for MP3 files
                         # 0.0 = silent
-                        # 0.02 = 2% (current default - subtle)
-                        # 0.05 = 5% (slightly louder)
-                        # 0.3 = 30% (medium)
-                        # 1.0 = 100% (maximum)
+                        # 0.05 = 5% (quiet but audible)
+                        # 0.1 = 10% (new default - clearly audible)
+                        # 0.3 = 30% (medium-loud)
+                        # 0.7 = 70% (max safe before distortion)
 
     # RED-first architecture parameters (audio_notification_node)
     # Rolling window filter for person recognition
