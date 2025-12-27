@@ -12,7 +12,7 @@ from pathlib import Path
 import rclpy
 from rclpy.lifecycle import Node as LifecycleNode
 from rclpy.lifecycle import State, TransitionCallbackReturn
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from std_srvs.srv import Trigger
 
 # Add existing r2d2_speech package to path
@@ -76,8 +76,12 @@ class SpeechNode(LifecycleNode):
         # Subscribers & services
         self.command_sub = None
         self.prompt_sub = None
+        self.master_volume_sub = None
         self.start_session_srv = None
         self.stop_session_srv = None
+        
+        # Master volume from physical volume knob
+        self.master_volume = 1.0
         
         self.get_logger().info("Speech Node initialized")
     
@@ -112,6 +116,14 @@ class SpeechNode(LifecycleNode):
                 String, '/r2d2/speech/commands', self._command_callback, 10)
             self.prompt_sub = self.create_subscription(
                 String, '/r2d2/speech/assistant_prompt', self._prompt_callback, 10)
+            
+            # Subscribe to master volume from physical volume knob
+            self.master_volume_sub = self.create_subscription(
+                Float32, '/r2d2/audio/master_volume', self._master_volume_callback,
+                rclpy.qos.QoSProfile(
+                    depth=10,
+                    durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL  # Get last value on subscribe
+                ))
             
             self.start_session_srv = self.create_service(
                 Trigger, '/r2d2/speech/start_session', self._start_session_callback)
@@ -181,6 +193,8 @@ class SpeechNode(LifecycleNode):
                 self.destroy_subscription(self.command_sub)
             if self.prompt_sub:
                 self.destroy_subscription(self.prompt_sub)
+            if self.master_volume_sub:
+                self.destroy_subscription(self.master_volume_sub)
             if self.start_session_srv:
                 self.destroy_service(self.start_session_srv)
             if self.stop_session_srv:
@@ -240,7 +254,10 @@ class SpeechNode(LifecycleNode):
             self.get_logger().info(f"✓ Audio: {self.audio_manager.device_info['name']}")
             
             self.audio_manager.start_playback()
-            self.get_logger().info("✓ Playback ready")
+            # Apply current master volume to playback
+            if self.audio_manager.playback:
+                self.audio_manager.playback.set_master_volume(self.master_volume)
+            self.get_logger().info(f"✓ Playback ready (master volume: {self.master_volume:.2f})")
             
             # Initialize transcript handlers
             self.transcript_handler = TranscriptHandler(self.config['db_path'], self.session_id)
@@ -403,6 +420,20 @@ class SpeechNode(LifecycleNode):
                 self.get_logger().error(f"Update failed: {e}")
         else:
             self.get_logger().warn("Not connected")
+    
+    def _master_volume_callback(self, msg: Float32) -> None:
+        """Handle master volume updates from physical volume knob"""
+        old_volume = self.master_volume
+        self.master_volume = max(0.0, min(1.0, msg.data))
+        
+        # Update AudioPlayback's master volume if available
+        if self.audio_manager and self.audio_manager.playback:
+            self.audio_manager.playback.set_master_volume(self.master_volume)
+            
+            if abs(old_volume - self.master_volume) > 0.01:
+                self.get_logger().debug(
+                    f"🎚️ Master volume updated: {old_volume:.2f} -> {self.master_volume:.2f}"
+                )
     
     def _start_session_callback(self, request, response):
         """Service: start session (start streaming on existing connection)"""

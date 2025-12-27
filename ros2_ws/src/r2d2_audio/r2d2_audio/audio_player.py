@@ -31,14 +31,19 @@ def find_audio_player() -> Optional[str]:
     return None
 
 
-def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] = None) -> bool:
+def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] = None, 
+               master_volume: float = 1.0) -> bool:
     """
     Play an audio file.
     
     Args:
         file_path: Path to the audio file to play
-        volume: Volume level 0.0-1.0 (0.5 = 50%)
+        volume: Local volume level 0.0-1.0 (0.5 = 50%)
         alsa_device: ALSA device specification (e.g., "hw:1,0"). If None, uses default or environment variable.
+        master_volume: Master volume multiplier 0.0-1.0 from physical volume knob (default: 1.0)
+    
+    The effective volume is: master_volume * volume
+    For example: 0.5 (master) * 0.5 (local) = 0.25 (effective)
     
     Returns:
         True if playback started successfully, False otherwise
@@ -55,6 +60,9 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
         print("Error: No audio player found. Install ffplay, mpv, or aplay.", file=sys.stderr)
         return False
     
+    # Calculate effective volume
+    effective_volume = max(0.0, min(1.0, master_volume * volume))
+    
     # Get ALSA device from parameter or environment variable
     device = alsa_device or os.environ.get('AUDIODEV') or os.environ.get('ALSA_CARD', 'hw:1,0')
     
@@ -69,7 +77,7 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
                 '-nodisp',
                 '-autoexit',
                 '-loglevel', 'error',  # Reduce logging
-                '-af', f'volume={volume}',
+                '-af', f'volume={effective_volume}',
                 str(audio_path)
             ]
         elif player == 'mpv':
@@ -79,13 +87,13 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
                 'mpv',
                 '--no-video',
                 '--really-quiet',
-                f'--volume={int(volume * 100)}',
+                f'--volume={int(effective_volume * 100)}',
             ]
             if device:
                 cmd.append(f'--audio-device=alsa/{device}')
             cmd.append(str(audio_path))
         elif player == 'aplay':
-            # aplay: simple PCM player, use -D for device
+            # aplay: simple PCM player, use -D for device (no software volume control)
             cmd = ['aplay', '-D', device, str(audio_path)] if device else ['aplay', str(audio_path)]
         elif player == 'paplay':
             # PulseAudio player (doesn't support ALSA device directly)
@@ -119,14 +127,17 @@ def play_audio(file_path: str, volume: float = 0.5, alsa_device: Optional[str] =
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python3 audio_player.py <file_path> [volume] [alsa_device]")
-        print("  volume: 0.0-1.0 (default 0.5)")
+        print("Usage: python3 audio_player.py <file_path> [volume] [alsa_device] [master_volume]")
+        print("  volume: 0.0-1.0 (default 0.5) - local/content volume")
         print("  alsa_device: ALSA device (e.g., hw:1,0, default from AUDIODEV env or hw:1,0)")
+        print("  master_volume: 0.0-1.0 (default 1.0) - master volume multiplier")
+        print("  Effective volume = volume * master_volume")
         sys.exit(1)
     
     file_path = sys.argv[1]
     volume = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
     alsa_device = sys.argv[3] if len(sys.argv) > 3 else None
+    master_volume = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
     
-    success = play_audio(file_path, volume, alsa_device)
+    success = play_audio(file_path, volume, alsa_device, master_volume)
     sys.exit(0 if success else 1)

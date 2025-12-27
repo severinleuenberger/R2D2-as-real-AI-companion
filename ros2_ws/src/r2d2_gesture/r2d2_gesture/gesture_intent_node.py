@@ -25,7 +25,7 @@ Date: December 17, 2025
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from std_srvs.srv import Trigger
 import json
 import time
@@ -87,6 +87,9 @@ class GestureIntentNode(Node):
         self.last_red_status_time = None  # Watchdog: time when RED status last seen
         self.auto_shutdown_triggered = False  # Watchdog: flag to prevent repeated shutdowns
         
+        # Master volume from physical volume knob (multiplier for audio_volume)
+        self.master_volume = 1.0  # Default: no attenuation until volume_control_node publishes
+        
         # SPEAKING state tracking (conversation protection)
         self.speaking_state = "idle"  # "idle" or "speaking"
         self.speaking_start_time = None
@@ -122,6 +125,17 @@ class GestureIntentNode(Node):
             '/r2d2/speech/voice_activity',
             self.vad_callback,
             10
+        )
+        
+        # Create subscription to master volume from volume_control_node
+        self.master_volume_sub = self.create_subscription(
+            Float32,
+            '/r2d2/audio/master_volume',
+            self.master_volume_callback,
+            rclpy.qos.QoSProfile(
+                depth=10,
+                durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL  # Get last value on subscribe
+            )
         )
         
         # Create service clients for Fast Mode (Realtime API)
@@ -284,6 +298,20 @@ class GestureIntentNode(Node):
                     
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse VAD data: {e}')
+    
+    def master_volume_callback(self, msg: Float32):
+        """
+        Handle master volume updates from volume_control_node (physical knob).
+        
+        The master volume multiplies with the local audio_volume parameter.
+        """
+        old_volume = self.master_volume
+        self.master_volume = max(0.0, min(1.0, msg.data))  # Clamp to 0.0-1.0
+        
+        if abs(old_volume - self.master_volume) > 0.01:
+            self.get_logger().debug(
+                f'🎚️ Master volume updated: {old_volume:.2f} -> {self.master_volume:.2f}'
+            )
     
     def gesture_callback(self, msg):
         """
@@ -559,6 +587,9 @@ class GestureIntentNode(Node):
         """
         Play audio feedback file asynchronously.
         
+        The effective volume is: master_volume * audio_volume
+        Where master_volume comes from the physical volume knob.
+        
         Args:
             audio_file: Path to audio file to play
         """
@@ -570,15 +601,18 @@ class GestureIntentNode(Node):
             return
         
         try:
+            # Calculate effective volume: master_volume * audio_volume
+            effective_volume = self.master_volume * self.audio_volume
+            
             # Play audio in background (non-blocking)
             subprocess.Popen(
                 ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
-                 '-af', f'volume={self.audio_volume}', str(audio_file)],
+                 '-af', f'volume={effective_volume}', str(audio_file)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
         except FileNotFoundError:
-            # Try aplay as fallback
+            # Try aplay as fallback (no volume control)
             try:
                 subprocess.Popen(
                     ['aplay', '-q', str(audio_file)],

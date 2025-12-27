@@ -350,8 +350,13 @@ class AudioPlayback:
     
     Plays base64-encoded PCM16 audio chunks (24kHz mono) to speaker.
     
+    Supports master volume control via set_master_volume() method.
+    The speech_node subscribes to /r2d2/audio/master_volume and calls
+    set_master_volume() to update the playback volume from the physical knob.
+    
     Usage:
         playback = AudioPlayback(output_device='default')
+        playback.set_master_volume(0.5)  # Set from volume knob
         playback.start()
         playback.play_chunk(base64_audio)
         playback.flush()
@@ -375,10 +380,31 @@ class AudioPlayback:
         self.actual_rate = None  # Will be set when stream opens
         self.resampler = None  # Will be created if resampling needed
         
+        # Master volume from physical volume knob (0.0-1.0)
+        # Updated externally via set_master_volume() from speech_node
+        self.master_volume = 1.0
+        
         logger.info(f"AudioPlayback initialized:")
         logger.info(f"  Device: {output_device or 'default'}")
         logger.info(f"  Input rate: {self.input_sample_rate} Hz")
         logger.info(f"  Channels: {self.channels}")
+        logger.info(f"  Master volume: {self.master_volume} (updated from /r2d2/audio/master_volume)")
+    
+    def set_master_volume(self, volume: float) -> None:
+        """
+        Set master volume from physical volume knob.
+        
+        Called by speech_node when it receives updates from /r2d2/audio/master_volume topic.
+        The volume scales PCM16 samples before playback.
+        
+        Args:
+            volume: Master volume level 0.0-1.0 (0.0 = mute, 1.0 = full volume)
+        """
+        old_volume = self.master_volume
+        self.master_volume = max(0.0, min(1.0, volume))
+        
+        if abs(old_volume - self.master_volume) > 0.01:
+            logger.debug(f"Master volume updated: {old_volume:.2f} -> {self.master_volume:.2f}")
     
     def start(self) -> None:
         """
@@ -472,6 +498,9 @@ class AudioPlayback:
         """
         Play a base64-encoded audio chunk.
         
+        The audio is scaled by master_volume before playback.
+        master_volume comes from the physical volume knob via /r2d2/audio/master_volume topic.
+        
         Args:
             base64_audio: Base64-encoded PCM16 audio (24kHz mono)
         """
@@ -483,6 +512,13 @@ class AudioPlayback:
             # Decode base64
             audio_bytes = base64.b64decode(base64_audio)
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
+            
+            # Apply master volume scaling (from physical volume knob)
+            if self.master_volume < 1.0:
+                # Scale PCM16 samples by master volume
+                # Convert to float32, scale, then back to int16 to avoid overflow
+                audio_float = audio_array.astype(np.float32) * self.master_volume
+                audio_array = np.clip(audio_float, -32768, 32767).astype(np.int16)
             
             # Resample if needed
             if self.resampler:

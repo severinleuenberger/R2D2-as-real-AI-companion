@@ -1,0 +1,40 @@
+[Unit]
+Description=R2D2 Volume Control Node (ADC-based Physical Volume Knob)
+Documentation=https://github.com/r2d2/docs/260_VOLUME_CONTROL_REFERENCE.md
+After=network.target
+
+# Ensure ROS2 daemon is ready
+# Note: Adjust according to your systemd ROS2 setup
+After=ros2-daemon.service
+
+[Service]
+Type=simple
+User=severin
+Group=severin
+WorkingDirectory=/home/severin/dev/r2d2
+
+# ROS2 environment setup
+Environment="HOME=/home/severin"
+Environment="ROS_DOMAIN_ID=0"
+Environment="RMW_IMPLEMENTATION=rmw_fastrtps_cpp"
+
+# Source ROS2 and workspace (adjust paths as needed)
+ExecStartPre=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash'
+
+# Run the volume control node
+ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && ros2 run r2d2_audio volume_control_node'
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-volume-control
+
+[Install]
+WantedBy=multi-user.target
+

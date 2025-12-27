@@ -21,7 +21,7 @@ Features:
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, Int32
+from std_msgs.msg import String, Int32, Float32
 import subprocess
 import time
 from pathlib import Path
@@ -143,6 +143,9 @@ class AudioNotificationNode(Node):
         self.green_entry_delay = 2.0   # Seconds of face before BLUE→GREEN (default: 2s)
         self.blue_entry_delay = 3.0    # Seconds of no face before GREEN→BLUE (default: 3s)
         
+        # Master volume from physical volume knob (multiplier for audio_volume)
+        self.master_volume = 1.0  # Default: no attenuation until volume_control_node publishes
+        
         # Find audio player and audio files
         # Get the directory where this script is located
         script_dir = Path(__file__).parent
@@ -205,6 +208,17 @@ class AudioNotificationNode(Node):
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
+        # Create subscription to master volume from volume_control_node
+        self.master_volume_sub = self.create_subscription(
+            Float32,
+            '/r2d2/audio/master_volume',
+            self.master_volume_callback,
+            qos_profile=rclpy.qos.QoSProfile(
+                depth=10,
+                durability=rclpy.qos.DurabilityPolicy.TRANSIENT_LOCAL  # Get last value on subscribe
+            )
+        )
+        
         # Create publisher for notification events (for debugging/monitoring)
         self.event_pub = self.create_publisher(
             String,
@@ -231,7 +245,8 @@ class AudioNotificationNode(Node):
             f"  Target person: {self.target_person}\n"
             f"  Recognition audio: {self.recognition_audio.name}\n"
             f"  Loss audio: {self.loss_audio.name}\n"
-            f"  Audio volume: {self.audio_volume*100:.0f}%\n"
+            f"  Local audio volume: {self.audio_volume*100:.0f}%\n"
+            f"  Master volume: subscribed to /r2d2/audio/master_volume\n"
             f"  ALSA device: {self.alsa_device}\n"
             f"  RED-FIRST Architecture: Recognition is PRIMARY\n"
             f"  RED entry threshold: {self.red_entry_match_threshold} matches in {self.red_entry_window_seconds}s window\n"
@@ -379,6 +394,20 @@ class AudioNotificationNode(Node):
                 self.unknown_person_detected = True
                 self._publish_status("green", "unknown", confidence=0.70)
                 self.get_logger().info(f"SECONDARY: BLUE -> GREEN (face for {time_with_face:.1f}s)")
+    
+    def master_volume_callback(self, msg: Float32):
+        """
+        Handle master volume updates from volume_control_node (physical knob).
+        
+        The master volume multiplies with the local audio_volume parameter.
+        """
+        old_volume = self.master_volume
+        self.master_volume = max(0.0, min(1.0, msg.data))  # Clamp to 0.0-1.0
+        
+        if abs(old_volume - self.master_volume) > 0.01:
+            self.get_logger().debug(
+                f"🎚️ Master volume updated: {old_volume:.2f} -> {self.master_volume:.2f}"
+            )
     
     def check_loss_state(self):
         """
@@ -564,6 +593,9 @@ class AudioNotificationNode(Node):
         """
         Play an audio file using ffplay directly (same as gesture_intent_node).
         
+        The effective volume is: master_volume * audio_volume
+        Where master_volume comes from the physical volume knob.
+        
         Args:
             audio_file: Path to the audio file to play
             alert_type: Type name for logging (RECOGNITION, LOSS, etc.)
@@ -573,14 +605,18 @@ class AudioNotificationNode(Node):
             return
         
         try:
+            # Calculate effective volume: master_volume * audio_volume
+            effective_volume = self.master_volume * self.audio_volume
+            
             self.get_logger().info(
-                f"🔊 Playing {alert_type} audio: {audio_file.name} (volume {self.audio_volume*100:.0f}%)"
+                f"🔊 Playing {alert_type} audio: {audio_file.name} "
+                f"(volume {effective_volume*100:.1f}% = {self.master_volume*100:.0f}% master × {self.audio_volume*100:.0f}% local)"
             )
             
-            # Call ffplay directly (same method as gesture_intent_node)
+            # Call ffplay directly with effective volume
             subprocess.Popen(
                 ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
-                 '-af', f'volume={self.audio_volume}', str(audio_file)],
+                 '-af', f'volume={effective_volume}', str(audio_file)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )

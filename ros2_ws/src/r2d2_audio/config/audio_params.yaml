@@ -1,12 +1,39 @@
 /**:
   ros__parameters:
     # Centralized Audio Configuration
-    # This file is shared by audio_notification_node and gesture_intent_node
-    # for consistent volume control across all audio feedback
+    # This file is shared by audio_notification_node, gesture_intent_node,
+    # and volume_control_node for consistent volume control across all audio
     
-    audio_volume: 0.02  # Global volume for all audio feedback (0.0-1.0)
+    # =================================================================
+    # MASTER VOLUME CONTROL (set by physical volume knob via ADC)
+    # =================================================================
+    # The master volume multiplies with local volume settings
+    # Final volume = master_volume * local_audio_volume
+    
+    master_volume_default: 0.5  # Default master volume on startup (0.0-1.0)
+                                 # This is overridden by the physical knob position
+                                 # 0.0 = mute (knob fully CCW)
+                                 # 0.5 = 50% (knob at center)
+                                 # 1.0 = 100% (knob fully CW)
+    
+    # =================================================================
+    # PER-SOURCE VOLUME MULTIPLIERS (relative to master)
+    # =================================================================
+    # These allow fine-tuning individual audio sources
+    # Final volume = master_volume * source_multiplier * audio_volume
+    
+    audio_notification_volume: 1.0  # Recognition/loss beeps multiplier
+    gesture_feedback_volume: 1.0    # Gesture acknowledgment beeps multiplier  
+    speech_tts_volume: 1.0          # OpenAI speech responses multiplier
+    
+    # =================================================================
+    # LOCAL AUDIO VOLUME (per-node default)
+    # =================================================================
+    audio_volume: 0.02  # Local volume for audio feedback (0.0-1.0)
+                        # This is the "content volume" for MP3 files
                         # 0.0 = silent
-                        # 0.05 = 5% (current default - subtle)
+                        # 0.02 = 2% (current default - subtle)
+                        # 0.05 = 5% (slightly louder)
                         # 0.3 = 30% (medium)
                         # 1.0 = 100% (maximum)
 
