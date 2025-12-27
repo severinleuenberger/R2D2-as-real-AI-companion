@@ -1,10 +1,10 @@
 # R2D2 Systemd Services Reference
 ## Complete Service Documentation and Management
 
-**Date:** December 26, 2025  
+**Date:** December 27, 2025  
 **Status:** Production System Configuration  
 **Platform:** NVIDIA Jetson AGX Orin 64GB  
-**Total Services:** 11
+**Total Services:** 12
 
 ---
 
@@ -14,6 +14,7 @@ The R2D2 system uses systemd services for automatic startup and management of al
 
 **Service Categories:**
 - **Core Perception (3 services):** Camera, audio notifications, gesture intent
+- **Audio (1 service):** Volume control
 - **Communication (3 services):** Speech node (Fast Mode), REST speech node (R2-D2 Mode), rosbridge
 - **Monitoring (1 service):** Heartbeat monitor
 - **Web Interface (2 services):** Web dashboard, wake API
@@ -28,6 +29,7 @@ The R2D2 system uses systemd services for automatic startup and management of al
 | r2d2-camera-perception | ✅ Enabled | *inline launch* | Face & gesture recognition |
 | r2d2-audio-notification | ✅ Enabled | `scripts/start/start_audio_notification.sh` | Audio alerts & LED control |
 | r2d2-gesture-intent | ✅ Enabled | *inline launch* | Gesture-to-speech control |
+| r2d2-volume-control | ✅ Enabled | *inline ros2 run* | Master volume control |
 | r2d2-speech-node | ✅ Enabled | `scripts/start/start_speech_node.sh` | Fast Mode (OpenAI Realtime) |
 | r2d2-rest-speech-node | ✅ Enabled | `scripts/start/start_rest_speech_node.sh` | R2-D2 Mode (REST APIs) |
 | r2d2-heartbeat | ✅ Enabled | `scripts/start/start_heartbeat.sh` | System health monitoring |
@@ -194,6 +196,66 @@ sudo journalctl -u r2d2-gesture-intent -f
 - **Gestures ignored:** Check person_status is RED (`ros2 topic echo /r2d2/audio/person_status`)
 - **Service not available:** Verify speech node is running (`ros2 service list | grep speech`)
 - **Cooldown issues:** Adjust `cooldown_start_seconds` or `cooldown_stop_seconds`
+
+---
+
+## Audio Services
+
+### 4. r2d2-volume-control.service
+
+**Purpose:** Centralized master volume control for all audio output
+
+**Status:** ✅ Auto-start enabled
+
+**Location:** `/etc/systemd/system/r2d2-volume-control.service`
+
+**Source:** `ros2_ws/src/r2d2_audio/config/r2d2-volume-control.service`
+
+**ExecStart:**
+```bash
+/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && ros2 run r2d2_audio volume_control_node --ros-args -p hardware_enabled:=false --params-file /home/severin/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml'
+```
+
+**Working Directory:** `/home/severin/dev/r2d2`
+
+**Dependencies:**
+- After: `network.target`
+- Before: `r2d2-audio-notification.service`, `r2d2-gesture-intent.service`, `r2d2-speech-node.service`
+
+**ROS 2 Node:**
+- `/volume_control_node` - Master volume publisher
+
+**Topics Published:**
+- `/r2d2/audio/master_volume` (Float32) - Master volume level (0.0-0.7)
+
+**Services Provided:**
+- `/r2d2/audio/set_volume` (SetVolume) - Set volume programmatically
+
+**Current Mode:** Software-only (hardware knob pending)
+
+**Management:**
+```bash
+# Status
+sudo systemctl status r2d2-volume-control
+
+# Restart
+sudo systemctl restart r2d2-volume-control
+
+# Logs
+sudo journalctl -u r2d2-volume-control -f
+
+# Change volume at runtime
+ros2 param set /volume_control_node master_volume_default 0.5
+```
+
+**Documentation:** See `260_VOLUME_CONTROL_REFERENCE.md` for:
+- Complete usage guide
+- How to add physical volume knob (Teensy, ADS1115, or rotary encoder)
+- Volume mapping and calibration
+
+**Troubleshooting:**
+- **No volume change heard:** Restart audio services after changing volume
+- **Service not starting:** Check workspace is built (`colcon build --packages-select r2d2_audio`)
 
 ---
 
