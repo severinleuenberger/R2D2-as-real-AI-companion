@@ -40,6 +40,9 @@ import os
 from pathlib import Path
 from datetime import datetime
 from person_registry import PersonRegistry
+import cv2
+import numpy as np
+import shutil
 
 
 class TrainingManager:
@@ -120,6 +123,158 @@ class TrainingManager:
                     datasets[person_dir.name] = gesture_counts
         return datasets
     
+    def assess_image_quality(self, image_path):
+        """
+        Assess quality of a face image.
+        
+        Args:
+            image_path: Path to image file
+            
+        Returns:
+            tuple: (quality_score, image)
+        """
+        img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return 0.0, None
+        
+        # Blur detection (Laplacian variance)
+        laplacian_var = cv2.Laplacian(img, cv2.CV_64F).var()
+        blur_score = min(laplacian_var / 100.0, 1.0)
+        
+        # Lighting (mean brightness)
+        mean_brightness = np.mean(img)
+        brightness_diff = abs(mean_brightness - 128) / 128.0
+        lighting_score = max(0.0, 1.0 - brightness_diff)
+        
+        # Contrast (std dev)
+        contrast = np.std(img) / 128.0
+        contrast_score = min(contrast, 1.0)
+        
+        # Combined score
+        quality_score = (
+            blur_score * 0.5 +
+            lighting_score * 0.3 +
+            contrast_score * 0.2
+        )
+        
+        return quality_score, img
+    
+    def calculate_diversity_score(self, img, existing_images):
+        """
+        Calculate how diverse this image is compared to existing selected images.
+        
+        Args:
+            img: Grayscale image
+            existing_images: List of already selected images
+            
+        Returns:
+            float: Diversity score (0.0 = duplicate, 1.0 = very diverse)
+        """
+        if len(existing_images) == 0:
+            return 1.0
+        
+        # Compare with existing images using histogram
+        hist1 = cv2.calcHist([img], [0], None, [256], [0, 256])
+        
+        similarities = []
+        for existing_img in existing_images:
+            hist2 = cv2.calcHist([existing_img], [0], None, [256], [0, 256])
+            similarity = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
+            similarities.append(similarity)
+        
+        # Average similarity to existing images
+        avg_similarity = np.mean(similarities)
+        
+        # Convert to diversity score (inverse of similarity)
+        diversity_score = 1.0 - avg_similarity
+        
+        return diversity_score
+    
+    def optimize_training_dataset(self, person_name, target_images=75, min_quality=0.4):
+        """
+        Optimize training dataset by selecting best quality, diverse images.
+        
+        Args:
+            person_name: Name of person
+            target_images: Target number of images to keep
+            min_quality: Minimum quality threshold
+            
+        Returns:
+            tuple: (kept_count, archived_count, archive_dir)
+        """
+        person_dir = self.base_dir / person_name
+        
+        # Get all image files
+        image_files = sorted(person_dir.glob('*.jpg'))
+        total_images = len(image_files)
+        
+        if total_images <= target_images:
+            print(f'  ℹ️  Dataset already optimal ({total_images} images)')
+            return total_images, 0, None
+        
+        print(f'\n  📊 Analyzing {total_images} images...')
+        
+        # Assess quality of all images
+        image_scores = []
+        for img_path in image_files:
+            quality_score, img = self.assess_image_quality(img_path)
+            if img is not None:
+                image_scores.append({
+                    'path': img_path,
+                    'quality': quality_score,
+                    'image': img
+                })
+        
+        # Sort by quality
+        image_scores.sort(key=lambda x: x['quality'], reverse=True)
+        
+        # Filter out low quality images
+        filtered_scores = [x for x in image_scores if x['quality'] >= min_quality]
+        print(f'  ✓ {len(filtered_scores)} images pass quality threshold (>= {min_quality})')
+        
+        if len(filtered_scores) <= target_images:
+            # Need to archive only low-quality images
+            selected_paths = [x['path'] for x in filtered_scores]
+            archive_paths = [x['path'] for x in image_scores if x['path'] not in selected_paths]
+        else:
+            # Select diverse images
+            print(f'  🔍 Selecting {target_images} diverse images...')
+            selected_images = []
+            selected_paths = []
+            
+            for img_info in filtered_scores:
+                if len(selected_paths) >= target_images:
+                    break
+                
+                img = img_info['image']
+                
+                # Calculate diversity score
+                diversity_score = self.calculate_diversity_score(img, selected_images)
+                
+                # Accept if diverse enough or if we need more images
+                if diversity_score > 0.3 or len(selected_paths) < target_images * 0.8:
+                    selected_images.append(img)
+                    selected_paths.append(img_info['path'])
+            
+            # Archive the rest
+            archive_paths = [img['path'] for img in image_scores if img['path'] not in selected_paths]
+        
+        # Create archive directory
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        archive_dir = self.base_dir / f'{person_name}_archive_{timestamp}'
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Move images to archive
+        print(f'  📦 Archiving {len(archive_paths)} images...')
+        for img_path in archive_paths:
+            dest_path = archive_dir / img_path.name
+            shutil.move(str(img_path), str(dest_path))
+        
+        print(f'  ✅ Kept {len(selected_paths)} best images')
+        print(f'  ✅ Archived {len(archive_paths)} images to {archive_dir.name}')
+        
+        return len(selected_paths), len(archive_paths), archive_dir
+    
     def run_module(self, module_name, person_name):
         """
         Run a training module.
@@ -162,15 +317,15 @@ class TrainingManager:
     
     def run_interactive_training(self, person_name):
         """
-        Run the improved capture system with quality filtering (NEW METHOD).
+        Run the capture system with stage-by-stage guidance.
         
         Args:
             person_name: Name of person being trained
         """
-        script_path = self.script_dir / '1_capture_training_data.py'
+        script_path = self.script_dir / '_capture_module.py'
         
         if not script_path.exists():
-            print(f'❌ Error: 1_capture_training_data.py not found at {script_path}')
+            print(f'❌ Error: _capture_module.py not found at {script_path}')
             return False
         
         # Set up environment
@@ -372,6 +527,23 @@ class TrainingManager:
             input('Press ENTER to return...')
             return
         
+        # Check if optimization needed
+        print()
+        if len(images) > 100:
+            print(f'⚠️  Captured {len(images)} images')
+            print(f'   Optimal training uses 50-100 high-quality, diverse images.')
+            print()
+            print('Would you like to optimize the dataset? (recommended)')
+            opt = input('Optimize now? (y/n): ').strip().lower()
+            if opt == 'y':
+                print()
+                print('='*70)
+                print('OPTIMIZING DATASET')
+                print('='*70)
+                kept, archived, archive_dir = self.optimize_training_dataset(person_name)
+                print()
+                images = list(person_dir.glob('*.jpg'))  # Refresh count
+        
         # Step 2: Train
         print('\nSTEP 2: Train Model')
         print('-' * 70)
@@ -492,7 +664,46 @@ class TrainingManager:
         
         try:
             person_name = people[int(choice) - 1]
+            image_count = datasets[person_name]
+            
+            # Check if dataset optimization is needed
+            print()
+            if image_count > 100:
+                print(f'⚠️  Large dataset detected: {image_count} images')
+                print(f'   Optimal training uses 50-100 high-quality, diverse images.')
+                print(f'   Too many images can slow training and may include duplicates.')
+                print()
+                print('Options:')
+                print('  [1] Optimize dataset first (recommended) - Select best ~75 images')
+                print('  [2] Train with all images as-is')
+                print('  [0] Cancel')
+                print()
+                opt_choice = input('Enter choice: ').strip()
+                
+                if opt_choice == '0':
+                    return
+                elif opt_choice == '1':
+                    print()
+                    print('='*70)
+                    print('DATASET OPTIMIZATION')
+                    print('='*70)
+                    kept, archived, archive_dir = self.optimize_training_dataset(person_name)
+                    print()
+                    if archived > 0:
+                        print(f'✓ Optimization complete!')
+                        print(f'  Training will use {kept} high-quality images.')
+                        print(f'  {archived} images archived to: {archive_dir.name}')
+                        print()
+                        input('Press ENTER to continue to training...')
+                # If choice is '2', continue with all images
+            
+            # Now train the model
+            print()
+            print('='*70)
+            print('TRAINING MODEL')
+            print('='*70)
             self.run_module('_train_module', person_name)
+            
         except (ValueError, IndexError):
             print('❌ Invalid choice.')
             input('Press ENTER...')
