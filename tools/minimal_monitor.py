@@ -19,7 +19,8 @@ class MinimalMonitor(Node):
         self.person = "no_person"
         self.gesture = "--"
         self.faces = 0
-        self.speech_active = False
+        self.fast_mode_active = False  # Index finger mode
+        self.r2d2_mode_active = False  # Open hand mode
         self.last_gesture_time = None
         
         # Subscriptions
@@ -30,16 +31,18 @@ class MinimalMonitor(Node):
         self.create_subscription(Int32, '/r2d2/perception/face_count', 
                                 self.face_callback, 10)
         self.create_subscription(String, '/r2d2/speech/session_status', 
-                                self.speech_callback, 10)
+                                self.fast_mode_callback, 10)
+        self.create_subscription(String, '/r2d2/speech/intelligent/session_status', 
+                                self.r2d2_mode_callback, 10)
         
         # Timer to refresh display
         self.create_timer(0.5, self.display)
         
-        print("\n" + "="*90)
-        print("R2D2 MINIMAL MONITOR")
-        print("="*90)
-        print("TIME     | STATUS  | Person     | Gest | Faces | Speech | Phase")
-        print("="*90 + "\n")
+        print("\n" + "="*105)
+        print("R2D2 MINIMAL MONITOR - Dual Mode Speech System")
+        print("="*105)
+        print("TIME     | STATUS  | Person     | Gest | Faces | Speech Mode      | Phase")
+        print("="*105 + "\n")
     
     def status_callback(self, msg):
         try:
@@ -63,11 +66,19 @@ class MinimalMonitor(Node):
     def face_callback(self, msg):
         self.faces = msg.data
     
-    def speech_callback(self, msg):
+    def fast_mode_callback(self, msg):
         try:
             data = json.loads(msg.data)
-            # "connected" = active conversation with OpenAI
-            self.speech_active = (data.get('status', '') == 'connected')
+            # "connected" = active Fast Mode conversation (index finger)
+            self.fast_mode_active = (data.get('status', '') == 'connected')
+        except:
+            pass
+    
+    def r2d2_mode_callback(self, msg):
+        try:
+            data = json.loads(msg.data)
+            # "session_active" = active R2-D2 Mode conversation (open hand)
+            self.r2d2_mode_active = (data.get('session_active', False) == True)
         except:
             pass
     
@@ -78,11 +89,22 @@ class MinimalMonitor(Node):
         elif self.status == "GREEN":
             return "Phase 3: Unknown"
         elif self.status == "RED":
-            if self.speech_active:
-                return "Phase 6: Talking"
+            if self.fast_mode_active:
+                return "Phase 5-7: Fast Mode"
+            elif self.r2d2_mode_active:
+                return "Phase 5-7: R2-D2 Mode"
             else:
                 return "Phase 4: Ready"
         return "Phase ?: --"
+    
+    def get_speech_mode(self):
+        """Get current speech mode with emoji."""
+        if self.fast_mode_active:
+            return "☝️  Fast (RT)"
+        elif self.r2d2_mode_active:
+            return "🖐️  R2-D2 (REST)"
+        else:
+            return "🔇 OFF"
     
     def display(self):
         # Clear gesture if it's more than 2 seconds old
@@ -102,11 +124,11 @@ class MinimalMonitor(Node):
         timestamp = datetime.now().strftime("%H:%M:%S")
         person_str = f"{self.person:10s}"
         gesture_str = f"{self.gesture:4s}"
-        speech_str = "🎙️ ON " if self.speech_active else "🔇 OFF"
+        speech_mode_str = f"{self.get_speech_mode():16s}"
         phase_str = self.get_phase()
         
         # Print with carriage return (overwrites line)
-        output = f"{timestamp} | {status_display} | {person_str} | {gesture_str} | {self.faces}     | {speech_str} | {phase_str}"
+        output = f"{timestamp} | {status_display} | {person_str} | {gesture_str} | {self.faces}     | {speech_mode_str} | {phase_str}"
         print(f"\r{output}", end='', flush=True)
 
 def main():

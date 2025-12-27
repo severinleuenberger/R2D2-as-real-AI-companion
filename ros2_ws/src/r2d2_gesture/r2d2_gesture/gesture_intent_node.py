@@ -366,7 +366,7 @@ class GestureIntentNode(Node):
             # Stop appropriate mode
             if self.speaking_state == "speaking":
                 self.get_logger().info('✊ Fist detected → Stopping Fast Mode conversation')
-                self._exit_speaking_state(reason="user_fist_gesture")
+            self._exit_speaking_state(reason="user_fist_gesture")
             elif self.intelligent_speaking_state == "speaking":
                 self.get_logger().info('✊ Fist detected → Stopping R2-D2 Mode conversation')
                 self._exit_intelligent_speaking_state(reason="user_fist_gesture")
