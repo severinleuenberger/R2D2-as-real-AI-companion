@@ -1,11 +1,10 @@
 [Unit]
-Description=R2D2 Volume Control Node (ADC-based Physical Volume Knob)
-Documentation=https://github.com/r2d2/docs/260_VOLUME_CONTROL_REFERENCE.md
+Description=R2D2 Volume Control Node - Master volume publisher
+Documentation=file:///home/severin/dev/r2d2/260_VOLUME_CONTROL_REFERENCE.md
 After=network.target
 
-# Ensure ROS2 daemon is ready
-# Note: Adjust according to your systemd ROS2 setup
-After=ros2-daemon.service
+# Start before other audio services so they receive initial volume
+Before=r2d2-audio-notification.service r2d2-gesture-intent.service r2d2-speech-node.service
 
 [Service]
 Type=simple
@@ -13,22 +12,23 @@ User=severin
 Group=severin
 WorkingDirectory=/home/severin/dev/r2d2
 
-# ROS2 environment setup
+# Environment setup
 Environment="HOME=/home/severin"
 Environment="ROS_DOMAIN_ID=0"
-Environment="RMW_IMPLEMENTATION=rmw_fastrtps_cpp"
+Environment="PYTHONUNBUFFERED=1"
 
-# Source ROS2 and workspace (adjust paths as needed)
-ExecStartPre=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash'
+# Source ROS2 and workspace, then run volume control node
+# Software-only mode: hardware_enabled=False (no ADC required)
+ExecStart=/bin/bash -c '\
+    source /opt/ros/humble/setup.bash && \
+    source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && \
+    ros2 run r2d2_audio volume_control_node --ros-args \
+        -p hardware_enabled:=false \
+        --params-file /home/severin/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml'
 
-# Run the volume control node
-ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && ros2 run r2d2_audio volume_control_node'
-
-# Restart on failure
-Restart=on-failure
-RestartSec=5
-StartLimitIntervalSec=60
-StartLimitBurst=3
+# Restart policy
+Restart=always
+RestartSec=3
 
 # Logging
 StandardOutput=journal
@@ -37,4 +37,3 @@ SyslogIdentifier=r2d2-volume-control
 
 [Install]
 WantedBy=multi-user.target
-

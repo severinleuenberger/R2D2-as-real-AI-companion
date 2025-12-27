@@ -1,328 +1,404 @@
-# 260 - Volume Control Reference
+# R2D2 Volume Control Reference
+
+> **Last Updated**: 2025-12-27  
+> **Status**: Software-only mode active (hardware knob pending)
 
 ## Overview
 
-Centralized audio volume control system using a **physical B5K (5kΩ) rotary potentiometer** connected via an ADS1115 ADC. The system uses **software volume multipliers** since the J511 audio hardware does not support ALSA mixer controls.
+Centralized master volume control for all R2D2 audio sources. The volume control node publishes to a ROS2 topic that all audio nodes subscribe to, providing unified volume adjustment across:
 
-## Architecture
+- MP3 notification beeps (recognition, loss alerts)
+- Gesture feedback sounds  
+- Speech TTS (OpenAI Realtime API responses)
 
-### Component Diagram
+## Quick Start
+
+### Check Current Volume
+
+```bash
+# Echo the master volume topic
+ros2 topic echo /r2d2/audio/master_volume --once
+```
+
+### Change Volume
+
+```bash
+# Method 1: ROS2 Parameter (recommended - instant effect)
+ros2 param set /volume_control_node master_volume_default 0.5
+
+# Examples:
+ros2 param set /volume_control_node master_volume_default 0.0   # Mute
+ros2 param set /volume_control_node master_volume_default 0.35  # Default
+ros2 param set /volume_control_node master_volume_default 1.0   # Maximum (capped to 0.7)
+```
+
+### Volume Levels
+
+| Value | Description |
+|-------|-------------|
+| `0.0` | Mute |
+| `0.35` | Default (35% of max) |
+| `0.5` | Medium (50% of max) |
+| `1.0` | Maximum safe volume |
+
+**Note**: All values are scaled to the `max_volume_cap` (default 0.7) to prevent distortion.
+
+---
+
+## Volume Control System
+
+### Architecture
 
 ```
-┌──────────────────────┐     ┌──────────────────┐     ┌────────────────────────────┐
-│ Physical Potentiometer │     │  ADS1115 ADC     │     │   volume_control_node      │
-│     B5K (5kΩ)         │────►│   (I2C, 16-bit)  │────►│   (ROS2)                   │
-│  0-3.3V analog        │     │   0x48 address   │     │                            │
-└──────────────────────┘     └──────────────────┘     │ Publishes:                 │
-                                                       │ /r2d2/audio/master_volume  │
-                                                       │   (Float32, 0.0-1.0)       │
-                                                       └────────────┬───────────────┘
-                                                                    │
-           ┌────────────────────────────────────────────────────────┼──────────────────┐
-           │                                                        │                  │
-           ▼                                                        ▼                  ▼
-┌────────────────────────┐     ┌────────────────────────┐     ┌────────────────────────┐
-│ audio_notification_node │     │  gesture_intent_node   │     │     speech_node        │
-│ (Recognition/Loss beeps)│     │ (Gesture feedback)     │     │ (OpenAI TTS playback)  │
-│                        │     │                        │     │                        │
-│ effective_volume =     │     │ effective_volume =     │     │ AudioPlayback.         │
-│ master × audio_volume  │     │ master × audio_volume  │     │ set_master_volume()    │
-└────────────────────────┘     └────────────────────────┘     └────────────────────────┘
-           │                              │                              │
-           │                              │                              │
-           ▼                              ▼                              ▼
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                       PAM8403 Amplifier + Speaker (hw:1,0)                           │
-└──────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    volume_control_node                          │
+│  ┌────────────────┐    ┌─────────────────────────────────────┐  │
+│  │ Hardware Input │    │ Software Input                      │  │
+│  │ (future)       │    │ - ros2 param set                    │  │
+│  │ - ADC/Knob     │    │ - ros2 service call                 │  │
+│  └───────┬────────┘    └────────────────┬────────────────────┘  │
+│          │                              │                        │
+│          └──────────────┬───────────────┘                        │
+│                         ▼                                        │
+│              ┌─────────────────────┐                             │
+│              │ Master Volume       │                             │
+│              │ (0.0 - 0.7)         │                             │
+│              └──────────┬──────────┘                             │
+│                         │                                        │
+│                         ▼                                        │
+│              /r2d2/audio/master_volume (Float32)                 │
+└─────────────────────────┼───────────────────────────────────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│audio_notif... │ │gesture_intent │ │ speech_node   │
+│ node          │ │ node          │ │               │
+│               │ │               │ │               │
+│ effective =   │ │ effective =   │ │ PCM scaling   │
+│ master *      │ │ master *      │ │ by master     │
+│ audio_volume  │ │ audio_volume  │ │ volume        │
+└───────────────┘ └───────────────┘ └───────────────┘
 ```
 
 ### Volume Calculation
 
-```python
-effective_volume = master_volume × local_volume
-# Example: 0.5 (knob at 50%) × 0.02 (local 2%) = 0.01 (final 1%)
-```
-
-## Hardware Setup
-
-### Components Required
-
-| Component | Specification | Purpose |
-|-----------|---------------|---------|
-| Potentiometer | B5K, 5kΩ, linear taper | Analog voltage divider |
-| ADC Module | ADS1115, 16-bit, I2C | Analog-to-digital conversion |
-| Wiring | Jumper wires, 3.3V compatible | Connections |
-
-### Wiring Diagram
+Each audio node applies the master volume as a multiplier:
 
 ```
-Potentiometer:
-├── Pin 1 (CCW terminal) → GND
-├── Pin 2 (Wiper)        → ADS1115 A0
-└── Pin 3 (CW terminal)  → 3.3V
-
-ADS1115:
-├── VDD → 3.3V (Jetson Pin 1 or 17)
-├── GND → GND  (Jetson Pin 6, 9, 14, 20, 25, 30, 34, or 39)
-├── SCL → I2C SCL (Jetson Pin 5, GPIO 3)
-├── SDA → I2C SDA (Jetson Pin 3, GPIO 2)
-└── A0  → Potentiometer wiper
+effective_volume = master_volume × local_audio_volume
 ```
 
-### Jetson AGX Orin 40-Pin Header Reference
+Example:
+- Master volume: 0.35 (35% from knob/parameter)
+- Local audio_volume: 0.1 (10% in audio_params.yaml)
+- Effective: 0.035 (3.5% to ffplay)
 
-```
-3.3V  (1) (2)  5V
-SDA   (3) (4)  5V       ← I2C Data
-SCL   (5) (6)  GND      ← I2C Clock, Ground
-GPIO7 (7) (8)  TXD
-GND   (9) (10) RXD
-...
-```
+### Parameters
 
-## Software Components
-
-### 1. Volume Control Node
-
-**Location**: `ros2_ws/src/r2d2_audio/r2d2_audio/volume_control_node.py`
-
-**Function**: Reads potentiometer via ADC and publishes master volume
-
-**ROS2 Topic**: `/r2d2/audio/master_volume` (std_msgs/Float32)
-
-**Parameters**:
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `adc_i2c_bus` | 1 | I2C bus number (0-8 on Jetson) |
-| `adc_address` | 0x48 | ADS1115 I2C address |
-| `adc_channel` | 0 | ADC channel (0-3) |
-| `poll_rate_hz` | 10.0 | ADC polling rate |
-| `volume_smoothing` | true | Enable exponential smoothing |
-| `smoothing_alpha` | 0.2 | Smoothing factor (0.0-1.0) |
-| `min_change_threshold` | 0.01 | Minimum change to publish |
-| `dead_zone_low` | 0.05 | Map 0-5% ADC to 0.0 |
-| `dead_zone_high` | 0.05 | Map 95-100% ADC to 1.0 |
-| `master_volume_default` | 0.5 | Default if no ADC |
-| `hardware_enabled` | true | Enable ADC hardware |
-
-**Usage**:
-```bash
-# Run standalone
-ros2 run r2d2_audio volume_control_node
-
-# With parameters
-ros2 run r2d2_audio volume_control_node --ros-args -p poll_rate_hz:=20.0
-
-# Monitor volume
-ros2 topic echo /r2d2/audio/master_volume
-```
-
-### 2. Audio Parameters Configuration
-
-**Location**: `ros2_ws/src/r2d2_audio/config/audio_params.yaml`
+Defined in `ros2_ws/src/r2d2_audio/config/audio_params.yaml`:
 
 ```yaml
-# Master volume control (set by volume knob, read by all nodes)
-master_volume_default: 0.5  # Default on startup (0.0-1.0)
+# Master volume (controlled by this system)
+master_volume_default: 0.35  # 35% of max_volume_cap
+max_volume_cap: 0.7          # Prevents distortion (from baseline tests)
 
-# Individual volume multipliers (relative to master)
-audio_notification_volume: 1.0  # Recognition/loss beeps
-gesture_feedback_volume: 1.0    # Gesture acknowledgment beeps
-speech_tts_volume: 1.0          # OpenAI speech responses
-
-# Local audio volume (per-node default)
-audio_volume: 0.02  # Content volume for MP3 files
+# Local volumes (per-node)
+audio_volume: 0.1            # 10% for MP3 beeps
 ```
 
-### 3. Audio Nodes Integration
+---
 
-All audio-playing nodes subscribe to `/r2d2/audio/master_volume` and apply the multiplier:
+## Installation
 
-**audio_notification_node.py**:
-```python
-# In _play_audio_file():
-effective_volume = self.master_volume * self.audio_volume
-subprocess.Popen(['ffplay', ... '-af', f'volume={effective_volume}', ...])
-```
+### 1. Build the Interfaces Package
 
-**gesture_intent_node.py**:
-```python
-# In _play_audio_feedback():
-effective_volume = self.master_volume * self.audio_volume
-subprocess.Popen(['ffplay', ... '-af', f'volume={effective_volume}', ...])
-```
-
-**AudioPlayback (speech TTS)**:
-```python
-# In play_chunk():
-audio_float = audio_array.astype(np.float32) * self.master_volume
-audio_array = np.clip(audio_float, -32768, 32767).astype(np.int16)
-```
-
-## Baseline Testing
-
-### Test Script
-
-**Location**: `ros2_ws/src/r2d2_audio/test/test_volume_baseline.py`
-
-**Purpose**: Establish min/max volume levels and create calibration data
-
-**Usage**:
 ```bash
-# Interactive mode (recommended for first baseline)
-python3 test_volume_baseline.py --mode interactive --output test_results/baseline.json
-
-# Automatic mode (plays all sounds)
-python3 test_volume_baseline.py --mode automatic --output test_results/auto.json
-
-# Verify against baseline
-python3 test_volume_baseline.py --verify test_results/baseline.json
-
-# List available audio sources
-python3 test_volume_baseline.py --list-sources
+cd ~/dev/r2d2/ros2_ws
+source /opt/ros/humble/setup.bash
+colcon build --packages-select r2d2_interfaces r2d2_audio
+source install/setup.bash
 ```
 
-**Output Format** (JSON):
-```json
-{
-  "test_date": "2025-12-27T10:30:00",
-  "hardware": {
-    "device": "hw:1,0",
-    "amplifier": "PAM8403",
-    "speaker": "8Ω"
-  },
-  "baseline_results": {
-    "recognition_beep": {
-      "0.01": {"rating": 1, "notes": "Inaudible"},
-      "0.02": {"rating": 2, "notes": "Quiet, acceptable"},
-      "0.05": {"rating": 3, "notes": "Good volume"},
-      ...
-    }
-  },
-  "recommendations": {
-    "min_volume": 0.01,
-    "default_volume": 0.02,
-    "max_volume": 0.3,
-    "optimal_range": "0.02 - 0.1"
-  }
-}
-```
+### 2. Install Systemd Service
 
-## Systemd Service
-
-### Service File
-
-**Location**: `/etc/systemd/system/r2d2-volume-control.service`
-
-**Installation**:
 ```bash
 # Copy service file
-sudo cp ros2_ws/src/r2d2_audio/config/r2d2-volume-control.service /etc/systemd/system/
+sudo cp ~/dev/r2d2/ros2_ws/src/r2d2_audio/config/r2d2-volume-control.service \
+    /etc/systemd/system/
+
+# Reload systemd
+sudo systemctl daemon-reload
 
 # Enable and start
-sudo systemctl daemon-reload
 sudo systemctl enable r2d2-volume-control.service
 sudo systemctl start r2d2-volume-control.service
 
 # Check status
 sudo systemctl status r2d2-volume-control.service
+```
+
+### 3. Verify Operation
+
+```bash
+# Check the topic is being published
+ros2 topic echo /r2d2/audio/master_volume --once
+
+# Check the node is running
+ros2 node list | grep volume
 
 # View logs
-journalctl -u r2d2-volume-control.service -f
+journalctl -u r2d2-volume-control -f
 ```
+
+---
+
+## Software Volume Control
+
+### Method 1: ROS2 Parameter (Recommended)
+
+Change volume dynamically at runtime:
+
+```bash
+# Set to 50% (maps to 0.35 actual volume with 0.7 cap)
+ros2 param set /volume_control_node master_volume_default 0.5
+
+# Set to mute
+ros2 param set /volume_control_node master_volume_default 0.0
+
+# Set to maximum (will be capped to max_volume_cap = 0.7)
+ros2 param set /volume_control_node master_volume_default 1.0
+
+# Get current setting
+ros2 param get /volume_control_node master_volume_default
+```
+
+**Volume Mapping**:
+- Input: 0.0 to 1.0 (what you set)
+- Output: 0.0 to 0.7 (actual volume, scaled by max_volume_cap)
+
+| You Set | Actual Volume | Description |
+|---------|---------------|-------------|
+| 0.0 | 0.0 | Mute |
+| 0.35 | 0.245 | Default |
+| 0.5 | 0.35 | Medium |
+| 1.0 | 0.7 | Maximum safe |
+
+### Method 3: Configuration File
+
+Edit `audio_params.yaml` for permanent default:
+
+```yaml
+master_volume_default: 0.35  # Change this value
+```
+
+Then restart the service:
+
+```bash
+sudo systemctl restart r2d2-volume-control.service
+```
+
+---
+
+## Adding a Physical Volume Knob (Future)
+
+The system is designed to support a physical potentiometer. Here are three options:
+
+### Option 1: Teensy 2.0 (USB Serial ADC)
+
+**Hardware you have available.** Uses Teensy's built-in ADC and communicates via USB serial.
+
+#### Wiring
+
+```
+Potentiometer B5K:
+  - Pin 1 (CCW) → GND
+  - Pin 2 (Wiper) → Teensy Pin F0 (A5 / ADC0)
+  - Pin 3 (CW) → Teensy VCC (5V)
+
+Teensy 2.0:
+  - USB → Jetson USB port
+  - VCC → (from USB)
+  - GND → (from USB)
+```
+
+#### Teensy Arduino Sketch
+
+```cpp
+// volume_knob.ino - Teensy 2.0 Volume Knob
+const int POT_PIN = A5;  // F0 pin
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(POT_PIN, INPUT);
+}
+
+void loop() {
+    int value = analogRead(POT_PIN);  // 0-1023
+    Serial.println(value);
+    delay(50);  // 20Hz
+}
+```
+
+#### Code Changes Required
+
+In `volume_control_node.py`, add USB serial reading:
+
+```python
+import serial
+
+# In __init__:
+self.serial_port = serial.Serial('/dev/ttyACM0', 115200, timeout=0.1)
+
+# In _poll_callback:
+if self.serial_port.in_waiting:
+    line = self.serial_port.readline().decode().strip()
+    raw_value = int(line)  # 0-1023
+    normalized = raw_value / 1023.0
+    volume = self._apply_dead_zones(normalized)
+    self.current_volume = volume
+```
+
+### Option 2: ADS1115 I2C ADC (Standard Solution)
+
+**Recommended if you need to purchase hardware.** No microcontroller needed.
+
+#### Wiring
+
+```
+Potentiometer B5K:
+  - Pin 1 (CCW) → GND
+  - Pin 2 (Wiper) → ADS1115 A0
+  - Pin 3 (CW) → 3.3V
+
+ADS1115 Module:
+  - VDD → Pin 1 (3.3V) on Jetson 40-pin header
+  - GND → Pin 6 (GND)
+  - SCL → Pin 5 (I2C SCL)
+  - SDA → Pin 3 (I2C SDA)
+```
+
+#### Software Setup
+
+```bash
+# Install library
+pip3 install adafruit-circuitpython-ads1x15
+
+# Test I2C detection
+i2cdetect -y 1  # Should show 0x48 for ADS1115
+```
+
+Then in systemd service, change:
+
+```ini
+ExecStart=... -p hardware_enabled:=true
+```
+
+### Option 3: Rotary Encoder (No ADC Needed)
+
+**Simplest wiring**, but incremental (not absolute position).
+
+#### Wiring
+
+```
+Rotary Encoder:
+  - CLK → GPIO pin (e.g., Pin 11 / GPIO17)
+  - DT  → GPIO pin (e.g., Pin 13 / GPIO27)
+  - SW  → GPIO pin (optional, for push button)
+  - +   → 3.3V
+  - GND → GND
+```
+
+#### Code Changes Required
+
+Use `RPi.GPIO` or `gpiod` to read encoder pulses and increment/decrement volume.
+
+---
+
+## Baseline Test Results
+
+From testing on 2025-12-27 (see `ros2_ws/src/r2d2_audio/test/BASELINE_RESULTS.md`):
+
+| Finding | Value |
+|---------|-------|
+| Distortion threshold | 0.7 |
+| Minimum audible | 0.01 - 0.05 |
+| Comfortable range | 0.05 - 0.3 |
+| Default setting | 0.35 (middle of safe range) |
+
+The `max_volume_cap` of 0.7 prevents any configuration from causing audio distortion.
+
+---
 
 ## Troubleshooting
 
-### ADC Not Detected
+### No Audio
 
-1. Check I2C connection:
-```bash
-i2cdetect -y 1  # Try buses 0-8
-```
+1. Check if volume control node is running:
+   ```bash
+   ros2 node list | grep volume
+   ```
 
-2. Verify ADS1115 at address 0x48
+2. Check current volume:
+   ```bash
+   ros2 topic echo /r2d2/audio/master_volume --once
+   ```
 
-3. Check wiring (SDA, SCL, VDD, GND)
+3. If volume is 0, set it higher:
+   ```bash
+   ros2 param set /volume_control_node master_volume_default 0.5
+   ```
 
 ### Volume Not Changing
 
-1. Check topic is publishing:
-```bash
-ros2 topic echo /r2d2/audio/master_volume
-```
+1. Check if parameter change is accepted:
+   ```bash
+   ros2 param get /volume_control_node master_volume_default
+   ```
 
-2. Verify nodes are subscribed:
-```bash
-ros2 topic info /r2d2/audio/master_volume
-```
+2. Check node logs:
+   ```bash
+   journalctl -u r2d2-volume-control -f
+   ```
 
-3. Test audio directly:
-```bash
-ffplay -nodisp -autoexit -af volume=0.1 test.mp3
-```
+3. Restart the service:
+   ```bash
+   sudo systemctl restart r2d2-volume-control.service
+   ```
 
-### Jittery Volume
+### Audio Distortion
 
-Increase smoothing:
-```bash
-ros2 run r2d2_audio volume_control_node --ros-args -p smoothing_alpha:=0.1
-```
+1. Lower the volume:
+   ```bash
+   ros2 param set /volume_control_node master_volume_default 0.3
+   ```
 
-Or increase threshold:
-```bash
-ros2 run r2d2_audio volume_control_node --ros-args -p min_change_threshold:=0.02
-```
+2. Check if `max_volume_cap` is correctly set (should be 0.7)
 
-### Software-Only Mode
+### Service Won't Start
 
-If ADC hardware is not available, the node runs in software-only mode:
-```bash
-ros2 run r2d2_audio volume_control_node --ros-args -p hardware_enabled:=false
-```
+1. Check for errors:
+   ```bash
+   journalctl -u r2d2-volume-control -e
+   ```
 
-Volume can then be controlled via:
-```bash
-ros2 topic pub /r2d2/audio/master_volume std_msgs/Float32 "data: 0.5"
-```
+2. Ensure workspace is built:
+   ```bash
+   cd ~/dev/r2d2/ros2_ws
+   source /opt/ros/humble/setup.bash
+   colcon build --packages-select r2d2_interfaces r2d2_audio
+   ```
 
-## Volume Mapping
+---
 
-### Linear vs Logarithmic
+## Files Reference
 
-The default mapping is **linear**: knob position directly maps to volume percentage.
-
-For perceived loudness (dB scale), consider logarithmic mapping:
-```python
-# In volume_control_node.py
-def _apply_logarithmic_curve(self, linear_volume):
-    """Convert linear to logarithmic for perceived loudness."""
-    if linear_volume <= 0:
-        return 0.0
-    # dB = 20 * log10(linear)
-    # Mapped to 0.0-1.0 range
-    return linear_volume ** 0.4  # Approximate logarithmic curve
-```
-
-### Dead Zones
-
-- **Low dead zone** (0-5%): Maps to 0.0 (mute)
-- **High dead zone** (95-100%): Maps to 1.0 (max)
-- **Active range**: Linear 0.0-1.0 between dead zones
-
-## Integration Checklist
-
-- [ ] Wire potentiometer to ADS1115
-- [ ] Connect ADS1115 to Jetson I2C (pins 3, 5)
-- [ ] Verify I2C detection (`i2cdetect -y 1`)
-- [ ] Install Python library: `pip3 install adafruit-circuitpython-ads1x15`
-- [ ] Run baseline tests
-- [ ] Start volume_control_node
-- [ ] Verify all audio nodes respond to volume changes
-- [ ] Enable systemd service for auto-start
-
-## Related Documents
-
-- [002_HARDWARE_REFERENCE.md](002_HARDWARE_REFERENCE.md) - Hardware wiring details
-- [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) - Service management
-- [100_PERCEPTION_STATUS_REFERENCE.md](100_PERCEPTION_STATUS_REFERENCE.md) - Audio notification integration
-
+| File | Purpose |
+|------|---------|
+| `ros2_ws/src/r2d2_audio/r2d2_audio/volume_control_node.py` | Main node |
+| `ros2_ws/src/r2d2_audio/config/audio_params.yaml` | Volume parameters |
+| `ros2_ws/src/r2d2_audio/config/r2d2-volume-control.service` | Systemd service |
+| `ros2_ws/src/r2d2_interfaces/srv/SetVolume.srv` | Service definition |
+| `ros2_ws/src/r2d2_audio/test/BASELINE_RESULTS.md` | Baseline test data |
+| `~/.r2d2/volume_state.json` | Persisted volume (auto-created) |
+| `~/.r2d2/adc_calibration.json` | ADC calibration (for hardware mode) |

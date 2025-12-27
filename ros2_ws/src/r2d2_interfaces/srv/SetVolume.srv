@@ -1,0 +1,12 @@
+# SetVolume.srv - Set master volume level
+# 
+# Usage:
+#   ros2 service call /r2d2/audio/set_volume r2d2_interfaces/srv/SetVolume "{volume: 0.5}"
+#
+# volume: 0.0 = mute, 1.0 = maximum (will be capped to max_volume_cap, typically 0.7)
+
+float32 volume
+---
+bool success
+string message
+

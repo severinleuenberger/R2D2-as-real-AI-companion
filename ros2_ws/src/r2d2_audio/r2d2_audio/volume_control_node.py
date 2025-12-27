@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
 """
-R2D2 Volume Control Node - Physical Potentiometer-based Master Volume
+R2D2 Volume Control Node - Master Volume Control
 
-Reads analog values from a B5K potentiometer via ADS1115 ADC and publishes
-master volume to ROS2 topic for all audio nodes to consume.
+Publishes master volume to ROS2 topic for all audio nodes to consume.
+Supports both hardware (ADC potentiometer) and software-only control.
 
-Hardware:
+Hardware (optional):
   - B5K (5kΩ) Linear Potentiometer
-  - ADS1115 16-bit ADC (I2C)
-  - Jetson AGX Orin I2C bus
+  - ADS1115 16-bit ADC (I2C) / Teensy 2.0 (USB Serial) / Rotary Encoder
+  - Jetson AGX Orin
 
 Publishes:
   - /r2d2/audio/master_volume (std_msgs/Float32): Master volume 0.0-max_volume_cap
 
+Services:
+  - /r2d2/audio/set_volume (r2d2_interfaces/SetVolume): Set volume (0.0-1.0)
+
 Features:
+  - Software-only mode: Set volume via ROS2 service or parameter
+  - Hardware mode: Read from ADC with smoothing and dead zones
   - Calibration-based ADC mapping (loads from ~/.r2d2/adc_calibration.json)
   - Maximum volume cap (0.7) based on baseline tests to prevent distortion
-  - Exponential smoothing to prevent jitter
-  - Dead zones at min/max positions
   - Volume persistence across restarts
-  - Fallback mode without hardware (uses default volume)
+
+Usage (software-only):
+  # Set volume via service
+  ros2 service call /r2d2/audio/set_volume r2d2_interfaces/srv/SetVolume "{volume: 0.5}"
+  
+  # Set volume via parameter
+  ros2 param set /volume_control_node master_volume_default 0.5
 
 Author: R2D2 Audio System
 Date: December 2025
@@ -27,11 +36,13 @@ Date: December 2025
 
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import SetParametersResult
 from std_msgs.msg import Float32
 import json
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 # Try to import ADC library (may not be available without hardware)
 try:
@@ -42,6 +53,15 @@ try:
     ADC_AVAILABLE = True
 except ImportError:
     ADC_AVAILABLE = False
+
+# Try to import custom SetVolume service (fallback to std_srvs if not available)
+try:
+    from r2d2_interfaces.srv import SetVolume
+    SET_VOLUME_SERVICE_AVAILABLE = True
+except ImportError:
+    SET_VOLUME_SERVICE_AVAILABLE = False
+    # Fallback: we'll create a simple Float64-based approach using std_srvs
+    from std_srvs.srv import SetBool
 
 # Calibration file paths
 CALIBRATION_FILE = Path.home() / '.r2d2' / 'adc_calibration.json'
@@ -57,16 +77,19 @@ MAX_VOLUME_CAP = 0.7
 
 class VolumeControlNode(Node):
     """
-    ROS 2 node for reading physical volume knob and publishing master volume.
+    ROS 2 node for master volume control.
     
-    Reads from ADS1115 ADC connected to B5K potentiometer and converts
-    analog reading to volume percentage (0.0 - max_volume_cap).
+    Two modes of operation:
+    1. Software-only mode (default when no hardware): Set volume via service or parameter
+    2. Hardware mode: Read from ADC connected to physical potentiometer
     
-    Uses calibration data from ~/.r2d2/adc_calibration.json to map ADC
-    values to volume. Volume is capped at MAX_VOLUME_CAP (0.7) based on
-    baseline tests to prevent audio distortion.
+    Volume is capped at MAX_VOLUME_CAP (0.7) based on baseline tests to prevent
+    audio distortion.
     
     Publishes to /r2d2/audio/master_volume for all audio nodes to subscribe.
+    
+    Service: /r2d2/audio/set_volume - Set volume programmatically (0.0-1.0 mapped to 0.0-max_cap)
+    Parameter: master_volume_default - Can be changed at runtime via ros2 param set
     """
     
     def __init__(self):
@@ -141,27 +164,51 @@ class VolumeControlNode(Node):
             )
         )
         
-        # Create timer for ADC polling
+        # Create service for setting volume programmatically
+        if SET_VOLUME_SERVICE_AVAILABLE:
+            self.set_volume_srv = self.create_service(
+                SetVolume,
+                '/r2d2/audio/set_volume',
+                self._set_volume_callback
+            )
+            self.get_logger().info("Volume service: /r2d2/audio/set_volume (SetVolume)")
+        else:
+            # Fallback: use SetBool where data=True means increase, data=False means decrease
+            # Or better: create a simple topic-based approach
+            self.get_logger().warn(
+                "SetVolume service not available (r2d2_interfaces not built). "
+                "Use parameter instead: ros2 param set /volume_control_node master_volume_default 0.5"
+            )
+            self.set_volume_srv = None
+        
+        # Register parameter change callback for dynamic volume control
+        self.add_on_set_parameters_callback(self._parameter_callback)
+        
+        # Create timer for ADC polling (also republishes volume in software mode)
         timer_period = 1.0 / self.poll_rate
         self.poll_timer = self.create_timer(timer_period, self._poll_callback)
         
         # Publish initial volume immediately
         self._publish_volume(self.current_volume, force=True)
         
+        # Determine mode description
+        if self.hardware_working:
+            mode_info = "HARDWARE MODE (ADC connected)"
+        else:
+            mode_info = "SOFTWARE MODE (use service or parameter to change volume)"
+        
         self.get_logger().info(
             f"Volume Control Node initialized:\n"
-            f"  Hardware: {'ENABLED' if self.hardware_enabled else 'DISABLED'}\n"
+            f"  Mode: {mode_info}\n"
+            f"  Hardware Enabled: {self.hardware_enabled}\n"
             f"  ADC Working: {self.hardware_working}\n"
-            f"  Calibration: {'LOADED' if self.calibration_loaded else 'DEFAULTS'}\n"
-            f"  ADC Range: {self.adc_min} - {self.adc_max}\n"
             f"  Max Volume Cap: {self.max_volume_cap:.2f}\n"
-            f"  I2C Bus: {self.i2c_bus}\n"
-            f"  ADC Address: 0x{self.adc_address:02X}\n"
-            f"  Poll Rate: {self.poll_rate} Hz\n"
-            f"  Smoothing: {self.smoothing_enabled} (alpha={self.smoothing_alpha})\n"
-            f"  Dead Zones: low={self.dead_zone_low}, high={self.dead_zone_high}\n"
             f"  Initial Volume: {self.current_volume:.2f}\n"
-            f"  Persistence: {self.persistence_file}"
+            f"  Persistence: {self.persistence_file}\n"
+            f"  \n"
+            f"  To change volume (software mode):\n"
+            f"    ros2 param set /volume_control_node master_volume_default <0.0-1.0>\n"
+            f"    (Volume will be scaled to 0.0-{self.max_volume_cap:.1f} range)"
         )
     
     def _init_adc(self):
@@ -203,6 +250,93 @@ class VolumeControlNode(Node):
             self.get_logger().error(f"Failed to initialize ADC: {e}")
             self.get_logger().warn("Continuing in software-only mode (using default volume)")
             self.hardware_working = False
+    
+    def _set_volume_callback(self, request, response):
+        """
+        Service callback: Set volume from service call.
+        
+        Accepts volume as 0.0-1.0, maps to 0.0-max_volume_cap.
+        
+        Usage:
+            ros2 service call /r2d2/audio/set_volume r2d2_interfaces/srv/SetVolume "{volume: 0.5}"
+        """
+        try:
+            # Get requested volume (0.0-1.0 from service)
+            requested_volume = float(request.volume)
+            
+            # Clamp to 0.0-1.0 and scale to max_volume_cap
+            normalized = max(0.0, min(1.0, requested_volume))
+            new_volume = normalized * self.max_volume_cap
+            
+            # Update and publish
+            old_volume = self.current_volume
+            self.current_volume = new_volume
+            self._publish_volume(self.current_volume, force=True)
+            
+            response.success = True
+            response.message = f"Volume set: {old_volume:.2f} -> {self.current_volume:.2f} ({normalized*100:.0f}% of max)"
+            
+            self.get_logger().info(f"🔊 Volume changed via service: {response.message}")
+            
+        except Exception as e:
+            response.success = False
+            response.message = f"Error setting volume: {e}"
+            self.get_logger().error(response.message)
+        
+        return response
+    
+    def _parameter_callback(self, params: List[Parameter]) -> SetParametersResult:
+        """
+        Parameter change callback: Update volume when parameter changes.
+        
+        Allows dynamic volume control via:
+            ros2 param set /volume_control_node master_volume_default 0.5
+        
+        The value (0.0-1.0) is scaled to the max_volume_cap range.
+        """
+        for param in params:
+            if param.name == 'master_volume_default':
+                try:
+                    # Get new volume (0.0-1.0)
+                    requested_volume = float(param.value)
+                    
+                    # Clamp to 0.0-1.0 and scale to max_volume_cap
+                    normalized = max(0.0, min(1.0, requested_volume))
+                    new_volume = normalized * self.max_volume_cap
+                    
+                    # Update and publish
+                    old_volume = self.current_volume
+                    self.current_volume = new_volume
+                    self.default_volume = requested_volume  # Update internal default
+                    self._publish_volume(self.current_volume, force=True)
+                    
+                    self.get_logger().info(
+                        f"🔊 Volume changed via parameter: {old_volume:.2f} -> {self.current_volume:.2f} "
+                        f"({normalized*100:.0f}% of max)"
+                    )
+                    
+                except Exception as e:
+                    self.get_logger().error(f"Error setting volume parameter: {e}")
+                    return SetParametersResult(successful=False, reason=str(e))
+            
+            elif param.name == 'max_volume_cap':
+                try:
+                    new_cap = float(param.value)
+                    if 0.0 < new_cap <= 1.0:
+                        self.max_volume_cap = new_cap
+                        # Re-scale current volume to new cap
+                        self.current_volume = min(self.current_volume, self.max_volume_cap)
+                        self._publish_volume(self.current_volume, force=True)
+                        self.get_logger().info(f"Max volume cap changed to: {new_cap:.2f}")
+                    else:
+                        return SetParametersResult(
+                            successful=False, 
+                            reason="max_volume_cap must be between 0.0 and 1.0"
+                        )
+                except Exception as e:
+                    return SetParametersResult(successful=False, reason=str(e))
+        
+        return SetParametersResult(successful=True)
     
     def _poll_callback(self):
         """Timer callback: read ADC and publish volume if changed."""
