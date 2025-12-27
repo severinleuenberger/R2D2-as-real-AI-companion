@@ -702,7 +702,7 @@ git push origin main    # Push
 
 **Dual-Mode Speech System (December 2025):**
 - **Fast Mode** (index finger ☝️): OpenAI Realtime API, chatty personality, ~1s response
-- **Intelligent Mode** (open hand 🖐️): REST APIs (Whisper→o1-preview→TTS), wise personality, ~3-5s response
+- **R2-D2 Mode** (open hand 🖐️): REST APIs (Whisper→gpt-4o→TTS with `echo` voice), terse astromech personality, ~2-3s response
 - **Stop** (fist ✊): Stops active conversation
 
 **Services that remain on-demand (manual start):**
@@ -785,13 +785,28 @@ systemctl is-enabled <service-name>
 
 ### Recent Fixes & Important History
 
+**December 27, 2025 - R2-D2 Mode Fully Tested & Working:**
+- **Status:** ✅ Full end-to-end testing completed successfully
+- **Fixed:** Gesture detection → REST speech service routing → multi-turn conversation loop
+- **Config:** `silence_duration: 1.5s` for natural conversation flow
+- **Verified:** open_hand (🖐️) triggers R2-D2 mode, fist (✊) stops, continuous turns work
+
+**December 26, 2025 - R2-D2 Personality Mode:**
+- **Update:** Renamed "Intelligent Mode" to "R2-D2 Mode" with authentic astromech personality
+- **Changes:**
+  - `intelligent_model`: `o1-preview` → `gpt-4o` (faster responses, ~2-3s)
+  - `tts_voice`: `nova` → `echo` (robotic character)
+  - `intelligent_instructions`: New terse, mission-oriented R2-D2 prompt with [beeps], [chirps]
+- **Character:** Ultra-short responses, parenthetical sound flavor, occasionally sarcastic
+- **Documentation:** `204_SPEECH_SYSTEM_VOICE_CONFIGURATION.md` fully updated
+
 **December 25, 2025 - Dual-Mode Gesture Speech System:**
 - **Feature:** Two speech modes triggered by different gestures
 - **Fast Mode** (☝️ index finger): OpenAI Realtime API, chatty personality, ~1s latency
-- **Intelligent Mode** (🖐️ open hand): REST APIs (Whisper→o1-preview→TTS), wise personality, ~3-5s latency
+- **R2-D2 Mode** (🖐️ open hand): REST APIs (Whisper→gpt-4o→TTS), terse astromech personality, ~2-3s latency
 - **New Components:**
   - `r2d2_speech/rest_api/rest_speech_client.py` - Turn-based STT→LLM→TTS pipeline
-  - `rest_speech_node.py` - ROS2 lifecycle node for Intelligent Mode
+  - `rest_speech_node.py` - ROS2 lifecycle node for R2-D2 Mode
   - `r2d2-rest-speech-node.service` - Systemd service (auto-start enabled)
 - **Updated:** gesture_intent_node routes open_hand to REST speech services
 - **Training:** 3-gesture model (index_finger_up, fist, open_hand)

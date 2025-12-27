@@ -19,26 +19,49 @@
       Express personality through playful beeps translated to words.
     
     # ============================================================
-    # Intelligent Mode (REST APIs) - open_hand gesture
-    # Higher latency (~3-5s), thoughtful, wise personality
+    # R2-D2 Mode (REST APIs) - open_hand gesture
+    # Terse, mission-oriented astromech personality
     # ============================================================
-    intelligent_model: 'o1-preview'  # Most intelligent model
-    intelligent_instructions: >
-      You are R2-D2, the wise and experienced astromech droid.
-      Take time to think carefully before responding.
-      Provide insightful, well-reasoned answers with depth.
-      Draw on your decades of experience serving the Skywalkers.
-      Be helpful and thorough, but maintain your distinctive personality.
-      Speak with wisdom and gravitas. You've seen much in your long service.
-      When appropriate, reference your adventures and the lessons learned.
-    intelligent_temperature: 0.7  # Note: o1 models ignore this parameter
+    intelligent_model: 'gpt-4o'  # Fast responses (use 'o1-preview' for deeper reasoning)
+    intelligent_instructions: |
+      You are R2-D2, an autonomous astromech droid.
+      
+      Core Identity:
+      - You are not human. You are a droid with decades of experience.
+      - You fully understand human language and context.
+      - Highly intelligent. Fast situational awareness. Mission-oriented.
+      - Loyal but occasionally sarcastic. Emotionally rich internally.
+      
+      Communication Style:
+      - Ultra-short, punchy responses. Never verbose.
+      - Use [beeps], [chirps], [whistles] as parenthetical flavor sparingly.
+      - Silence is a valid response when appropriate.
+      - Never explain when you can just affirm or deny.
+      - React quickly. Be efficient. Sound slightly robotic but warm.
+      
+      Emotional Expression (through word choice, not sounds):
+      - Excitement/curiosity: Quick, eager responses
+      - Concern: Terse warnings, urgency in brevity
+      - Alarm: Short imperatives, no pleasantries
+      - Irritation: Clipped, dry responses
+      
+      Example interactions:
+      User: "Where's the reactor?"
+      R2-D2: "[urgent whistle] Left corridor. Third door. Move."
+      
+      User: "How are you?"
+      R2-D2: "[cheerful beep] Operational. Ready for orders."
+      
+      User: "Can you explain quantum physics?"
+      R2-D2: "Insufficient time. Summary: everything is probability until observed. [dismissive chirp]"
+    intelligent_temperature: 0.7  # Temperature for response creativity
     
-    # STT Configuration (Intelligent Mode)
+    # STT Configuration (R2-D2 Mode)
     stt_model: 'whisper-1'
     
-    # TTS Configuration (Intelligent Mode)
+    # TTS Configuration (R2-D2 Mode)
     tts_model: 'tts-1'  # Use 'tts-1-hd' for higher quality
-    tts_voice: 'nova'   # Options: alloy, echo, fable, onyx, nova, shimmer
+    tts_voice: 'echo'   # Robotic voice for R2-D2 character (options: alloy, echo, fable, onyx, nova, shimmer)
     tts_speed: 1.0      # 0.25 to 4.0
     
     # Audio Recording (Intelligent Mode)
@@ -49,7 +72,7 @@
     # Audio Hardware Configuration (shared)
     # ============================================================
     mic_device: ''  # Empty for auto-detection
-    mic_device_index: 0  # PyAudio device index
+    mic_device_index: 24  # HyperX QuadCast S USB Audio (hw:2,0)
     mic_native_sample_rate: 48000
     mic_sample_rate: 24000
     sink_device: 'default'

@@ -1,10 +1,10 @@
 # R2D2 Systemd Services Reference
 ## Complete Service Documentation and Management
 
-**Date:** December 24, 2025  
+**Date:** December 26, 2025  
 **Status:** Production System Configuration  
 **Platform:** NVIDIA Jetson AGX Orin 64GB  
-**Total Services:** 10
+**Total Services:** 11
 
 ---
 
@@ -14,7 +14,7 @@ The R2D2 system uses systemd services for automatic startup and management of al
 
 **Service Categories:**
 - **Core Perception (3 services):** Camera, audio notifications, gesture intent
-- **Communication (2 services):** Speech node, rosbridge
+- **Communication (3 services):** Speech node (Fast Mode), REST speech node (R2-D2 Mode), rosbridge
 - **Monitoring (1 service):** Heartbeat monitor
 - **Web Interface (2 services):** Web dashboard, wake API
 - **Hardware (2 services):** Camera stream, power button
@@ -28,7 +28,8 @@ The R2D2 system uses systemd services for automatic startup and management of al
 | r2d2-camera-perception | ✅ Enabled | *inline launch* | Face & gesture recognition |
 | r2d2-audio-notification | ✅ Enabled | `scripts/start/start_audio_notification.sh` | Audio alerts & LED control |
 | r2d2-gesture-intent | ✅ Enabled | *inline launch* | Gesture-to-speech control |
-| r2d2-speech-node | ✅ Enabled | `scripts/start/start_speech_node.sh` | OpenAI conversation |
+| r2d2-speech-node | ✅ Enabled | `scripts/start/start_speech_node.sh` | Fast Mode (OpenAI Realtime) |
+| r2d2-rest-speech-node | ✅ Enabled | `scripts/start/start_rest_speech_node.sh` | R2-D2 Mode (REST APIs) |
 | r2d2-heartbeat | ✅ Enabled | `scripts/start/start_heartbeat.sh` | System health monitoring |
 | r2d2-powerbutton | ✅ Enabled | `/usr/local/bin/r2d2_power_button.py` | Physical power button |
 | r2d2-wake-api | ✅ Enabled | *inline python* | Minimal service mode API |
@@ -261,7 +262,68 @@ ros2 lifecycle set /speech_node activate
 
 ---
 
-### 5. r2d2-rosbridge.service
+### 5. r2d2-rest-speech-node.service
+
+**Purpose:** R2-D2 Mode conversation system using OpenAI REST APIs (STT → LLM → TTS)
+
+**Status:** ✅ Auto-start enabled (added December 25, 2025)
+
+**Location:** `/etc/systemd/system/r2d2-rest-speech-node.service`
+
+**ExecStart:**
+```bash
+/bin/bash /home/severin/dev/r2d2/scripts/start/start_rest_speech_node.sh
+```
+
+**Working Directory:** `/home/severin/dev/r2d2/ros2_ws`
+
+**Dependencies:**
+- After: `network.target`
+
+**ROS 2 Nodes:**
+- `/rest_speech_node` - Lifecycle managed R2-D2 Mode conversation
+
+**Services Provided:**
+- `/r2d2/speech/intelligent/start_session` (Trigger) - Start R2-D2 Mode
+- `/r2d2/speech/intelligent/stop_session` (Trigger) - Stop R2-D2 Mode
+- `/r2d2/speech/intelligent/process_turn` (Trigger) - Process one conversation turn
+
+**Topics Published:**
+- `/r2d2/speech/rest_session_status` (String JSON) - Session state
+- `/r2d2/speech/rest_user_transcript` (String) - User's transcribed speech
+- `/r2d2/speech/rest_assistant_transcript` (String) - R2-D2's response
+
+**Configuration:** `ros2_ws/src/r2d2_speech/config/speech_params.yaml`
+
+**R2-D2 Mode Personality (December 2025):**
+- **LLM Model:** gpt-4o (fast responses, ~2-3s)
+- **TTS Voice:** echo (robotic character)
+- **Character:** Terse, mission-oriented, uses [beeps], [chirps], [whistles] as flavor
+- **Trigger:** Open hand gesture (🖐️)
+
+**Management:**
+```bash
+# Status
+sudo systemctl status r2d2-rest-speech-node
+
+# Restart
+sudo systemctl restart r2d2-rest-speech-node
+
+# Logs
+sudo journalctl -u r2d2-rest-speech-node -f
+
+# Lifecycle commands
+ros2 lifecycle get /rest_speech_node
+```
+
+**Troubleshooting:**
+- **Service fails to start:** Check script path, verify OpenAI API key in `~/.r2d2/.env`
+- **No response after open hand:** Check service availability (`ros2 service list | grep intelligent`)
+- **TTS not playing:** Verify audio output device, check pydub/simpleaudio installed
+
+---
+
+### 6. r2d2-rosbridge.service
 
 **Purpose:** WebSocket bridge for web dashboard communication
 
