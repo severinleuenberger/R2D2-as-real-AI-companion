@@ -121,6 +121,7 @@ Comprehensive guides organized by audience and use case. **Start here:**
 | **Monitoring** | [006_SYSTEM_STATUS_AND_MONITORING.md](006_SYSTEM_STATUS_AND_MONITORING.md) | Status monitoring, minimal_monitor.py, system health |
 | **GPU Acceleration** | [007_GPU_ACCELERATION_REFERENCE.md](007_GPU_ACCELERATION_REFERENCE.md) | GPU setup, container usage, 20-50x performance improvement |
 | **Jetson Optimization** | [008_JETSON_OPTIMIZATION_GUIDE.md](008_JETSON_OPTIMIZATION_GUIDE.md) | Power management, thermal, memory optimization |
+| **Project Statistics** | [009_PROJECT_EFFORT_ANALYSIS.md](009_PROJECT_EFFORT_ANALYSIS.md) | Automated project metrics, effort analysis tools |
 | **System Setup** | [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) | Jetson flashing, ROS 2 installation, workspace setup |
 | **Camera Integration** | [041_CAMERA_SETUP_DOCUMENTATION.md](041_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
 | **Perception & Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | Perception pipeline, brightness metrics, LBPH training, real-time recognition |
