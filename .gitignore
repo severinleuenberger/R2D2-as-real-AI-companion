@@ -58,3 +58,16 @@ r2d2_speech_env/
 
 # R2D2 config directory (if accidentally created in repo)
 .r2d2/
+
+# Local configuration overrides (SECURITY - not tracked)
+# These files may contain real IP addresses or personal settings
+*.local.md
+*_LOCAL_CONFIG.md
+*_local.yaml
+*_local.yml
+local_settings.py
+local_config.*
+
+# SSH stability fix scripts (contain machine-specific settings)
+# The scripts themselves are fine, but any local config variants should not be committed
+*_local_fix.sh

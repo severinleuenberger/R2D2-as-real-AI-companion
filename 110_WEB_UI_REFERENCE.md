@@ -4,7 +4,7 @@
 **Date:** December 17, 2025  
 **Status:** ✅ COMPLETE AND OPERATIONAL  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Access:** Via Tailscale VPN (http://100.95.133.26:8079)
+**Access:** Via Tailscale VPN (http://100.x.x.x:8079)
 
 ---
 
@@ -13,8 +13,8 @@
 The R2D2 Web UI system uses a **Service Mode** architecture. By default, only a minimal "Wake API" runs (saving resources). The full Web UI is started on-demand.
 
 **Access Points:**
-- **Service Mode (Always On):** http://100.95.133.26:8079 (Check status, Start UI)
-- **Full Dashboard (On Demand):** http://100.95.133.26:8080 (Control Robot)
+- **Service Mode (Always On):** http://100.x.x.x:8079 (Check status, Start UI)
+- **Full Dashboard (On Demand):** http://100.x.x.x:8080 (Control Robot)
 
 The system includes a comprehensive web dashboard with real-time monitoring, service control, volume adjustment, and face recognition training integration.
 
@@ -44,7 +44,7 @@ The system includes a comprehensive web dashboard with real-time monitoring, ser
 INTERNET (Anywhere)
     ↓
 Tailscale VPN (Already Configured)
-    ↓ (100.95.133.26)
+    ↓ (100.x.x.x)
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    JETSON AGX ORIN                                 │
 │                                                                     │
@@ -184,7 +184,7 @@ ROS 2 Topics
 - Max resolution: 1280×720 (downscales if needed)
 - On-demand start/stop from dashboard
 
-**Stream URL:** `http://100.95.133.26:8081/stream`
+**Stream URL:** `http://100.x.x.x:8081/stream`
 
 ### 5. Enhanced Heartbeat Service
 
@@ -518,7 +518,7 @@ Response: {
 ### Access Control
 
 **Current Implementation:**
-- ✅ **Tailscale VPN Only:** Services bind strictly to `100.95.133.26`.
+- ✅ **Tailscale VPN Only:** Services bind strictly to `100.x.x.x`.
 - ✅ **Local Access Blocked:** Services are NOT accessible from local WiFi (192.168.x.x).
 - ✅ **Service Mode:** Full Web UI is stopped by default to reduce attack surface.
 

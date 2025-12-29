@@ -29,6 +29,152 @@ START → Build & Test (this file) → TESTED & WORKING → Finalize & Deploy (0
 
 ---
 
+## 🎓 LEARNING MODE (For Severin's Education)
+
+**IMPORTANT:** The user (Severin) is learning robotics/ROS 2 while building this project. He is a senior BI developer but junior in embedded systems. **Explain your work as you do it!**
+
+### Real-Time Narration Protocol
+
+**After EVERY significant action, write to `~/dev/r2d2/data/coding_live.md`:**
+
+This file is watched by R2D2's narrator service. When you update it, R2D2 will SPEAK the explanation aloud in real-time!
+
+```markdown
+## Current Action
+[One line: what you just did]
+
+## What This Means
+[2-3 sentences explaining the concept]
+[Use BI analogies - see table below]
+
+## BI Analogy
+[Direct comparison to a concept Severin knows]
+
+## Category
+[Category] > [Subcategory] | Understanding: [1-5]
+```
+
+**Example:**
+```markdown
+## Current Action
+Editing audio_notification_node.py - adding jitter tolerance parameter
+
+## What This Means
+A STATE MACHINE tracks person recognition status through transitions.
+The jitter tolerance prevents false "lost" alerts when you briefly look away.
+Think of it like a debounce filter - wait 5 seconds before confirming loss.
+
+## BI Analogy
+Like a slowly-changing dimension (SCD Type 2) in a data warehouse -
+we track state transitions over time with timestamps.
+
+## Category
+Architecture > State Machines | Understanding: 3
+```
+
+### When to Update coding_live.md
+
+✅ **DO update** after:
+- Editing a file (explain the change)
+- Before running a command (explain what it does)
+- Encountering an important new concept
+- Completing a task (summarize what was learned)
+
+❌ **DON'T update** for:
+- Trivial changes (typos, formatting)
+- Reading files (no action taken)
+- Routine commands (cd, ls)
+
+### BI-to-Robotics Concept Mapping
+
+Use these analogies to explain robotics concepts:
+
+| Robotics Concept | BI Analogy | Example in R2D2 |
+|------------------|------------|-----------------|
+| **ROS 2 Topic** | Database table / Event stream | `/r2d2/perception/person_id` is like a `person_events` table |
+| **ROS 2 Subscriber** | SQL Trigger / ETL source | Face detection callback fires when new frame arrives |
+| **ROS 2 Publisher** | INSERT statement / Event producer | Publishing brightness value = inserting a row |
+| **ROS 2 Service** | Stored procedure / API call | `start_session` service = calling `sp_StartConversation` |
+| **ROS 2 Node** | ETL Job / Microservice | `image_listener` node = an always-running ETL process |
+| **Launch File** | Job scheduler / Orchestrator | Like SSIS package that starts multiple jobs |
+| **Systemd Service** | SQL Agent Job / Scheduled task | Runs on boot, restarts on failure |
+| **State Machine** | Workflow status / SCD Type 2 | Order status: pending→processing→shipped |
+| **Callback Function** | Trigger procedure | Code that runs when event fires |
+| **Message Queue** | Message broker / Event hub | Topics buffer messages between nodes |
+| **Parameter** | Config table / Environment variable | Runtime settings without code changes |
+| **Hz (frequency)** | Polling interval / Refresh rate | "13 Hz" = refreshes 13 times per second |
+| **Latency** | Query response time | Time from input to output |
+
+### In-Line Explanation Style
+
+When explaining code changes, use this format in your responses:
+
+```
+LEARNING MOMENT: [Concept Name]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Explanation using BI analogy]
+
+BI Parallel: [Direct comparison]
+
+Key Insight: [One sentence takeaway]
+```
+
+**Example:**
+```
+LEARNING MOMENT: ROS 2 Subscriber Callback
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+I'm creating a subscriber that listens to /r2d2/perception/person_id.
+When a new message arrives, the callback function executes automatically.
+
+BI Parallel: This is exactly like a SQL trigger - when a row is 
+inserted into the person_events table, your trigger procedure fires.
+
+Key Insight: Subscribers are event-driven, not polling. The system 
+pushes data to you rather than you asking for it repeatedly.
+```
+
+### Learning Progress Tracking
+
+Learning progress is tracked in SQLite: `~/dev/r2d2/data/persons.db`
+
+Tables:
+- `learning_topics` - What concepts have been encountered
+- `learning_sessions` - Coding session summaries
+
+When introducing a NEW concept, log it:
+```python
+# Agents should conceptually track:
+# - Category (ROS 2, Python, Hardware, Architecture)
+# - Subcategory (Subscribers, GPIO, State Machines)
+# - Understanding level (1-5)
+# - BI analogy used
+```
+
+### Narrator Modes
+
+The user can control how much R2D2 talks:
+
+| Mode | File Content | Behavior |
+|------|--------------|----------|
+| `narrator` | R2D2 speaks every update | Active learning |
+| `quiet` | Silent, but context saved | Focus mode |
+| `milestone` | Speaks on task completion | Less interruption |
+
+Check mode: `cat ~/dev/r2d2/data/narrator_mode.txt`
+
+### Interactive Follow-Up
+
+After R2D2 speaks an explanation, Severin can:
+1. Trigger speech (index finger gesture)
+2. Ask "Explain that again" or "What's a state machine?"
+3. R2D2 responds with more detail using the current context
+
+The speech node reads `coding_live.md` for context, so R2D2 knows what you're working on!
+
+---
+
 ## 🚀 BUILD & TEST PHASES (Complete Before Finalization)
 
 ### Phase 1: Development & Testing
@@ -882,6 +1028,88 @@ Before committing documentation changes:
 
 ---
 
+## 🔒 Security & Sensitive Data Handling
+
+### What is Security-Sensitive (DO NOT commit to git)
+
+| Category | Examples | Why Sensitive |
+|----------|----------|---------------|
+| **Real IP addresses** | `100.95.x.x` (Tailscale), `192.168.x.x` (local) | Reveals network topology |
+| **Email addresses** | `user@domain.com` | Personal identification |
+| **API keys/tokens** | OpenAI API key, Tailscale auth key | Security credentials |
+| **SSH keys** | Private keys, key fingerprints | Authentication bypass risk |
+| **Hostnames** | Machine-specific names | Network enumeration |
+
+### What is Safe to Commit
+
+- ✅ Placeholder IPs: `100.x.x.x`, `192.168.x.1`
+- ✅ Generic usernames: `user@jetson`, `username`
+- ✅ Architecture diagrams and procedures
+- ✅ Configuration templates (without real values)
+- ✅ Scripts using environment variables for secrets
+- ✅ Documentation with sanitized examples
+
+### Two-Tier Documentation Strategy
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    GIT REPOSITORY (Public)                  │
+│  • Sanitized documentation (placeholder IPs)                │
+│  • Generic configuration examples                           │
+│  • System architecture and procedures                       │
+│  • Scripts (no hardcoded secrets)                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↕
+                    SEPARATE STORAGE
+                              ↕
+┌─────────────────────────────────────────────────────────────┐
+│                    USB BACKUP (Private)                     │
+│  • Real ~/.ssh/config with actual IPs                      │
+│  • System configs with real addresses                       │
+│  • API keys in environment files                           │
+│  • Complete working configurations                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Before Every Git Commit (MANDATORY)
+
+**Security pre-commit checklist:**
+
+```bash
+# Check for real Tailscale IPs (100.x.x.x range)
+grep -rE "100\.[0-9]+\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+
+# Check for local network IPs (192.168.x.x range)
+grep -rE "192\.168\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+
+# Check for email addresses
+grep -rE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" ~/dev/r2d2/*.md
+```
+
+**If matches found:**
+1. Replace real IPs with placeholders (`100.x.x.x`, `192.168.x.1`)
+2. Replace emails with `user@example.com`
+3. Ensure USB backup has preserved real configs first
+
+### Security Checklist for Agents
+
+- [ ] **Before committing:** Run grep commands above
+- [ ] **Real IPs found?** Replace with placeholders
+- [ ] **USB backup current?** Run backup to preserve real configs
+- [ ] **API keys in code?** Use environment variables instead
+- [ ] **SSH configs?** Use generic examples, not real paths
+
+### Recovery Strategy
+
+Real configurations are preserved in USB backups (see `004_BACKUP_AND_RESTORE.md`):
+- USB backup contains actual IPs, SSH configs, system files
+- After restore from USB, system works with real addresses
+- Git documentation provides procedures, USB provides real values
+
+**For detailed backup procedures, see:** `004_BACKUP_AND_RESTORE.md`
+
+---
+
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 27, 2025 - Split finalization steps to separate guide (000_AGENT_FINALIZATION_GUIDE.md)
+**Last Updated:** December 29, 2025 - Added Security & Sensitive Data Handling section

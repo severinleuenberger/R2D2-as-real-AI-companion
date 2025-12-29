@@ -427,7 +427,7 @@ You should see the R2D2 Web Dashboard.
 From your Windows laptop (connected to Tailscale VPN):
 
 1. Open a browser
-2. Navigate to: `http://100.95.133.26:8080`
+2. Navigate to: `http://100.x.x.x:8080`
    (Replace with your Jetson's Tailscale IP)
 3. Dashboard should load and show real-time updates
 
@@ -549,7 +549,7 @@ sudo ~/dev/r2d2/web_dashboard/setup_service_mode.sh
    ```
 
 2. Access the Service Mode page:
-   - Open browser: `http://100.95.133.26:8079`
+   - Open browser: `http://100.x.x.x:8079`
    - You should see the heartbeat monitor
 
 3. Test Full UI:
@@ -578,10 +578,10 @@ Before considering the installation complete, verify all components:
 
 ### ✅ Network Access
 - [ ] Dashboard accessible locally (http://localhost:8080)
-- [ ] Dashboard accessible via Tailscale (http://100.95.133.26:8080)
-- [ ] **Wake API accessible (http://100.95.133.26:8079)**
+- [ ] Dashboard accessible via Tailscale (http://100.x.x.x:8080)
+- [ ] **Wake API accessible (http://100.x.x.x:8079)**
 - [ ] rosbridge WebSocket connection working
-- [ ] Camera stream accessible (http://100.95.133.26:8081/stream)
+- [ ] Camera stream accessible (http://100.x.x.x:8081/stream)
 
 ### ✅ Functionality
 - [ ] Recognition status updates in real-time
@@ -620,7 +620,7 @@ If you encounter issues not covered in this guide:
    - rosbridge: Terminal output or systemd journal
    - Services: `sudo journalctl -u <service-name> -f`
 3. Verify ROS 2 topics are publishing: `ros2 topic list`
-4. Check network connectivity: `tailscale status`, `ping 100.95.133.26`
+4. Check network connectivity: `tailscale status`, `ping 100.x.x.x`
 
 ---
 

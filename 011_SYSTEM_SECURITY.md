@@ -56,7 +56,7 @@ No critical vulnerabilities identified. All network services protected by VPN.
 │      Only authorized devices can connect                     │
 └─────────────────────────────────────────────────────────────┘
                            │
-                           │ VPN IP: 100.95.133.26
+                           │ VPN IP: 100.x.x.x
                            │ (Authenticated & Encrypted)
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -165,7 +165,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 | Web Dashboard | 8080 | 0.0.0.0 | Low* | VPN-only access |
 | rosbridge | 9090 | 0.0.0.0 | Low* | VPN-only access |
 | Camera Stream | 8081 | 0.0.0.0 | Low* | VPN-only access |
-| Wake API | 8079 | 100.95.133.26 | Low* | VPN IP only |
+| Wake API | 8079 | 100.x.x.x | Low* | VPN IP only |
 
 *Low risk because Tailscale VPN restricts all network access
 
@@ -272,7 +272,7 @@ data/face_recognition/*/
 **Configuration:**
 ```powershell
 # Windows Client
-ssh severin@100.95.133.26
+ssh severin@100.x.x.x
 
 # Or using alias
 ssh jetson-tailscale

@@ -5,6 +5,10 @@
 **Purpose:** Secure remote access to Jetson Orin over public Internet  
 **VPN Technology:** Tailscale (WireGuard-based, zero-configuration)
 
+> **Security Note:** IP addresses in this document are placeholders (e.g., `100.x.x.x`, `192.168.x.1`).  
+> Actual IP addresses are stored locally on the Jetson and in USB backups, not in git.  
+> Replace placeholders with your real IPs when configuring your system.
+
 ---
 
 ## Executive Summary
@@ -54,8 +58,8 @@ This guide documents the successful setup of Tailscale VPN for remote access to 
 
 | Device | Hostname | Tailscale IP | Status |
 |--------|----------|--------------|--------|
-| **Jetson Orin** | r2d2 | 100.95.133.26 | ✅ Connected |
-| **Windows Laptop** | itxcl883 | 100.100.52.23 | ✅ Connected |
+| **Jetson Orin** | r2d2 | 100.x.x.x | ✅ Connected |
+| **Windows Laptop** | itxcl883 | 100.y.y.y | ✅ Connected |
 
 ### Connect from Windows
 
@@ -66,7 +70,7 @@ ssh jetson-tailscale
 
 **Or using IP directly:**
 ```powershell
-ssh severin@100.95.133.26
+ssh severin@100.x.x.x
 ```
 
 **VS Code Remote SSH:**
@@ -109,10 +113,10 @@ tailscale status
 
 **You'll see something like:**
 ```
-100.95.133.26    r2d2    severin@    linux   -
+100.x.x.x    r2d2    severin@    linux   -
 ```
 
-**Note the IP address** (e.g., `100.95.133.26`) - you'll use this to connect.
+**Note the IP address** (e.g., `100.x.x.x`) - you'll use this to connect.
 
 **Or get just the IP:**
 ```bash
@@ -142,12 +146,12 @@ tailscale ip -4
 
 ```
 Host jetson-tailscale
-    HostName 100.95.133.26
+    HostName 100.x.x.x
     User severin
     IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
 ```
 
-**Replace `100.95.133.26` with your actual Tailscale IP from Step 2.**
+**Replace `100.x.x.x` with your actual Tailscale IP from Step 2.**
 
 **How to edit:**
 1. Open PowerShell or Command Prompt
@@ -162,7 +166,7 @@ Host jetson-tailscale
 
 ```powershell
 # Test ping
-ping 100.95.133.26
+ping 100.x.x.x
 
 # Test SSH
 ssh jetson-tailscale
@@ -187,8 +191,8 @@ tailscale status
 
 **Expected Output:**
 ```
-100.95.133.26  r2d2      severin.leuenberger@  linux    -                          
-100.100.52.23  itxcl883  severin.leuenberger@  windows  active; direct ...
+100.x.x.x  r2d2      user@  linux    -                          
+100.y.y.y  itxcl883  user@  windows  active; direct ...
 ```
 
 Both devices should show as connected.
@@ -197,7 +201,7 @@ Both devices should show as connected.
 
 1. **Ping test:**
    ```powershell
-   ping 100.95.133.26
+   ping 100.x.x.x
    ```
    Should get replies.
 
@@ -242,8 +246,8 @@ sudo journalctl -u tailscaled -f
 Internet
     ↓
 Tailscale Network (Encrypted WireGuard Protocol)
-    ├─ Windows Laptop (100.100.52.23)
-    └─ Jetson Orin (100.95.133.26)
+    ├─ Windows Laptop (100.y.y.y)
+    └─ Jetson Orin (100.x.x.x)
          ↓
     SSH (Port 22) accessible via Tailscale IP
 ```
@@ -260,9 +264,9 @@ Tailscale Network (Encrypted WireGuard Protocol)
 
 | Device | IP Address | Purpose |
 |--------|------------|---------|
-| **Jetson (Tailscale)** | `100.95.133.26` | Tailscale-assigned IP (may change) |
-| **Windows (Tailscale)** | `100.100.52.23` | Tailscale-assigned IP (may change) |
-| **Jetson (Local Network)** | `192.168.1.129` | Local network IP (for reference) |
+| **Jetson (Tailscale)** | `100.x.x.x` | Tailscale-assigned IP (may change) |
+| **Windows (Tailscale)** | `100.y.y.y` | Tailscale-assigned IP (may change) |
+| **Jetson (Local Network)** | `192.168.x.x` | Local network IP (for reference) |
 
 **Note:** Tailscale IPs are in the `100.x.x.x` range and are managed automatically. If they change, update your SSH config.
 
@@ -277,12 +281,12 @@ Tailscale Network (Encrypted WireGuard Protocol)
 **Current Configuration:**
 ```
 Host r2d2
-    HostName 192.168.55.1
+    HostName 192.168.x.1
     User severin
     IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
 
 Host jetson-tailscale
-    HostName 100.95.133.26
+    HostName 100.x.x.x
     User severin
     IdentityFile C:\Users\SeverinLeuenberger\.ssh\id_ed25519
 ```
@@ -305,11 +309,11 @@ Host jetson-tailscale
 The R2D2 Web UI is secured to only listen on the Tailscale interface. You cannot access it via the local IP (192.168.x.x).
 
 **Service Mode (Always On):**
-- URL: `http://100.95.133.26:8079`
+- URL: `http://100.x.x.x:8079`
 - Use this to check status and start the main dashboard
 
 **Main Dashboard (On Demand):**
-- URL: `http://100.95.133.26:8080`
+- URL: `http://100.x.x.x:8080`
 - Only active after starting it from the Service Mode page
 
 ---
@@ -363,7 +367,7 @@ The R2D2 Web UI is secured to only listen on the Tailscale interface. You cannot
 
 4. **Test ping from Windows:**
    ```powershell
-   ping 100.95.133.26
+   ping 100.x.x.x
    ```
    Should get replies. If not, check Windows Firewall.
 
@@ -461,6 +465,140 @@ sudo systemctl enable ssh
 
 ---
 
+## SSH Connection Stability
+
+**Added:** December 29, 2025
+
+SSH connections over USB-C and WiFi/Tailscale VPN can drop unexpectedly due to power management and keepalive issues. This section documents the fixes implemented to ensure stable SSH connections.
+
+### Problem Identified
+
+During testing, SSH connections would freeze or timeout after a few minutes of inactivity:
+
+| Issue | Default Value | Impact |
+|-------|---------------|--------|
+| USB autosuspend | 2 seconds | USB network interface suspends, dropping SSH |
+| WiFi power management | Enabled | WiFi goes to sleep, disrupting Tailscale VPN |
+| SSH server keepalives | Disabled | No heartbeat to maintain connection |
+| TCP keepalive time | 7200s (2 hours) | Far too slow to prevent USB/WiFi suspend |
+
+### Solutions Implemented
+
+All fixes are applied via a single script and persist across reboots.
+
+**1. USB Autosuspend Disabled**
+- Set `/sys/module/usbcore/parameters/autosuspend` to `-1` (disabled)
+- USB network interfaces (usb0, usb1) stay active
+- Persisted via systemd service: `disable-usb-autosuspend.service`
+
+**2. WiFi Power Management Disabled**
+- `iwconfig wlP1p1s0 power off`
+- WiFi stays active for Tailscale VPN
+- Persisted via systemd service: `disable-wifi-powersave.service`
+
+**3. SSH Server Keepalives Enabled**
+- Added to `/etc/ssh/sshd_config`:
+  ```
+  ClientAliveInterval 30
+  ClientAliveCountMax 3
+  TCPKeepAlive yes
+  ```
+- Server sends keepalive every 30 seconds
+
+**4. TCP Keepalives Optimized**
+- Added to `/etc/sysctl.conf`:
+  ```
+  net.ipv4.tcp_keepalive_time = 60
+  net.ipv4.tcp_keepalive_intvl = 10
+  net.ipv4.tcp_keepalive_probes = 6
+  ```
+- System-wide TCP keepalives at 60s instead of 2 hours
+
+**5. SSH Client Keepalives (Windows)**
+- Added to `~/.ssh/config` on client:
+  ```
+  Host r2d2 192.168.x.1 100.x.x.x
+      ServerAliveInterval 30
+      ServerAliveCountMax 3
+      TCPKeepAlive yes
+  ```
+
+### Files Created on Jetson
+
+| File | Purpose |
+|------|---------|
+| `/home/severin/fix-usb-ssh-stability.sh` | Main fix script (run once) |
+| `/home/severin/verify-ssh-stability-fixes.sh` | Verification script |
+| `/etc/systemd/system/disable-usb-autosuspend.service` | Persistent USB fix |
+| `/etc/systemd/system/disable-wifi-powersave.service` | Persistent WiFi fix |
+
+### Applying the Fix
+
+**On Jetson (run once):**
+```bash
+sudo bash ~/fix-usb-ssh-stability.sh
+```
+
+**Verify the fix:**
+```bash
+bash ~/verify-ssh-stability-fixes.sh
+```
+
+**On Windows Client (add to SSH config):**
+```
+Host r2d2 192.168.x.1 100.x.x.x
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    TCPKeepAlive yes
+```
+
+### Verification Commands
+
+**Check USB autosuspend (should be -1):**
+```bash
+cat /sys/module/usbcore/parameters/autosuspend
+```
+
+**Check WiFi power management (should be "off"):**
+```bash
+iwconfig wlP1p1s0 | grep "Power Management"
+```
+
+**Check SSH keepalives:**
+```bash
+grep ClientAlive /etc/ssh/sshd_config
+```
+
+**Check systemd services:**
+```bash
+systemctl is-enabled disable-usb-autosuspend.service
+systemctl is-enabled disable-wifi-powersave.service
+```
+
+### Monitoring Connection Health
+
+**Watch for packet drops (should stop increasing):**
+```bash
+watch -n 2 'ip -s link show usb0 wlP1p1s0 | grep -E "RX:|dropped"'
+```
+
+**Check active SSH connections:**
+```bash
+netstat -tn | grep :22
+```
+
+### Expected Results
+
+After applying fixes:
+- ✅ USB autosuspend: **-1** (disabled)
+- ✅ WiFi power management: **off**
+- ✅ SSH keepalives: **30s interval**
+- ✅ TCP keepalives: **60s interval**
+- ✅ Connections stay alive during idle periods
+- ✅ Both USB and Tailscale VPN SSH remain stable
+
+---
+
 ## Security Notes
 
 ### What's Secure
@@ -479,7 +617,7 @@ sudo systemctl enable ssh
 - ✅ Authentication via OAuth (Google/Microsoft/GitHub account)
 
 **Optional: Store Tailscale account info in KeePass:**
-- Account email: `severin.leuenberger@gmail.com`
+- Account email: `your-email@example.com`
 - Admin console: https://login.tailscale.com/admin/machines
 - (Not required, but can be stored for reference)
 
@@ -590,7 +728,7 @@ sudo systemctl restart tailscaled
 ssh jetson-tailscale
 
 # Or direct IP
-ssh severin@100.95.133.26
+ssh severin@100.x.x.x
 ```
 
 ### File Locations
@@ -603,8 +741,8 @@ ssh severin@100.95.133.26
 
 ### Network Addresses
 
-- **Jetson Tailscale IP:** `100.95.133.26` (may change - check with `tailscale ip -4`)
-- **Windows Tailscale IP:** `100.100.52.23` (may change)
+- **Jetson Tailscale IP:** `100.x.x.x` (may change - check with `tailscale ip -4`)
+- **Windows Tailscale IP:** `100.y.y.y` (may change)
 - **SSH Port:** `22/TCP` (accessed via Tailscale)
 
 ---
@@ -650,6 +788,6 @@ ssh severin@100.95.133.26
 ---
 
 **Created:** December 10, 2025  
-**Last Updated:** December 11, 2025  
+**Last Updated:** December 29, 2025  
 **Status:** ✅ Production Ready  
 **Solution:** Tailscale VPN

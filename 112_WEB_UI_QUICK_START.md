@@ -2,32 +2,32 @@
 ## Essential Commands and Daily Use Reference
 
 **Date:** December 17, 2025  
-**Access:** http://100.95.133.26:8079 (Service Mode)
+**Access:** http://100.x.x.x:8079 (Service Mode)
 
 ---
 
 ## Quick Access
 
 ### 1. Service Mode (Wake API)
-**URL:** `http://100.95.133.26:8079`
+**URL:** `http://100.x.x.x:8079`
 - Check if R2D2 is alive (Heartbeat)
 - Start the full Web UI
 - **Always on** (minimal resource usage)
 
 ### 2. Full Web Dashboard
-**URL:** `http://100.95.133.26:8080`
+**URL:** `http://100.x.x.x:8080`
 - Full control interface
 - **Must be started first** from Service Mode
 
 ### 3. Camera Stream
-**URL:** `http://100.95.133.26:8081/stream`
+**URL:** `http://100.x.x.x:8081/stream`
 
 ---
 
 ## Daily Usage Pattern
 
 ### 1. Check Status
-Open `http://100.95.133.26:8079`.
+Open `http://100.x.x.x:8079`.
 - Look at the "Heartbeat" section.
 - If it says "Online", R2D2 core systems are running.
 
@@ -151,7 +151,7 @@ ros2 topic hz /r2d2/perception/person_id
 ros2 topic echo /r2d2/heartbeat
 
 # Get full system metrics via REST API
-curl http://100.95.133.26:8080/api/system/health
+curl http://100.x.x.x:8080/api/system/health
 
 # Check all running ROS 2 nodes
 ros2 node list
@@ -209,7 +209,7 @@ ros2 param set /audio_notification_node audio_volume 0.2
 
 **Method 2: Direct URL**
 ```
-http://100.95.133.26:8081/stream
+http://100.x.x.x:8081/stream
 ```
 
 **Method 3: Command Line (verify)**
@@ -424,14 +424,14 @@ ls -la ~/dev/r2d2/data/face_recognition/
 
 ```bash
 # 1. SSH into Jetson (via Tailscale)
-ssh severin@100.95.133.26
+ssh severin@100.x.x.x
 
 # 2. Start web dashboard
 cd ~/dev/r2d2/web_dashboard
 ./scripts/start_web_dashboard.sh
 
 # 3. Open browser on laptop
-# Navigate to: http://100.95.133.26:8080
+# Navigate to: http://100.x.x.x:8080
 
 # 4. Start required services from dashboard
 # Click "Start" for: audio, camera
@@ -466,23 +466,23 @@ sudo systemctl stop r2d2-rosbridge.service
 
 ```bash
 # Start service
-curl -X POST http://100.95.133.26:8080/api/services/audio/start
+curl -X POST http://100.x.x.x:8080/api/services/audio/start
 
 # Stop service
-curl -X POST http://100.95.133.26:8080/api/services/audio/stop
+curl -X POST http://100.x.x.x:8080/api/services/audio/stop
 
 # Get all service status
-curl http://100.95.133.26:8080/api/services/status
+curl http://100.x.x.x:8080/api/services/status
 ```
 
 ### Volume Control
 
 ```bash
 # Get volume
-curl http://100.95.133.26:8080/api/audio/volume
+curl http://100.x.x.x:8080/api/audio/volume
 
 # Set volume (0.0-1.0)
-curl -X POST http://100.95.133.26:8080/api/audio/volume \
+curl -X POST http://100.x.x.x:8080/api/audio/volume \
   -H "Content-Type: application/json" \
   -d '{"volume": 0.3}'
 ```
@@ -491,10 +491,10 @@ curl -X POST http://100.95.133.26:8080/api/audio/volume \
 
 ```bash
 # List trained people
-curl http://100.95.133.26:8080/api/training/list
+curl http://100.x.x.x:8080/api/training/list
 
 # Delete person
-curl -X DELETE http://100.95.133.26:8080/api/training/alice
+curl -X DELETE http://100.x.x.x:8080/api/training/alice
 ```
 
 ---

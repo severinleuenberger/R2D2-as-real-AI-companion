@@ -638,7 +638,7 @@ alias | grep r2d2 || echo "(none)"
 
 **Time: T+15 minutes** — SSH to Jetson, run setup
 ```bash
-ssh severin@192.168.55.1
+ssh severin@192.168.x.1
 sudo bash ~/r2d2_setup.sh  # ~20-30 min
 ```
 
@@ -712,7 +712,7 @@ bash ~/dev/r2d2/scripts/r2d2_backup.sh
 # For each new Jetson (Jetson #2 and #3):
 # 1. Flash with JetPack
 # 2. Run setup
-ssh severin@192.168.55.2  # Second board
+ssh severin@192.168.x.2  # Second board
 sudo bash ~/r2d2_setup.sh
 
 # 3. Plug in USB stick and restore
@@ -1033,6 +1033,107 @@ BACKUP_FOLDER_NAME="r2d2_backup_${BACKUP_DATE}_$(hostname)"
 ```
 
 This creates: `r2d2_backup_20251222_jetson-01/`, `r2d2_backup_20251222_jetson-02/`, etc.
+
+---
+
+## Security and Git Integration
+
+### Two-Tier Documentation Strategy
+
+The R2D2 project uses a two-tier approach to balance **security** (not publishing sensitive data) with **recoverability** (not losing critical configurations):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           TIER 1: GIT REPOSITORY (Public/Sanitized)         │
+├─────────────────────────────────────────────────────────────┤
+│  • Documentation with PLACEHOLDER IPs (100.x.x.x)          │
+│  • Generic configuration examples                           │
+│  • System architecture and procedures                       │
+│  • Scripts (no hardcoded secrets)                          │
+│  • Safe to publish to GitHub                               │
+└─────────────────────────────────────────────────────────────┘
+                              ↕
+                   USB Backup bridges the gap
+                              ↕
+┌─────────────────────────────────────────────────────────────┐
+│              TIER 2: USB BACKUP (Private/Complete)          │
+├─────────────────────────────────────────────────────────────┤
+│  • ~/.ssh/config with REAL Tailscale and USB IPs           │
+│  • /etc/ssh/sshd_config with actual settings               │
+│  • System configs with real network addresses               │
+│  • API keys in environment files                           │
+│  • Complete working configurations                          │
+│  • NEVER published - stored physically on USB              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### What USB Backup Preserves (Security-Sensitive)
+
+The backup script captures these files with **real values**:
+
+| File/Path | Contains | Why Backed Up |
+|-----------|----------|---------------|
+| `~/.ssh/config` | Real Tailscale IPs, USB network IPs | SSH connection settings |
+| `/etc/ssh/sshd_config` | SSH keepalive settings | Connection stability config |
+| `/etc/systemd/system/disable-*.service` | Power management fixes | USB/WiFi stability |
+| `~/.bashrc`, `~/.bash_aliases` | Environment setup | Shell configuration |
+| `/etc/udev/rules.d/r2d2_*` | Device rules | Hardware detection |
+
+### Recovery After Restore
+
+When you restore from USB backup:
+
+1. ✅ **All real IPs restored automatically** - SSH configs work immediately
+2. ✅ **All system services restored** - Power management, keepalives active
+3. ✅ **No manual re-entry needed** - System works with actual network addresses
+4. ✅ **Git documentation provides procedures** - USB provides real values
+
+### Workflow: Secure Git Commits
+
+**Before committing documentation changes to git:**
+
+1. **Ensure USB backup is current** (preserves real configs)
+   ```bash
+   bash ~/dev/r2d2/scripts/r2d2_backup.sh
+   ```
+
+2. **Sanitize documentation** (replace real IPs with placeholders)
+   ```bash
+   # Check for real IPs
+   grep -rE "100\.[0-9]+\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+   grep -rE "192\.168\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+   
+   # Replace with placeholders: 100.x.x.x, 192.168.x.1
+   ```
+
+3. **Commit sanitized version to git**
+   ```bash
+   git add .
+   git commit -m "docs: update with sanitized examples"
+   git push origin main
+   ```
+
+4. **Real values remain safe on USB backup**
+
+### Security Checklist
+
+Before any git operation:
+
+- [ ] USB backup completed (real configs preserved)
+- [ ] Documentation sanitized (placeholder IPs only)
+- [ ] No API keys or credentials in committed files
+- [ ] Email addresses replaced with `user@example.com`
+
+### Why This Matters
+
+| Scenario | Without Two-Tier | With Two-Tier |
+|----------|------------------|---------------|
+| Git repo leaked | Real IPs exposed, network compromised | Only placeholders visible |
+| USB lost | No recovery of settings | Git has procedures, can rebuild |
+| New Jetson setup | Manual IP entry | Restore from USB, works immediately |
+| Documentation sharing | Must redact manually | Already sanitized in git |
+
+**For detailed security guidelines, see:** `000_INTERNAL_AGENT_NOTES.md` (Security section)
 
 ---
 

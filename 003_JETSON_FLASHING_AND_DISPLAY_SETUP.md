@@ -81,7 +81,7 @@ Establish a **robust, repeatable setup** to:
 - **USB networking bridge (for SSH over USB-C):**
   ```bash
   ip a
-  # l4tbr0: 192.168.55.1/24
+  # l4tbr0: 192.168.x.1/24
   # usb0, usb1 enslaved under l4tbr0
   ```
 
@@ -277,22 +277,22 @@ The Jetson presents a USB network gadget. On Jetson:
 ```bash
 ip a
 # ...
-# 6: l4tbr0: 192.168.55.1/24 ...
+# 6: l4tbr0: 192.168.x.1/24 ...
 # 7: usb0: ... master l4tbr0
 # 8: usb1: ... master l4tbr0
 ```
 
 On the Windows 11 laptop, once Jetson is up and USB-C is connected:
 
-- Windows assigns an IP like `192.168.55.100` to the USB network adapter.
-- Jetson is reachable at **192.168.55.1**.
+- Windows assigns an IP like `192.168.x.100` to the USB network adapter.
+- Jetson is reachable at **192.168.x.1**.
 
 Working SSH sequence:
 
 ```bat
-ping 192.168.55.1
+ping 192.168.x.1
 
-ssh severin@192.168.55.1
+ssh severin@192.168.x.1
 # Accept fingerprint
 # Enter Jetson password
 ```
@@ -326,7 +326,7 @@ Using `xrandr --props` showed a valid EDID block that clearly lists the LG HDR 5
 - Occasional message about an incorrect DisplayPort version.
 - In bad cases:
   - No picture on LG.
-  - No ping to 192.168.55.1.
+  - No ping to 192.168.x.1.
   - No SSH from Windows.
 
 Meanwhile:
@@ -391,7 +391,7 @@ Empirically the most reliable pattern was:
 1. Boot Jetson **headless** (without LG connected).
 2. Wait until SSH from Windows works:
    ```bat
-   ssh severin@192.168.55.1
+   ssh severin@192.168.x.1
    ```
 3. Only then power on LG and connect DP cable.
 4. LG shows the desktop; xrandr/autostart switches to 3440×1440.
@@ -426,7 +426,7 @@ If Jetson was booted with LG attached and powered from the very start, the syste
    All other SDK components can be added later on top.
 
 5. **USB SSH is a lifesaver.**  
-   The `l4tbr0` interface and `192.168.55.1` SSH access allowed recovery and debugging even when the display was completely black.
+   The `l4tbr0` interface and `192.168.x.1` SSH access allowed recovery and debugging even when the display was completely black.
 
 6. **Ultrawide 5K monitors can stress the boot stack.**  
    EDID quirks and DP-negotiation issues can cause hangs. Kernel video hints plus an xrandr autostart script are an effective workaround.

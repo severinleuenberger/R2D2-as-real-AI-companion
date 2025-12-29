@@ -1315,7 +1315,7 @@ image_listener    audio_notification  Launch Files
 
 The R2D2 web dashboard provides a graphical interface for monitoring and controlling the R2D2 system remotely via Tailscale VPN. It offers real-time monitoring, service control, volume adjustment, and complete face recognition training integration.
 
-**Access:** `http://100.95.133.26:8080` (via Tailscale VPN)
+**Access:** `http://100.x.x.x:8080` (via Tailscale VPN)
 
 **Key Features:**
 - Real-time person recognition status (RED/BLUE/GREEN)

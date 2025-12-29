@@ -117,6 +117,43 @@ journalctl -u r2d2-your-service.service -f
 
 **Purpose:** Commit and deploy your changes to the repository
 
+#### Security Pre-Commit Check (MANDATORY)
+
+⚠️ **Before ANY git commit, verify no sensitive data is being committed:**
+
+```bash
+# Check for real Tailscale IPs (100.x.x.x range)
+grep -rE "100\.[0-9]+\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+
+# Check for local network IPs (192.168.x.x range)
+grep -rE "192\.168\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
+
+# Check for email addresses
+grep -rE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" ~/dev/r2d2/*.md
+```
+
+**If real IPs or emails are found, replace with placeholders:**
+- `100.95.x.x` → `100.x.x.x`
+- `192.168.55.1` → `192.168.x.1`
+- `user@domain.com` → `user@example.com`
+
+**Security-sensitive items (NEVER commit):**
+- ❌ Real IP addresses (use placeholders like `100.x.x.x`)
+- ❌ API keys or tokens (use environment variables)
+- ❌ SSH key fingerprints
+- ❌ Real email addresses
+- ❌ Credentials or passwords
+
+**Safe to commit:**
+- ✅ Placeholder IPs and generic examples
+- ✅ Scripts using environment variables
+- ✅ Architecture documentation with sanitized examples
+
+**For detailed security guidelines, see:** `000_INTERNAL_AGENT_NOTES.md` (Security section)
+
+#### Git Commit Checklist
+
+- [ ] **Security check passed** (no real IPs, emails, or credentials)
 - [ ] All changes committed with descriptive message
   ```bash
   git add .
@@ -378,5 +415,5 @@ systemctl list-units --failed
 
 **This document is for final deployment steps only. For development and testing, refer to `000_INTERNAL_AGENT_NOTES.md`.**
 
-**Last Updated:** December 27, 2025 - Initial creation from split of internal agent notes
+**Last Updated:** December 29, 2025 - Added Security Pre-Commit Check (MANDATORY)
 

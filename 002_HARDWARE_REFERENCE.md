@@ -368,7 +368,7 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 - J511 audio header (I2S)
 - J42 automation header
 - Gigabit Ethernet
-- USB-C device port (for USB networking @ 192.168.55.1)
+- USB-C device port (for USB networking @ 192.168.x.1)
 
 ---
 
@@ -1104,7 +1104,7 @@ Power Distribution Board
 | **J42** | Automation Header | Power control (Pin 4 = POWER, Pin 1 = GND) | ✅ Boot/wake button |
 | **J12** | 40-Pin GPIO Header | General purpose I/O (3.3V logic) | ✅ LED, buttons, motors (Phase 3) |
 | **J30** | USB 3.0 Type-A | USB 3.0 host ports | ✅ OAK-D camera, HyperX mic |
-| **J40** | USB-C Device | USB device mode (also 5V/3A power input) | USB networking (192.168.55.1) |
+| **J40** | USB-C Device | USB device mode (also 5V/3A power input) | USB networking (192.168.x.1) |
 
 ### 9.2 Power Connection Strategy for R2D2
 
