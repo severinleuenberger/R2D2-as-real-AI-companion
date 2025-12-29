@@ -1,0 +1,14 @@
+[Unit]
+Description=R2D2 Daily Disk Cleanup
+After=network.target
+
+[Service]
+Type=oneshot
+# Run as root to allow apt clean and journalctl vacuum
+User=root
+# Set HOME so user cache paths resolve correctly
+Environment=HOME=/home/severin
+ExecStart=/home/severin/dev/r2d2/scripts/disk_cleanup.sh
+StandardOutput=journal
+StandardError=journal
+

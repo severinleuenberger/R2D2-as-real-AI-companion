@@ -1,0 +1,12 @@
+[Unit]
+Description=Run R2D2 disk cleanup daily after boot
+
+[Timer]
+# First run: 30 minutes after boot
+OnBootSec=30min
+# Subsequent runs: every 24 hours if machine stays on
+OnUnitActiveSec=24h
+
+[Install]
+WantedBy=timers.target
+

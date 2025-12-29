@@ -734,6 +734,77 @@ df -h /home/severin | tail -1
 
 ---
 
+## Automated Weekly Cleanup (Implemented December 2025)
+
+### Schedule
+
+- **First run:** 30 minutes after boot
+- **Subsequent runs:** Every 24 hours (if machine stays on)
+- **Runtime:** ~15-30 seconds
+- **Method:** systemd timer (not cron)
+
+### What It Cleans Automatically
+
+| Target | Location | Typical Size | Regenerates? |
+|--------|----------|--------------|--------------|
+| pip cache | `~/.cache/pip/` | 50-200MB | On `pip install` |
+| APT cache | `/var/cache/apt/` | 100-400MB | On `apt install` |
+| Journal logs | systemd journal | 20-50MB | Continuously |
+| ROS logs | `~/.ros/log/` | 20-50MB | On ROS launch |
+| Cursor debug | `~/.cursor/debug.log` | 0-900MB | On IDE use |
+| VSCode logs | `~/.vscode-server/data/logs/` | 10-50MB | On IDE use |
+
+### Files Created
+
+```
+~/dev/r2d2/scripts/disk_cleanup.sh      # Cleanup script
+~/dev/r2d2/r2d2-disk-cleanup.service    # Systemd service unit
+~/dev/r2d2/r2d2-disk-cleanup.timer      # Systemd timer unit
+/etc/systemd/system/r2d2-disk-cleanup.* # Installed copies
+```
+
+### Management Commands
+
+```bash
+# Check timer status and next run time
+systemctl status r2d2-disk-cleanup.timer
+systemctl list-timers | grep r2d2
+
+# View cleanup logs
+journalctl -u r2d2-disk-cleanup.service
+
+# Run cleanup manually
+sudo systemctl start r2d2-disk-cleanup.service
+
+# Run script directly (for testing)
+bash ~/dev/r2d2/scripts/disk_cleanup.sh
+
+# Disable automation
+sudo systemctl disable r2d2-disk-cleanup.timer
+
+# Re-enable automation
+sudo systemctl enable --now r2d2-disk-cleanup.timer
+```
+
+### Installation (One-Time Setup)
+
+```bash
+# Copy service files to systemd
+sudo cp ~/dev/r2d2/r2d2-disk-cleanup.service /etc/systemd/system/
+sudo cp ~/dev/r2d2/r2d2-disk-cleanup.timer /etc/systemd/system/
+
+# Reload and enable
+sudo systemctl daemon-reload
+sudo systemctl enable --now r2d2-disk-cleanup.timer
+
+# Verify timer is active
+systemctl list-timers | grep r2d2
+```
+
+---
+
 ## Last Updated
+
+December 29, 2025 - Added automated daily cleanup via systemd timer (30min after boot, then every 24h). Cleans pip cache, APT cache, journal logs, ROS logs, and IDE debug logs automatically. **First run recovered 1GB** (6.3G → 7.3G free). Service runs as root for full system cleanup.
 
 December 19, 2025 - Phase 4 & 5 cleanup completed (~6GB recovered total). System now at 85% disk usage (8.2GB free). LibreOffice and Thunderbird removed. Additional optional cleanup opportunities documented. Backup created at `/media/severin/DAEA-DEBB/temp_backup/`.
