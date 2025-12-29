@@ -112,7 +112,7 @@
     mic_device_index: 24  # HyperX QuadCast S USB Audio (hw:2,0)
     mic_native_sample_rate: 48000
     mic_sample_rate: 24000
-    sink_device: 'default'
+    sink_device: 'pulse'
     output_device: 'default'
     
     # ============================================================

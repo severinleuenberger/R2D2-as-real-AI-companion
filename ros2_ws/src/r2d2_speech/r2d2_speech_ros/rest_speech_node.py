@@ -34,7 +34,7 @@ from r2d2_speech.config import get_config
 from r2d2_speech.storage import init_db, create_session, insert_message
 
 # Import ROS2 bridge
-from .ros2_bridge import ROS2StatusPublisher, process_learning_mode_triggers
+from .ros2_bridge import ROS2StatusPublisher
 
 logging.basicConfig(
     level=logging.INFO,
@@ -422,23 +422,20 @@ class RestSpeechNode(LifecycleNode):
                 )
             
             def on_response_ready(assistant_response):
-                # Process learning mode triggers (remove tags and toggle service)
-                clean_response = process_learning_mode_triggers(assistant_response)
-                
-                # Publish assistant transcript (without trigger tags)
+                # Publish assistant transcript
                 msg = String()
-                msg.data = clean_response
+                msg.data = assistant_response
                 self.assistant_transcript_pub.publish(msg)
-                self.get_logger().info(f"Assistant: {clean_response[:100]}...")
+                self.get_logger().info(f"Assistant: {assistant_response[:100]}...")
                 
-                # Store in database (clean response without trigger tags)
+                # Store in database
                 insert_message(
                     self.config['db_path'],
                     self.session_id,
                     role="assistant",
                     item_id=None,
                     response_id=None,
-                    text=clean_response
+                    text=assistant_response
                 )
             
             # Process turn

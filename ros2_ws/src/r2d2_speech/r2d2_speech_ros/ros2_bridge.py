@@ -2,16 +2,11 @@
 """ROS2 Bridge - Connects existing speech system to ROS2"""
 
 import logging
-import subprocess
-from pathlib import Path
 from typing import Dict, Any, Optional
 from std_msgs.msg import String
 import json
 
 logger = logging.getLogger(__name__)
-
-# State file for tutor mode
-TUTOR_MODE_FILE = Path.home() / 'dev' / 'r2d2' / 'data' / 'tutor_mode_active.txt'
 
 
 class ROS2TranscriptHandler:
@@ -41,17 +36,10 @@ class ROS2TranscriptHandler:
         await self.handler.handle_assistant_transcript(event)
         transcript = event.get("transcript", self.handler.assistant_transcript_buffer)
         if transcript:
-            # Detect and handle learning mode triggers
-            clean_transcript = self._process_learning_mode_triggers(transcript)
-            
             msg = String()
-            msg.data = clean_transcript
+            msg.data = transcript
             self.assistant_pub.publish(msg)
-            logger.debug(f"Published assistant transcript: {clean_transcript}")
-    
-    def _process_learning_mode_triggers(self, text: str) -> str:
-        """Detect [LEARNING_ON/OFF] triggers and toggle narrator service."""
-        return process_learning_mode_triggers(text)
+            logger.debug(f"Published assistant transcript: {transcript}")
     
     async def handle_assistant_delta(self, event: Dict[str, Any]) -> None:
         await self.handler.handle_assistant_delta(event)
@@ -124,75 +112,6 @@ class ROS2VADPublisher:
             msg.data = json.dumps(vad_data)
             self.vad_pub.publish(msg)
             logger.info("VAD: User stopped speaking")
-
-
-def process_learning_mode_triggers(text: str) -> str:
-    """
-    Detect [LEARNING_ON/OFF] and [TUTOR_ON/OFF] triggers.
-    Returns cleaned text with trigger tags removed.
-    Standalone utility function for use by any speech handler.
-    
-    Learning Mode: Starts/stops narrator service (coding narration)
-    Tutor Mode: Activates teaching personality (interactive Q&A)
-    """
-    # Learning mode triggers (narrator service)
-    if "[LEARNING_ON]" in text:
-        toggle_learning_mode(True)
-        text = text.replace("[LEARNING_ON]", "").strip()
-    elif "[LEARNING_OFF]" in text:
-        toggle_learning_mode(False)
-        text = text.replace("[LEARNING_OFF]", "").strip()
-    
-    # Tutor mode triggers (personality change)
-    if "[TUTOR_ON]" in text:
-        toggle_tutor_mode(True)
-        text = text.replace("[TUTOR_ON]", "").strip()
-    elif "[TUTOR_OFF]" in text:
-        toggle_tutor_mode(False)
-        text = text.replace("[TUTOR_OFF]", "").strip()
-    
-    return text
-
-
-def toggle_learning_mode(enable: bool) -> None:
-    """Start or stop the narrator service for coding narration."""
-    action = "start" if enable else "stop"
-    try:
-        subprocess.run(
-            ["sudo", "systemctl", action, "r2d2-narrator.service"],
-            check=True, capture_output=True
-        )
-        logger.info(f"Learning mode {'ON' if enable else 'OFF'}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to toggle learning mode: {e.stderr.decode() if e.stderr else e}")
-    except Exception as e:
-        logger.error(f"Failed to toggle learning mode: {e}")
-
-
-def toggle_tutor_mode(enable: bool) -> None:
-    """
-    Activate or deactivate tutor mode (teaching personality).
-    Writes state to file for other components to read.
-    """
-    try:
-        # Ensure data directory exists
-        TUTOR_MODE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Write state
-        TUTOR_MODE_FILE.write_text("true" if enable else "false")
-        logger.info(f"Tutor mode {'ON' if enable else 'OFF'}")
-    except Exception as e:
-        logger.error(f"Failed to toggle tutor mode: {e}")
-
-
-def is_tutor_mode_active() -> bool:
-    """Check if tutor mode is currently active."""
-    try:
-        if TUTOR_MODE_FILE.exists():
-            return TUTOR_MODE_FILE.read_text().strip().lower() == "true"
-    except Exception:
-        pass
-    return False
 
 
 def ros2_params_to_config(node) -> dict:
