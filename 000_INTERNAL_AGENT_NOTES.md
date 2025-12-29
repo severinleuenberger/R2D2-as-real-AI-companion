@@ -29,11 +29,20 @@ START → Build & Test (this file) → TESTED & WORKING → Finalize & Deploy (0
 
 ---
 
-## 🎓 LEARNING MODE (For Severin's Education)
+## 🎓 AI TUTOR SYSTEM (For Severin's Education)
 
 **IMPORTANT:** The user (Severin) is learning robotics/ROS 2 while building this project. He is a senior BI developer but junior in embedded systems. **Explain your work as you do it!**
 
-### Real-Time Narration Protocol
+**Full Documentation:** See `300_AI_TUTOR.md` for comprehensive reference.
+
+### Two Learning Modes
+
+| Mode | Voice Trigger | What It Does |
+|------|---------------|--------------|
+| **Learning Mode** | "Turn on learning mode" | Starts narrator service - R2D2 speaks `coding_live.md` updates |
+| **Tutor Mode** | "Be my tutor" | Activates teaching personality for interactive Q&A |
+
+### Real-Time Narration Protocol (Learning Mode)
 
 **After EVERY significant action, write to `~/dev/r2d2/data/coding_live.md`:**
 
@@ -172,6 +181,30 @@ After R2D2 speaks an explanation, Severin can:
 3. R2D2 responds with more detail using the current context
 
 The speech node reads `coding_live.md` for context, so R2D2 knows what you're working on!
+
+### General Tutor Mode (Interactive Q&A)
+
+Tutor Mode is for interactive teaching conversations (not coding narration):
+
+**Activation:** Say "Be my tutor", "Teach me", or "I want to learn about X"
+
+**What happens:**
+- R2D2's personality shifts to patient teacher mode
+- Uses BI analogies in explanations
+- Checks understanding: "Does that make sense?"
+- Builds concepts progressively
+
+**Example:**
+```
+You: "Teach me about ROS 2 services"
+R2D2: "A ROS 2 service is like a stored procedure in SQL. You call it,
+       wait for execution, and get a result back. Unlike topics which are
+       fire-and-forget, services are request-response. Does that make sense?"
+```
+
+**Deactivation:** Say "Normal mode", "Tutor off", or "Stop teaching"
+
+**State file:** `~/dev/r2d2/data/tutor_mode_active.txt` (true/false)
 
 ---
 
@@ -528,10 +561,9 @@ ros2_ws/src/
 │   ├── 200_SPEECH_SYSTEM_REFERENCE.md (complete technical reference)
 │   ├── 201-204: Installation, quick start, troubleshooting, customization
 │   └── ...
-├── 300-399: Gesture System (Phase 2)
-│   ├── 300_GESTURE_SYSTEM_OVERVIEW.md (system architecture)
-│   ├── 303_GESTURE_TRAINING_GUIDE.md (user training guide)
-│   └── ...
+├── 300-399: AI Tutor & Learning System
+│   ├── 300_AI_TUTOR.md (complete AI tutor reference - coding + general modes)
+│   └── (Gesture docs archived to _ARCHIVE/)
 ├── 400-499: Reserved for Navigation System (Phase 3)
 ├── 500-599: Reserved for Memory & Personality (Phase 4)
 ├── README.md (project overview - main entry point)
@@ -598,7 +630,7 @@ data/  (Runtime data and models)
 - `000-099`: Internal guides, setup, infrastructure
 - `100-199`: Phase 1 (Perception & Status)
 - `200-299`: Phase 2 (Speech & Conversation)
-- `300-399`: Phase 2 (Gesture Recognition)
+- `300-399`: AI Tutor & Learning System
 - `400-499`: Phase 3 (Navigation - reserved)
 - `500-599`: Phase 4 (Memory & Personality - reserved)
 
@@ -1112,4 +1144,4 @@ Real configurations are preserved in USB backups (see `004_BACKUP_AND_RESTORE.md
 
 **This document is a living reference. Update when patterns change or new tools/patterns emerge.**
 
-**Last Updated:** December 29, 2025 - Added Security & Sensitive Data Handling section
+**Last Updated:** December 29, 2025 - Added AI Tutor System (Learning Mode + Tutor Mode), updated doc hierarchy

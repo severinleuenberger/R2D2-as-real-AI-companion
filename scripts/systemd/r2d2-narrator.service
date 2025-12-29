@@ -1,0 +1,29 @@
+[Unit]
+Description=R2D2 Coding Narrator Service (Real-Time Learning Assistant)
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/000_INTERNAL_AGENT_NOTES.md
+
+[Service]
+Type=simple
+User=severin
+WorkingDirectory=/home/severin/dev/r2d2
+Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+
+# Run the narrator script directly
+ExecStart=/usr/bin/python3 /home/severin/dev/r2d2/scripts/util/coding_narrator.py
+
+# Restart policy - keep narrator running
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-narrator
+
+[Install]
+WantedBy=multi-user.target
+
