@@ -1,0 +1,267 @@
+{
+  "test_date": "2025-12-27T15:00:26.546002",
+  "test_mode": "interactive",
+  "hardware": {
+    "device": "hw:1,0",
+    "amplifier": "PAM8403",
+    "speaker": "8\u03a9"
+  },
+  "baseline_results": {
+    "recognition_beep": {
+      "0.0": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.01": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.02": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.05": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.1": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.2": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.3": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.5": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "0.7": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "1.0": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      }
+    },
+    "loss_beep": {
+      "0.0": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.01": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.02": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.05": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.1": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.2": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.3": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.5": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "0.7": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "1.0": {
+        "rating": 5,
+        "notes": "",
+        "rating_description": "Too loud / distortion"
+      }
+    },
+    "gesture_ack": {
+      "0.0": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.01": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.02": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.05": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.1": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.2": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.3": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.5": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "0.7": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "1.0": {
+        "rating": 5,
+        "notes": "",
+        "rating_description": "Too loud / distortion"
+      }
+    },
+    "session_start": {
+      "0.0": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.01": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.02": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.05": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.1": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.2": {
+        "rating": 3,
+        "notes": "3",
+        "rating_description": "Good / acceptable"
+      },
+      "0.3": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.5": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "0.7": {
+        "rating": 5,
+        "notes": "",
+        "rating_description": "Too loud / distortion"
+      }
+    },
+    "session_stop": {
+      "0.0": {
+        "rating": 1,
+        "notes": "1",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.01": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.02": {
+        "rating": 1,
+        "notes": "",
+        "rating_description": "Too quiet / inaudible"
+      },
+      "0.05": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.1": {
+        "rating": 2,
+        "notes": "",
+        "rating_description": "Quiet but audible"
+      },
+      "0.2": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.3": {
+        "rating": 3,
+        "notes": "",
+        "rating_description": "Good / acceptable"
+      },
+      "0.5": {
+        "rating": 4,
+        "notes": "",
+        "rating_description": "Loud"
+      },
+      "0.7": {
+        "rating": 5,
+        "notes": "",
+        "rating_description": "Too loud / distortion"
+      }
+    }
+  },
+  "recommendations": {
+    "min_volume": 0.01,
+    "default_volume": 0.05,
+    "max_volume": 1.0,
+    "optimal_range": "0.01 - 1.0"
+  }
+}

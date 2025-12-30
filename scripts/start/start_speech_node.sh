@@ -1,6 +1,10 @@
 #!/bin/bash
 # Startup script for R2D2 Speech Node Service
 
+# PulseAudio environment for user session audio
+export XDG_RUNTIME_DIR=/run/user/1000
+export PULSE_SERVER=unix:/run/user/1000/pulse/native
+
 # Navigate to workspace
 cd /home/severin/dev/r2d2/ros2_ws
 

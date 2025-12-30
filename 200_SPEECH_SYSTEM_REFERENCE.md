@@ -365,7 +365,7 @@ sudo journalctl -u r2d2-gesture-intent.service -f
 | `mic_device` | string | "" | Microphone device (empty = auto-detect HyperX) |
 | `mic_native_sample_rate` | int | 48000 | Native sample rate (HyperX) |
 | `mic_sample_rate` | int | 24000 | Target sample rate (API requirement) |
-| `sink_device` | string | "" | Audio output device |
+| `sink_device` | string | "pulse" | Audio output: 'pulse' (Bluetooth/PulseAudio) or 'default' (PAM8403) |
 | `db_path` | string | ~/dev/r2d2/r2d2_speech/data/conversations.db | Database path |
 | `auto_start` | bool | true | Auto-start session on activation |
 | `instructions` | string | (system prompt) | Assistant personality |
@@ -429,6 +429,35 @@ lsusb | grep -i hyperx
 
 **Configuration:**
 Configured in Phase 1 audio setup. No additional configuration needed for speech system.
+
+### Bluetooth Audio (Alternative)
+
+**Status:** Supported as alternative to PAM8403
+
+Bluetooth headphones, earbuds, or speakers can be used instead of the built-in PAM8403 speaker. Audio is routed through PulseAudio.
+
+**Configuration:**
+```yaml
+# In speech_params.yaml
+sink_device: 'pulse'   # Routes through PulseAudio to default sink (Bluetooth)
+# sink_device: 'default'  # Direct ALSA to PAM8403
+```
+
+**Requirements:**
+- Bluetooth device paired and connected
+- PulseAudio environment variables set in systemd services
+- `pulseaudio-module-bluetooth` package installed
+
+**Quick Test:**
+```bash
+# Check Bluetooth is default sink
+pactl get-default-sink
+
+# Test audio
+paplay /usr/share/sounds/alsa/Front_Center.wav
+```
+
+**For complete Bluetooth setup, see:** [261_BLUETOOTH_AUDIO_REFERENCE.md](261_BLUETOOTH_AUDIO_REFERENCE.md)
 
 ### Historical Note: ReSpeaker HAT
 

@@ -64,6 +64,57 @@ class PersonRegistry:
         DELETE FROM persons WHERE id = ?
     """
     
+    # Learning Progress Queries
+    QUERY_INSERT_LEARNING_TOPIC = """
+        INSERT INTO learning_topics (id, person_id, category, subcategory, topic,
+                                     understanding_level, bi_analogy, code_reference,
+                                     first_encountered, last_reviewed, times_reviewed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    """
+    
+    QUERY_GET_LEARNING_TOPIC = """
+        SELECT id, person_id, category, subcategory, topic, understanding_level,
+               bi_analogy, code_reference, first_encountered, last_reviewed, times_reviewed
+        FROM learning_topics WHERE person_id = ? AND topic = ?
+    """
+    
+    QUERY_UPDATE_LEARNING_TOPIC = """
+        UPDATE learning_topics 
+        SET understanding_level = ?, last_reviewed = ?, times_reviewed = times_reviewed + 1
+        WHERE id = ?
+    """
+    
+    QUERY_LIST_LEARNING_TOPICS = """
+        SELECT id, person_id, category, subcategory, topic, understanding_level,
+               bi_analogy, first_encountered, last_reviewed, times_reviewed
+        FROM learning_topics WHERE person_id = ?
+        ORDER BY last_reviewed DESC
+    """
+    
+    QUERY_LIST_LEARNING_BY_CATEGORY = """
+        SELECT id, person_id, category, subcategory, topic, understanding_level,
+               bi_analogy, first_encountered, last_reviewed, times_reviewed
+        FROM learning_topics WHERE person_id = ? AND category = ?
+        ORDER BY subcategory, topic
+    """
+    
+    QUERY_INSERT_LEARNING_SESSION = """
+        INSERT INTO learning_sessions (id, person_id, started_at, ended_at, summary, topics_learned)
+        VALUES (?, ?, ?, NULL, NULL, NULL)
+    """
+    
+    QUERY_UPDATE_LEARNING_SESSION = """
+        UPDATE learning_sessions
+        SET ended_at = ?, summary = ?, topics_learned = ?
+        WHERE id = ?
+    """
+    
+    QUERY_LIST_LEARNING_SESSIONS = """
+        SELECT id, person_id, started_at, ended_at, summary, topics_learned
+        FROM learning_sessions WHERE person_id = ?
+        ORDER BY started_at DESC LIMIT ?
+    """
+    
     def __init__(self, db_path: str = None):
         """
         Initialize person registry.
@@ -97,6 +148,50 @@ class PersonRegistry:
                 google_account TEXT,
                 metadata TEXT
             )
+        """)
+        
+        # Learning progress tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS learning_topics (
+                id TEXT PRIMARY KEY,
+                person_id TEXT NOT NULL,
+                category TEXT NOT NULL,
+                subcategory TEXT,
+                topic TEXT NOT NULL,
+                understanding_level INTEGER DEFAULT 1,
+                bi_analogy TEXT,
+                code_reference TEXT,
+                first_encountered TEXT NOT NULL,
+                last_reviewed TEXT NOT NULL,
+                times_reviewed INTEGER DEFAULT 1,
+                FOREIGN KEY (person_id) REFERENCES persons(id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS learning_sessions (
+                id TEXT PRIMARY KEY,
+                person_id TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                summary TEXT,
+                topics_learned TEXT,
+                FOREIGN KEY (person_id) REFERENCES persons(id)
+            )
+        """)
+        
+        # Create indexes for faster queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_learning_topics_person 
+            ON learning_topics(person_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_learning_topics_category 
+            ON learning_topics(person_id, category)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_learning_sessions_person 
+            ON learning_sessions(person_id)
         """)
         
         conn.commit()
@@ -361,4 +456,211 @@ class PersonRegistry:
             'skipped': skipped,
             'errors': errors
         }
+    
+    # ========================================================================
+    # Learning Progress Methods
+    # ========================================================================
+    
+    def log_learning_topic(self, person_id: str, category: str, topic: str,
+                          subcategory: str = None, understanding_level: int = 1,
+                          bi_analogy: str = None, code_reference: str = None) -> str:
+        """
+        Log a new learning topic or update existing one.
+        
+        Args:
+            person_id: Person's UUID
+            category: Main category (e.g., "ROS 2", "Python", "Hardware")
+            topic: Specific topic learned
+            subcategory: Optional subcategory (e.g., "Subscribers", "GPIO")
+            understanding_level: 1-5 scale (1=heard of, 5=mastered)
+            bi_analogy: BI concept analogy used to explain
+            code_reference: File:line reference to example code
+            
+        Returns:
+            topic_id: UUID of the learning topic entry
+        """
+        now = datetime.now().isoformat()
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Check if topic already exists for this person
+        cursor.execute(self.QUERY_GET_LEARNING_TOPIC, (person_id, topic))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing topic
+            topic_id = existing[0]
+            cursor.execute(self.QUERY_UPDATE_LEARNING_TOPIC, 
+                          (understanding_level, now, topic_id))
+        else:
+            # Create new topic
+            topic_id = str(uuid.uuid4())
+            cursor.execute(self.QUERY_INSERT_LEARNING_TOPIC,
+                          (topic_id, person_id, category, subcategory, topic,
+                           understanding_level, bi_analogy, code_reference, now, now))
+        
+        conn.commit()
+        conn.close()
+        
+        return topic_id
+    
+    def get_learning_topics(self, person_id: str, category: str = None) -> List[Dict]:
+        """
+        Get learning topics for a person.
+        
+        Args:
+            person_id: Person's UUID
+            category: Optional filter by category
+            
+        Returns:
+            List of learning topic dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        if category:
+            cursor.execute(self.QUERY_LIST_LEARNING_BY_CATEGORY, (person_id, category))
+        else:
+            cursor.execute(self.QUERY_LIST_LEARNING_TOPICS, (person_id,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        topics = []
+        for row in rows:
+            topics.append({
+                'id': row[0],
+                'person_id': row[1],
+                'category': row[2],
+                'subcategory': row[3],
+                'topic': row[4],
+                'understanding_level': row[5],
+                'bi_analogy': row[6],
+                'first_encountered': row[7],
+                'last_reviewed': row[8],
+                'times_reviewed': row[9]
+            })
+        
+        return topics
+    
+    def get_learning_summary(self, person_id: str) -> Dict:
+        """
+        Get learning progress summary for a person.
+        
+        Args:
+            person_id: Person's UUID
+            
+        Returns:
+            Dictionary with learning statistics by category
+        """
+        topics = self.get_learning_topics(person_id)
+        
+        summary = {
+            'total_topics': len(topics),
+            'by_category': {},
+            'by_understanding': {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+            'recent_topics': []
+        }
+        
+        for topic in topics:
+            cat = topic['category']
+            if cat not in summary['by_category']:
+                summary['by_category'][cat] = {'count': 0, 'avg_understanding': 0, 'topics': []}
+            summary['by_category'][cat]['count'] += 1
+            summary['by_category'][cat]['topics'].append(topic['topic'])
+            
+            level = topic['understanding_level'] or 1
+            if level in summary['by_understanding']:
+                summary['by_understanding'][level] += 1
+        
+        # Calculate averages
+        for cat in summary['by_category']:
+            cat_topics = [t for t in topics if t['category'] == cat]
+            if cat_topics:
+                avg = sum(t['understanding_level'] or 1 for t in cat_topics) / len(cat_topics)
+                summary['by_category'][cat]['avg_understanding'] = round(avg, 1)
+        
+        # Get 5 most recent topics
+        summary['recent_topics'] = [t['topic'] for t in topics[:5]]
+        
+        return summary
+    
+    def start_learning_session(self, person_id: str) -> str:
+        """
+        Start a new learning session.
+        
+        Args:
+            person_id: Person's UUID
+            
+        Returns:
+            session_id: UUID of the new session
+        """
+        session_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(self.QUERY_INSERT_LEARNING_SESSION,
+                      (session_id, person_id, now))
+        
+        conn.commit()
+        conn.close()
+        
+        return session_id
+    
+    def end_learning_session(self, session_id: str, summary: str = None, 
+                            topics_learned: List[str] = None):
+        """
+        End a learning session with summary.
+        
+        Args:
+            session_id: Session UUID
+            summary: Optional session summary
+            topics_learned: Optional list of topic IDs learned
+        """
+        now = datetime.now().isoformat()
+        topics_json = json.dumps(topics_learned) if topics_learned else None
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(self.QUERY_UPDATE_LEARNING_SESSION,
+                      (now, summary, topics_json, session_id))
+        
+        conn.commit()
+        conn.close()
+    
+    def get_learning_sessions(self, person_id: str, limit: int = 10) -> List[Dict]:
+        """
+        Get recent learning sessions for a person.
+        
+        Args:
+            person_id: Person's UUID
+            limit: Maximum number of sessions to return
+            
+        Returns:
+            List of session dictionaries
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(self.QUERY_LIST_LEARNING_SESSIONS, (person_id, limit))
+        rows = cursor.fetchall()
+        
+        conn.close()
+        
+        sessions = []
+        for row in rows:
+            sessions.append({
+                'id': row[0],
+                'person_id': row[1],
+                'started_at': row[2],
+                'ended_at': row[3],
+                'summary': row[4],
+                'topics_learned': json.loads(row[5]) if row[5] else []
+            })
+        
+        return sessions
 

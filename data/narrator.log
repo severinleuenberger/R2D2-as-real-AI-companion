@@ -1,0 +1,10 @@
+[2025-12-29 10:05:21] [INFO] ==================================================
+[2025-12-29 10:05:21] [INFO] R2D2 Coding Narrator Starting
+[2025-12-29 10:05:21] [INFO] Watching: /home/severin/dev/r2d2/data/coding_live.md
+[2025-12-29 10:05:21] [INFO] Mode file: /home/severin/dev/r2d2/data/narrator_mode.txt
+[2025-12-29 10:05:21] [INFO] ==================================================
+[2025-12-29 10:05:24] [INFO] Spoke: R2D2 narrator online. Ready to explain your code!...
+[2025-12-29 10:07:56] [INFO] File changed! Processing...
+[2025-12-29 10:07:56] [INFO] Updated speech context
+[2025-12-29 10:07:56] [INFO] Narrator mode: narrator
+[2025-12-29 10:07:59] [INFO] Spoke: Testing the narrator service If you hear this, the...

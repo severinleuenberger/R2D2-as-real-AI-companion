@@ -298,6 +298,90 @@ sudo journalctl -u r2d2-speech-node -f | grep "AudioStreamManager"
 
 ---
 
+### Issue: No Audio on Bluetooth
+
+**Symptoms:**
+- Bluetooth device connected and working for other apps
+- Speech service transcripts work but no audio heard
+- Logs show "PulseAudio: Unable to connect: Connection refused"
+
+**Diagnosis:**
+```bash
+# Check if service has PulseAudio environment
+cat /proc/$(pgrep -f "speech_node --ros-args" | head -1)/environ | tr '\0' '\n' | grep PULSE
+
+# Should show: PULSE_SERVER=unix:/run/user/1000/pulse/native
+# If empty, environment variables are missing
+
+# Check sink_device configuration
+grep sink_device ~/dev/r2d2/ros2_ws/install/r2d2_speech/share/r2d2_speech/config/speech_params.yaml
+
+# Should show: sink_device: 'pulse' (for Bluetooth)
+
+# Check logs for PulseAudio errors
+journalctl -u r2d2-speech-node --since "5 minutes ago" | grep -i "pulse"
+```
+
+**Solutions:**
+
+1. **Missing PulseAudio environment variables:**
+   
+   Add to start script (`scripts/start/start_speech_node.sh`):
+   ```bash
+   export XDG_RUNTIME_DIR=/run/user/1000
+   export PULSE_SERVER=unix:/run/user/1000/pulse/native
+   ```
+   
+   Or add to systemd service:
+   ```ini
+   Environment="XDG_RUNTIME_DIR=/run/user/1000"
+   Environment="PULSE_SERVER=unix:/run/user/1000/pulse/native"
+   ```
+   
+   Then:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart r2d2-speech-node
+   ```
+
+2. **sink_device not set to pulse:**
+   ```bash
+   # Edit config
+   nano ~/dev/r2d2/ros2_ws/src/r2d2_speech/config/speech_params.yaml
+   # Change: sink_device: 'pulse'
+   
+   # Rebuild and restart
+   cd ~/dev/r2d2/ros2_ws
+   colcon build --packages-select r2d2_speech
+   sudo systemctl restart r2d2-speech-node
+   ```
+
+3. **Bluetooth not default sink:**
+   ```bash
+   # Check current default
+   pactl get-default-sink
+   
+   # List sinks
+   pactl list sinks short
+   
+   # Set Bluetooth as default
+   pactl set-default-sink bluez_sink.XX_XX_XX_XX_XX_XX.a2dp_sink
+   ```
+
+4. **Bluetooth module not installed:**
+   ```bash
+   sudo apt install -y pulseaudio-module-bluetooth
+   pulseaudio -k  # Restart PulseAudio
+   
+   # Reconnect Bluetooth device
+   bluetoothctl disconnect XX:XX:XX:XX:XX:XX
+   bluetoothctl connect XX:XX:XX:XX:XX:XX
+   ```
+
+**For complete Bluetooth setup, see:** [261_BLUETOOTH_AUDIO_REFERENCE.md](261_BLUETOOTH_AUDIO_REFERENCE.md)
+
+---
+
 ### Issue: Microphone Not Working
 
 **Symptoms:**
