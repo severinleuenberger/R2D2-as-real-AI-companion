@@ -274,8 +274,8 @@ cat > ~/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml << 'EOF'
 /**:
   ros__parameters:
     # RED-first architecture parameters
-    red_entry_match_threshold: 3
-    red_entry_window_seconds: 1.0
+    red_entry_match_threshold: 4
+    red_entry_window_seconds: 1.5
     
     # Status timers
     red_status_timeout_seconds: 15.0

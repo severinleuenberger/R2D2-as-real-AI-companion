@@ -111,6 +111,12 @@ journalctl -u r2d2-your-service.service -f
 - Dependencies and requirements listed
 - Testing procedures documented
 
+**Documentation deduplication check:**
+- [ ] Parameters documented? Check if authoritative source exists first (see table in `000_INTERNAL_AGENT_NOTES.md`)
+- [ ] If copying config values: Add "Source of Truth" reference with file path
+- [ ] If procedure already documented: Use cross-reference, don't duplicate content
+- [ ] Verify parameter values match actual config files
+
 ---
 
 ### Phase 5: Git & Deployment

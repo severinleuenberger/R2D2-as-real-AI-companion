@@ -214,12 +214,14 @@ ros2 topic hz /r2d2/perception/person_id    # Should be ~6.5 Hz when face detect
 **File:** `/home/severin/dev/r2d2/ros2_ws/src/r2d2_audio/config/audio_params.yaml`
 
 ```yaml
-audio_volume: 0.02  # 2% volume (very quiet)
+audio_volume: 0.1  # 10% volume (clearly audible)
 
 # RED-first architecture
-red_entry_match_threshold: 3    # Matches needed
-red_entry_window_seconds: 1.0   # Rolling window
+red_entry_match_threshold: 4    # Matches needed
+red_entry_window_seconds: 1.5   # Rolling window
 ```
+
+> **Source of Truth:** [`audio_params.yaml`](ros2_ws/src/r2d2_audio/config/audio_params.yaml) - check config file for current values
 
 After editing, rebuild and restart:
 ```bash

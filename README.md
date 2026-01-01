@@ -214,7 +214,7 @@ The iconic 1:2 DeAgostini R2-D2 rebuilt with modern robotics hardware.
 |----------|---------|
 | [000_UX_AND_FUNCTIONS.md](000_UX_AND_FUNCTIONS.md) | **Complete user experience guide** |
 | [112_WEB_UI_QUICK_START.md](112_WEB_UI_QUICK_START.md) | Web dashboard usage |
-| [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) | Training gestures |
+| [101_PERCEPTION_STATUS_INSTALLATION.md](101_PERCEPTION_STATUS_INSTALLATION.md) | Training faces & gestures |
 
 ### Technical Reference
 

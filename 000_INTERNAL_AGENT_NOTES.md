@@ -387,10 +387,10 @@ ros2 topic list
 ros2 topic echo /topic_name -n 20
 ros2 topic hz /topic_name -w 5
 
-# Systemd services
-sudo systemctl status r2d2-audio-notification.service
-sudo systemctl restart r2d2-audio-notification.service
-journalctl -u r2d2-audio-notification.service -f
+# Systemd services (see 005_SYSTEMD_SERVICES_REFERENCE.md for complete reference)
+sudo systemctl status r2d2-<service>.service
+sudo systemctl restart r2d2-<service>.service
+journalctl -u r2d2-<service>.service -f
 ```
 
 ### Debug & Troubleshooting
@@ -749,6 +749,62 @@ EOF
 
 ---
 
+## Documentation Deduplication Rules (MANDATORY)
+
+### Source of Truth Hierarchy
+
+When documenting configuration values, parameters, or procedures, ALWAYS check the authoritative source first:
+
+| Topic | Authoritative Document |
+|-------|----------------------|
+| **Config parameters** | Actual YAML config files in `ros2_ws/src/*/config/` |
+| **Systemd services** | `005_SYSTEMD_SERVICES_REFERENCE.md` |
+| **State machine (RED/GREEN/BLUE)** | `100_PERCEPTION_STATUS_REFERENCE.md` |
+| **ROS 2 topics** | `001_ARCHITECTURE_OVERVIEW.md` |
+| **Monitoring commands** | `006_SYSTEM_STATUS_AND_MONITORING.md` |
+| **Person Registry** | `250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md` |
+| **Speech system** | `200_SPEECH_SYSTEM_REFERENCE.md` |
+| **Troubleshooting** | `103_PERCEPTION_STATUS_TROUBLESHOOTING.md` or `203_SPEECH_SYSTEM_TROUBLESHOOTING.md` |
+
+### Before Documenting Parameters/Commands
+
+1. **Check** if already documented in authoritative source (table above)
+2. **If yes:** ADD CROSS-REFERENCE, do NOT copy content
+3. **If no:** Add to authoritative source first, then cross-reference
+
+### Cross-Reference Formats
+
+**For configurable parameters:**
+```markdown
+> **Source of Truth:** [`audio_params.yaml`](ros2_ws/src/r2d2_audio/config/audio_params.yaml) - check config file for current values
+```
+
+**For procedures/commands:**
+```markdown
+> **See:** [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md) for complete service management
+```
+
+**For quick-start summaries (allowed to include brief info):**
+```markdown
+**Quick Reference:** (see [`100_PERCEPTION_STATUS_REFERENCE.md`](100_PERCEPTION_STATUS_REFERENCE.md) for complete details)
+- RED = recognized (4 matches in 1.5s window)
+- GREEN = unknown person
+- BLUE = no person
+```
+
+### Why This Matters
+
+On December 2025, documentation audit found:
+- Same parameter values documented in 5+ places
+- 3 files had OUTDATED values (3 instead of 4, 1.0 instead of 1.5)
+- Even the SAME document had BOTH correct and incorrect values
+
+**Result:** Confusion about actual system behavior.
+
+**Prevention:** Always reference source of truth, never copy parameter values.
+
+---
+
 ## Service Management & Resource Optimization
 
 ### Auto-Start Configuration (Production Deployment)
@@ -785,38 +841,18 @@ EOF
 
 ### Service Control Commands
 
-**Start/stop web dashboard:**
+> **See:** [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md) for complete service management documentation.
+
+**Quick reference:**
 ```bash
-# Start (rosbridge + FastAPI)
-~/dev/r2d2/scripts/start_web_dashboard.sh
+# Status/restart/logs for any service
+sudo systemctl status r2d2-<service>.service
+sudo systemctl restart r2d2-<service>.service
+journalctl -u r2d2-<service>.service -f
 
-# Stop
-~/dev/r2d2/scripts/stop_web_dashboard.sh
-```
-
-**Speech system management:**
-```bash
-# Start (via launcher script)
-~/dev/r2d2/launch_ros2_speech.sh
-
-# Check status
-ros2 lifecycle get /speech_node
-
-# Stop
-ros2 lifecycle set /speech_node deactivate
-ros2 lifecycle set /speech_node cleanup
-```
-
-**Enable/disable auto-start:**
-```bash
-# Enable service
-sudo systemctl enable <service-name>
-
-# Disable service (but keep installed)
-sudo systemctl disable <service-name>
-
-# Check if enabled
-systemctl is-enabled <service-name>
+# Enable/disable auto-start
+sudo systemctl enable r2d2-<service>.service
+sudo systemctl disable r2d2-<service>.service
 ```
 
 ### Parameter Tuning Guidelines

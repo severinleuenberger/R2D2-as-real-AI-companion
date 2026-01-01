@@ -653,8 +653,8 @@ target_person_gesture_name: "target_person"
 **Audio Notification:**
 ```yaml
 # RED-first architecture (configurable via audio_params.yaml)
-red_entry_match_threshold: 3
-red_entry_window_seconds: 1.0
+red_entry_match_threshold: 4
+red_entry_window_seconds: 1.5
 
 # Timers (code defaults - can be overridden in audio_params.yaml)
 red_status_timeout_seconds: 15.0        # ROS parameter
@@ -848,11 +848,11 @@ System Ready (~5-7 seconds total)
 /**:
   ros__parameters:
     # Global audio volume
-    audio_volume: 0.02
+    audio_volume: 0.1
     
     # RED-first architecture parameters
-    red_entry_match_threshold: 3
-    red_entry_window_seconds: 1.0
+    red_entry_match_threshold: 4
+    red_entry_window_seconds: 1.5
 ```
 
 **Complete config (with all optional parameters that can be overridden):**
