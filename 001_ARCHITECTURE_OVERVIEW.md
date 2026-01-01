@@ -6,6 +6,17 @@
 
 ---
 
+## Document Purpose
+
+This document describes **how** the R2D2 system achieves its user experience goals.
+
+**Primary Goal Document:** [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md)  
+**This Document:** Technical implementation serving those goals
+
+All technical decisions documented here exist to enable the capabilities defined in the UX document. When evaluating changes or additions to this system, always ask: "Which UX capability does this serve?"
+
+---
+
 ## Executive Summary
 
 The R2D2 system is a modular ROS 2-based pipeline that provides seamless gesture-controlled speech-to-speech conversations with intelligent person recognition and multi-modal feedback. The system captures video from an OAK-D Lite camera, processes frames in real-time, detects and recognizes faces using RED-first architecture (~460ms response time), responds to person-specific gestures, and provides audio/visual feedback through sophisticated state machines. The system prioritizes conversation stability, fast recognition, and extensibility.
@@ -73,6 +84,21 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
 - Exit: Target person → RED, Unknown face 2s → GREEN
 
 **For complete state machines and timing details, see:** `100_PERCEPTION_STATUS_REFERENCE.md`
+
+### UX Capability to Technical Component Mapping
+
+The following table shows which technical components serve each user-facing capability. For detailed capability descriptions and user perspective, see [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md).
+
+| UX Capability | Primary Components | Key Topics | Status |
+|---------------|-------------------|------------|--------|
+| **Person Recognition** | camera_node, image_listener, audio_notification_node, status_led_node | /r2d2/perception/person_id, /r2d2/audio/person_status | ✅ |
+| **Natural Language** | speech_node, gesture_intent_node | /r2d2/speech/*, /r2d2/perception/gesture_event | ✅ |
+| **Learning & Tutoring** | speech_node (tutor mode) | /r2d2/speech/assistant_prompt | ✅ |
+| **Remote Monitoring** | web_dashboard, rosbridge, heartbeat_node | REST API, WebSocket | ✅ |
+| **Physical Controls** | powerbutton service | GPIO 32, J42 header | ✅ |
+| **Gesture Control** | image_listener, gesture_intent_node | /r2d2/perception/gesture_event | ✅ |
+| **Head Movement** | (planned) dome motor control | (planned) /r2d2/cmd/head_pan | ⏳ |
+| **Navigation** | (planned) SLAM, path planning | (planned) /r2d2/cmd_vel | ⏳ |
 
 ---
 
@@ -169,6 +195,8 @@ Total Boot Time: ~5-7 seconds to full operational state
 ---
 
 ## 1. System-Level Architecture
+
+> **Serves UX Capabilities:** Foundation for all capabilities - provides hardware and software platform for Person Recognition, Natural Language, Remote Monitoring, Physical Controls, and Gesture Control. See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
 
 ### 1.1 Hardware Components
 
@@ -375,6 +403,8 @@ Total Boot Time: ~5-7 seconds to full operational state
 ---
 
 ## 2. Data Flow Architecture
+
+> **Serves UX Capabilities:** Person Recognition and Awareness (Section 1), Gesture Control (Section 6). See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
 
 ### 2.1 Complete Message Flow (Simplified)
 
@@ -614,6 +644,8 @@ SYSTEM TOPICS:
 
 ## 3. Node Architecture
 
+> **Serves UX Capabilities:** All capabilities - this section documents the ROS 2 nodes that implement the system features. See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
+
 ### 3.1 Node Details
 
 | Node | Package | Type | Description | FPS In | FPS Out | CPU | Status |
@@ -653,6 +685,8 @@ camera_node started    image_listener started
 ---
 
 ## 4. Audio Notification System & State Machine
+
+> **Serves UX Capabilities:** Person Recognition and Awareness (Section 1 of [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md)) - provides audio and visual feedback when people are recognized.
 
 ### 4.1 Person Recognition State Machine
 
@@ -740,6 +774,8 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 
 ## 5. Processing Pipeline
 
+> **Serves UX Capabilities:** Person Recognition and Awareness, Gesture Control - image processing foundation. See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
+
 ### 5.1 Step-by-Step Image Processing
 
 ```
@@ -824,6 +860,8 @@ Storage:
 ---
 
 ## 6. Launch Configuration
+
+> **Serves UX Capabilities:** System configuration and tuning for all capabilities. See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
 
 ### 6.1 Launch Parameters (Perception Pipeline)
 
@@ -1182,6 +1220,8 @@ ros2 topic echo /r2d2/perception/gesture_event
 
 ## 7. Hardware Control Systems
 
+> **Serves UX Capabilities:** Physical Controls (Section 5), Person Recognition (LED feedback). See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for user perspective.
+
 ### 7.1 Power Button System
 
 The R2D2 system includes a power button control system for graceful shutdown and wake:
@@ -1311,6 +1351,8 @@ image_listener    audio_notification  Launch Files
 
 ## 8. Web Dashboard System
 
+> **Serves UX Capabilities:** Remote Monitoring and Control (Section 4 of [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md)) - complete remote access to all robot functions.
+
 ### 8.1 Overview
 
 The R2D2 web dashboard provides a graphical interface for monitoring and controlling the R2D2 system remotely via Tailscale VPN. It offers real-time monitoring, service control, volume adjustment, and complete face recognition training integration.
@@ -1403,6 +1445,8 @@ ROS 2 Topics
 ---
 
 ## 9. Integration Points for Future Features
+
+> **Serves UX Capabilities:** Future capabilities (Physical Expression and Movement, Advanced Features). See [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) Sections 7-8 for planned user experience.
 
 ### 9.1 Integration Points for Phase 2-4
 
@@ -1649,7 +1693,13 @@ sudo systemctl status r2d2-powerbutton.service
 
 ## Related Documentation
 
+### Primary Goal Document
+- [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) - **User Experience and Capabilities (START HERE)**
+
+### Technical Implementation (This Document Series)
+
 **Component-Specific Documentation:**
+- `001_ARCHITECTURE_OVERVIEW.md` - System architecture (this document)
 - **Complete Person Recognition & Status System:** [`100_PERSON_RECOGNITION_AND_STATUS.md`](100_PERSON_RECOGNITION_AND_STATUS.md) ⭐ **Complete Setup Guide**
 - **Camera Setup:** [`102_CAMERA_SETUP_DOCUMENTATION.md`](102_CAMERA_SETUP_DOCUMENTATION.md)
 - **Audio Hardware:** [`101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md`](101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md)
@@ -1667,4 +1717,4 @@ sudo systemctl status r2d2-powerbutton.service
 ---
 
 *Architecture Overview created: December 7, 2025*  
-*Last updated: December 9, 2025 (Comprehensive update: Added audio system, state machine, all nodes, Phase 2 hybrid architecture, hardware control, complete topic reference)*
+*Last updated: December 31, 2025 (UX-first documentation structure: Added document purpose, UX capability mapping, and cross-references)*
