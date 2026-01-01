@@ -1,419 +1,117 @@
 # R2D2 as a Real AI Companion
 
-> Transform the iconic 1:2 DeAgostini R2-D2 into a fully autonomous AI companion robot with vision, voice, navigation, and personality—powered by NVIDIA Jetson AGX Orin 64GB and ROS 2 Humble.
+> An interactive mobile robot that recognizes you, talks with you, and learns alongside you—powered by NVIDIA Jetson AGX Orin 64GB and ROS 2 Humble.
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
 
-**Current Status:** Phase 2 Speech COMPLETE — System fully operational  
-**Latest:** Documentation reorganization complete (December 24, 2025)  
-**Next:** Phase 3 Navigation & Movement planning  
-**Project Timeline:** 4 phases, 280-300 hours total (7 weeks full-time, 3-4 months part-time)
+---
+
+## What R2D2 Does
+
+R2D2 is your personal AI companion robot that:
+
+- **Knows You** — Recognizes your face and responds to your presence with visual and audio feedback
+- **Talks With You** — Natural voice conversations triggered by simple hand gestures
+- **Teaches You** — Acts as an intelligent tutor for robotics and programming concepts
+- **Stays Connected** — Monitor and control from anywhere via web dashboard
+- **Keeps Learning** — Remembers conversations and tracks your learning progress
+
+**For complete user experience documentation, see:** [000_UX_AND_FUNCTIONS.md](000_UX_AND_FUNCTIONS.md)
 
 ---
 
-## 🎯 Core Functional Requirements
+## User Experience Overview
 
-The R2D2 project is designed to achieve the following functional capabilities:
+### Person Recognition ✅ OPERATIONAL
 
-### Communication & Conversation
-- The robot must **listen to spoken input, convert speech to text, understand the user, generate a response, and speak it back** using text-to-speech
-- The robot must **support natural, multi-turn conversation** without needing manual resets
-- The robot must **allow direct verbal commands** such as "follow me," "go to the living room," "come here," or "look at this"
-- The robot must **operate locally without requiring cloud services**, including offline STT, LLM, and TTS
+When you approach the robot, it automatically detects and identifies you:
 
-### Perception & Recognition
-- The robot must **recognize people, especially Severin, including detecting and identifying faces** through computer vision
-- The robot must **track a person and optionally follow them** through the environment
-- The robot must **recognize objects and obstacles** in front of it using camera and depth perception
-- The robot must **detect rooms or general environment context** and understand where it is inside a home or office
-- The robot must **react to events** in the environment, such as someone entering a room or calling its name
-- The robot must **orient its camera** toward the person speaking or the object of interest
+- **Visual feedback:** White LED turns ON when you're recognized
+- **Audio feedback:** Friendly R2D2 beep confirms recognition
+- **Status indication:** 
+  - 🔴 RED = Known person (ready for interaction)
+  - 🟢 GREEN = Unknown face detected
+  - 🔵 BLUE = No one present
+- **Multi-user support:** Train the robot to recognize multiple people
 
-### Autonomous Navigation & Safety
-- The robot must **autonomously navigate through indoor spaces, build a map, avoid obstacles, and move to requested locations**
-- The robot must **maintain a safe driving speed and avoid collisions** with furniture, people, or pets
-- The robot must **provide a heartbeat or "alive" signal** to indicate it is powered and operational
+### Voice Conversations ✅ OPERATIONAL
 
-### Expression & Multi-Modal Interaction
-- The robot must **respond with emotional or expressive sounds** similar to R2-D2 beeps
-- The robot must **be able to play audio files**, including R2-D2 sound effects
-- The robot must **combine perception, navigation, and conversation** so that it can interact socially and physically at the same time
----
+Talk naturally with R2D2 using simple gesture controls:
 
-## 🚀 Features (Current & Planned)
+- **Start talking:** Show index finger pointing up (☝️)
+- **Stop talking:** Show closed fist (✊)
+- **Or walk away:** Conversation ends automatically after 35 seconds
 
-### Phase 1: Core System (Current) ✅
-- [x] **Real-time Perception:** 30 FPS RGB camera stream, brightness metrics, face detection (90% accuracy)
-- [x] **Face Recognition:** LBPH-based person identification (trained for multiple users)
-- [x] **Hardware Integration:** OAK-D Lite depth camera, Jetson AGX Orin compute, ROS 2 infrastructure
-- [x] **Professional Codebase:** Clean workspace structure, modular packages, parameter-driven configuration
-- [x] **Comprehensive Docs:** Setup guides, integration patterns, operations checklist, architecture diagrams
-- [x] **Power Button Control:** Shutdown control via Pin 32, boot/wake via J42 automation header ✅ TESTED
-- [x] **Web Dashboard:** Remote monitoring and control via Tailscale VPN
-  - Real-time status monitoring (RED/BLUE/GREEN states)
+The robot:
+- Transcribes your speech in real-time
+- Generates intelligent responses using GPT-4o
+- Speaks back with natural voice synthesis
+- Maintains multi-turn conversation context
+- Saves all conversations to local database
+
+**Performance:** 700-1200ms response latency (speech → response)
+
+### Learning & Tutoring ✅ OPERATIONAL
+
+R2D2 functions as an interactive tutor with two modes:
+
+**Coding Tutor Mode** — Say "Turn on learning mode"
+- Robot narrates code changes as AI agent works
+- Uses Business Intelligence analogies for explanations
+- Perfect for learning ROS 2 and robotics concepts
+
+**General Tutor Mode** — Say "Be my tutor"
+- Interactive Q&A teaching sessions
+- Patient explanations with progressive concept building
+- Tracks your learning progress over time
+
+### Remote Monitoring ✅ OPERATIONAL
+
+Access R2D2 from anywhere via web dashboard:
+
+- **URL:** `http://100.x.x.x:8080` (via Tailscale VPN)
+- **Features:**
+  - Real-time recognition status (RED/GREEN/BLUE)
+  - Live camera stream
   - System health metrics (CPU, GPU, temperature)
-  - Camera stream viewer (on-demand MJPEG)
-  - Service control (start/stop/restart)
+  - Service management (start/stop/restart)
   - Audio volume control
   - Face recognition training interface
-  - Star Wars themed UI (dark futuristic design)
-  - Optimized for 1920x1200 single-page display
-- [x] **Gesture Recognition System:** Camera-based hand gesture control
-  - Person-specific gesture training (index finger up, fist)
-  - Gesture-triggered conversation start/stop
-  - Integrated with person recognition (gated by face detection)
-  - Audio feedback (R2D2 beeps on start/stop)
-  - Auto-shutdown watchdog (35s timeout when person absent)
-  - Safe training workflow with service management
-- [x] **Person Management System:** Centralized person entity registry
-  - SQLite-based person database
-  - Links face and gesture models to persons
-  - Extensible for Google account integration
-  - CLI and programmatic API
-  - Forward-compatible database schema
+- **Design:** Dark Star Wars theme, single-page layout
 
-### Phase 2: Speech & AI ✅ COMPLETE
-- [x] **Speech-to-Text:** OpenAI Realtime API (Whisper-1, 0.2-0.4s latency)
-- [x] **Language Model:** GPT-4o via OpenAI Realtime API (intelligent responses)
-- [x] **Text-to-Speech:** OpenAI TTS synthesis (natural voice, "sage" personality)
-- [x] **Context Awareness:** Integrated with face recognition (greet by name)
-- [x] **Gesture Control:** Index finger starts, fist stops conversations
-- [x] **Conversation Protection:** SPEAKING state with 35s consecutive non-RED protection
-- [x] **Audio Feedback:** R2D2 beeps for all state transitions
+### Physical Controls ✅ OPERATIONAL
 
-### Phase 3: Navigation (Future) ⏳
-- [ ] **SLAM Mapping:** Autonomous room mapping and localization
-- [ ] **Autonomous Movement:** Differential drive control for 2-wheel locomotion
-- [ ] **Obstacle Avoidance:** Real-time collision detection and path replanning
-- [ ] **Room Navigation:** Go to named rooms, return to base, explore autonomously
+- **Shutdown button:** Press for graceful power-down
+- **Wake button:** Press to boot from shutdown
 
-### Phase 4: Memory & Personality (Future) ⏳
-- [ ] **Conversation Memory:** Persistent history, context-aware responses
-- [ ] **Learning & Adaptation:** Preference learning, anomaly detection
-- [ ] **Expression:** LED animations, motor movements, tone variation
-- [ ] **Multi-User Support:** Per-user profiles, personalized interactions
+### Movement & Navigation ⏳ PLANNED
+
+Hardware is installed, software integration pending:
+
+- Head rotation (left/right pan)
+- Autonomous navigation
+- Person following
+- Obstacle avoidance
 
 ---
 
-## 📖 Documentation
+## Getting Started
 
-Comprehensive guides organized by audience and use case. **Start here:**
+### Prerequisites
 
-### For First-Time Users
-1. **[Quick Start](#quick-start)** (below) — Run the system in 5 minutes
-2. **[010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md)** — Jetson setup, ROS 2 installation, workspace structure
-3. **[001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md)** — System design, software stack, data flow
-4. **[007_SYSTEM_INTEGRATION_REFERENCE.md](007_SYSTEM_INTEGRATION_REFERENCE.md)** — ⭐ How components integrate (NEW)
+- R2D2 robot powered on and connected to network
+- Face training completed for at least one person
+- Tailscale VPN installed (for remote access)
 
-### For Daily Operators
-- **[QUICK_START.md](_ANALYSIS_AND_DOCUMENTATION/QUICK_START.md)** — Quick reference for common tasks
-- **[AUDIO_QUICK_REFERENCE.md](_ANALYSIS_AND_DOCUMENTATION/AUDIO_QUICK_REFERENCE.md)** — Audio system quick reference
+### Quick Start
 
-### For Phase 1 (Current) Developers
-- **[000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md)** — ARM architecture quirks, DepthAI setup, common issues and solutions
-
-### Technical Depth (Phase 1 Subsystems)
-| Component | Document | Purpose |
-|-----------|----------|---------|
-| **Foundations** | [000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md) | Critical git rules, environment setup, hardware constants |
-| **Architecture** | [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System design, software stack, ROS 2 topics |
-| **System Services** | [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) | All 10 R2D2 systemd services, dependencies, troubleshooting |
-| **Monitoring** | [006_SYSTEM_STATUS_AND_MONITORING.md](006_SYSTEM_STATUS_AND_MONITORING.md) | Status monitoring, minimal_monitor.py, system health |
-| **GPU Acceleration** | [007_GPU_ACCELERATION_REFERENCE.md](007_GPU_ACCELERATION_REFERENCE.md) | GPU setup, container usage, 20-50x performance improvement |
-| **Jetson Optimization** | [008_JETSON_OPTIMIZATION_GUIDE.md](008_JETSON_OPTIMIZATION_GUIDE.md) | Power management, thermal, memory optimization |
-| **Project Statistics** | [009_PROJECT_EFFORT_ANALYSIS.md](009_PROJECT_EFFORT_ANALYSIS.md) | Automated project metrics, effort analysis tools |
-| **System Setup** | [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) | Jetson flashing, ROS 2 installation, workspace setup |
-| **Camera Integration** | [041_CAMERA_SETUP_DOCUMENTATION.md](041_CAMERA_SETUP_DOCUMENTATION.md) | OAK-D Lite + DepthAI SDK, ROS 2 camera_node |
-| **Perception & Face Recognition** | [040_FACE_RECOGNITION_COMPLETE.md](040_FACE_RECOGNITION_COMPLETE.md) | Perception pipeline, brightness metrics, LBPH training, real-time recognition |
-| **Audio Hardware** | [050_AUDIO_SETUP_AND_CONFIGURATION.md](050_AUDIO_SETUP_AND_CONFIGURATION.md) | ALSA configuration, ffplay setup, PAM8403 amplifier |
-| **👉 Person Recognition (MAIN REF)** | **[070_PERSON_RECOGNITION_STATUS.md](070_PERSON_RECOGNITION_STATUS.md)** | **Complete state machine, audio alerts, LED feedback, testing, troubleshooting** |
-| **ROS 2 Audio Integration** | [060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md](060_AUDIO_NOTIFICATIONS_ROS2_INTEGRATION.md) | Audio ROS 2 node implementation, systemd service setup |
-| **Power Button Control** | [080_POWER_BUTTON_FINAL_DOCUMENTATION.md](080_POWER_BUTTON_FINAL_DOCUMENTATION.md) | Shutdown (Pin 32) + boot/wake (J42) control, tested ✅ |
-| **Web Dashboard** | [111_WEB_DASHBOARD_DOCUMENTATION.md](111_WEB_DASHBOARD_DOCUMENTATION.md) | Remote monitoring & control via Tailscale VPN |
-| **Web UI Architecture** | [110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md](110_WEB_UI_ARCHITECTURE_AND_INTEGRATION.md) | Complete web UI architecture & integration guide |
-| **Person Management** | [250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md](250_PERSON_MANAGEMENT_SYSTEM_REFERENCE.md) | Person entity system, Google account integration roadmap |
-| **Gesture Recognition** | [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) | Complete gesture system: training, ROS 2 integration, watchdog |
-| **Gesture Training** | [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) | User guide for training person-specific gestures |
-| **Backup & Restore** | [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md) | Full-system backup for reproducible deployments |
-
----
-
-## ✅ Phase 1 Status
-
-**Completion:** ~85% (core systems operational, documentation polishing)
-
-![R2D2 Empty Body](docs/photos/empty_body.jpg)
-
-### What's Working
-- ✅ **Jetson Setup:** JetPack 6.x, ROS 2 Humble, clean workspace structure
-- ✅ **Camera:** OAK-D Lite streaming 30 FPS RGB (1920×1080) at `/oak/rgb/image_raw`
-- ✅ **Perception:** Brightness metrics + Haar Cascade face detection (13 Hz) + LBPH recognition (6.5 Hz)
-- ✅ **Node Architecture:** 4 ROS 2 packages with parameter-driven configuration
-- ✅ **Performance:** ~10-15% CPU usage (perception pipeline), excellent thermal stability
-- ✅ **Web Dashboard:** Remote monitoring & control via Tailscale VPN
-  - Real-time status monitoring, system health metrics, camera stream viewer
-  - Service control, audio volume, face recognition training
-  - Star Wars themed UI optimized for 1920x1200 display
-- ✅ **Documentation:** 10+ technical guides + architecture diagrams + integration templates
-
-### Remaining Phase 1 Tasks
-- ⏳ **README Improvements** (this file — making it more accessible)
-- ⏳ **PROJECT_GOALS.md** (complete roadmap + 4-phase vision)
-- ⏳ Git commit of final documentation
-
-### Phase 1 Exit Criteria
-When all above are done:
-- ✅ New developers can start camera stream in 5 minutes
-- ✅ Architecture is clear (blocks, data flow, integration points)
-- ✅ Existing documentation is audited and organized
-- ✅ Path to Phase 2 (Speech) is documented
-- **→ Ready to start Phase 2**
-
----
-
-## 📊 Project Status & Roadmap
-
-### Overall Progress: 30% Complete (16 Core Objectives)
-
-| Domain | Objective | Phase | Status | Notes |
-|--------|-----------|-------|--------|-------|
-| **Conversation** | Natural voice interaction | 2 | ⏳ Next | STT + LLM + TTS pipeline |
-| **Conversation** | Multi-turn dialogue | 2 | ⏳ Next | Requires Phase 2 |
-| **Conversation** | Local AI processing | 2 | ⏳ Next | Ollama + Llama 2 7B |
-| **Perception** | Face recognition | 1 | ✅ Done | LBPH trained, 85-92% accuracy |
-| **Perception** | Person tracking | 3 | ⏳ Future | Requires navigation Phase |
-| **Perception** | Object detection | 3 | ⏳ Future | Post-Phase 2 |
-| **Perception** | Room understanding | 3 | ⏳ Future | SLAM + spatial mapping |
-| **Perception** | Situation awareness | 1 | ✅ Partial | Brightness + face count available |
-| **Navigation** | Indoor navigation | 3 | ⏳ Future | Requires motor + Nav2 integration |
-| **Navigation** | Mapping & localization | 3 | ⏳ Future | SLAM with OAK-D depth |
-| **Navigation** | Obstacle avoidance | 3 | ⏳ Future | Real-time replanning |
-| **Navigation** | Safe movement | 3 | ⏳ Future | Speed limiting + collision detection |
-| **Expression** | Expressive audio | 2 | ⏳ Next | Beep synthesis + sound files |
-| **Expression** | Social responsiveness | 2 | ⏳ Next | Multi-modal coordination |
-| **Expression** | Directional awareness | 1 | ✅ Partial | Camera orientation possible |
-| **Commands** | Verbal command interface | 2 | ⏳ Next | After STT + LLM |
-
-### Phase Breakdown
-
-```
-Phase 1: Core System Bringup (30% total project)
-├─ ✅ Jetson + ROS 2 setup
-├─ ✅ Camera integration (30 FPS RGB streaming)
-├─ ✅ Perception pipeline (brightness + face detection/recognition)
-├─ ✅ Professional documentation
-└─ 📍 Current: ~85% complete
-
-Phase 2: Speech & Language (35% total project)
-├─ ✅ Microphone integration (HyperX QuadCast S USB - working perfectly)
-├─ ✅ Speech-to-Text (Faster-Whisper large-v2 - 100% accuracy)
-├─ ✅ Local LLM (Grok-3 API - intelligent contextual responses)
-├─ ✅ Text-to-Speech (Piper TTS German - natural synthesis)
-├─ ⏳ GPU acceleration for STT (PyTorch CUDA setup pending)
-├─ ⏳ Speaker output (PAM8403 - hardware issue, needs debugging)
-└─ 📍 Current: ~90% complete (software), speaker hardware blocked
-
-Phase 3: Navigation & Movement (20% total project)
-├─ Motor control (PWM drivers, encoders)
-├─ SLAM mapping (OAK-D depth + visual odometry)
-├─ Nav2 path planning
-├─ Obstacle avoidance
-└─ 🎯 Target: 8-10 weeks after Phase 2
-
-Phase 4: Memory & Personality (15% total project)
-├─ Conversation memory (SQLite, context management)
-├─ Learning & adaptation (reinforcement from feedback)
-├─ LED animations + motor expressions
-├─ Multi-user support
-└─ 🎯 Target: 10+ weeks after Phase 3
-```
-
----
-
-## 🔄 Recommended Next Steps (Your Priorities)
-
-Based on your goals to implement **mic & speaker integration → STT/LLM/TTS**, here's the optimal order:
-
-### Step 1: GPU Acceleration for STT (Week 1)
-**Goal:** Enable PyTorch GPU support for 4-6x STT speed improvement
-
-**Tasks:**
-1. ⏳ Reinstall PyTorch with CUDA 12.4 support (from CPU-only build)
-2. ⏳ Update STT config to use GPU device
-3. ⏳ Optimize STT model (large-v2 → base)
-4. ⏳ Verify GPU acceleration working
-
-**Status:** See `999_NEXT_TASKS.md` for detailed implementation guide
-
-**Deliverable:**
-- STT processing time: 3-5 sec → 0.5-0.8 sec (6x improvement)
-- Total conversation latency: 15-20 sec → 5-7 sec
-- Document in phase-specific guides
-
----
-
-### Step 2: Speech-to-Text (Week 2-3)
-**Goal:** Convert spoken audio to text in real-time
-
-**Tasks:**
-1. ⏳ Evaluate STT options:
-   - Whisper (OpenAI, CPU-friendly, good accuracy)
-   - Vosk (lightweight, offline, less accurate)
-   - Google Speech Recognition (requires cloud - not preferred)
-2. ⏳ Install selected STT engine in depthai_env
-3. ⏳ Create `r2d2_speech_to_text` node
-4. ⏳ Subscribe to `/r2d2/audio/raw`, output to `/r2d2/speech/text`
-5. ⏳ Add wake-word detection ("Hey R2D2")
-6. ⏳ Benchmark: latency, accuracy, CPU usage
-
-**Deliverable:**
-- Working STT node
-- Wake-word detection triggering transcription
-- <1 second latency from speech end to text output
-- CPU usage metrics documented
-
----
-
-### Step 3: Local Language Model (Week 3-5)
-**Goal:** Generate contextual responses from text input
-
-**Tasks:**
-1. ⏳ Install Ollama (LLM inference framework)
-2. ⏳ Download Llama 2 7B model (fits in Jetson AGX memory)
-3. ⏳ Test inference speed (target: <2 sec for response)
-4. ⏳ Create `r2d2_language_model` node
-5. ⏳ Subscribe to `/r2d2/speech/text`
-6. ⏳ Add context awareness (recent face recognition, brightness, etc.)
-7. ⏳ Output to `/r2d2/ai/response`
-
-**Deliverable:**
-- LLM node generating contextual responses
-- Integration with perception system (greet by name, reference environment)
-- <2 second response time
-- CPU/memory profiling
-
----
-
-### Step 4: Text-to-Speech (Week 5-6)
-**Goal:** Synthesize spoken responses with natural voice
-
-**Tasks:**
-1. ⏳ Evaluate TTS options:
-   - pyttsx3 (lightweight, offline, multiple voices)
-   - glow-tts (higher quality, more CPU)
-   - espeak (minimal resources)
-2. ⏳ Install and test selected TTS
-3. ⏳ Create `r2d2_text_to_speech` node
-4. ⏳ Subscribe to `/r2d2/ai/response`
-5. ⏳ Generate audio frames to `/r2d2/audio/output`
-6. ⏳ Benchmark: latency, naturalness, CPU usage
-
-**Deliverable:**
-- Full pipeline: speech → text → understanding → response → speech
-- <3 second total latency (audio in to audio out)
-- Usable voice quality
-
----
-
-### Step 5: Full Integration & Testing (Week 6-8)
-**Goal:** End-to-end conversational AI system
-
-**Tasks:**
-1. ⏳ Connect all nodes with proper message flow
-2. ⏳ Add error handling (no speech, no response, etc.)
-3. ⏳ Implement conversation memory (last 5 exchanges)
-4. ⏳ Test with real use cases:
-   - "Hello R2D2, what's your name?" 
-   - "What do you see?" (use perception data)
-   - "Who am I?" (face recognition)
-   - Multi-turn dialogue
-5. ⏳ Performance optimization:
-   - Profile CPU/GPU/memory
-   - Optimize model inference
-   - Document resource usage
-6. ⏳ Update documentation and examples
-
-**Deliverable:**
-- Complete Phase 2 system ready for Phase 3
-- All components documented and tested
-- Performance baseline: <3 sec end-to-end latency
-- Ready to add navigation features
-
----
-
-## 📈 Expected Challenges & Solutions
-
-| Challenge | Phase | Solution |
-|-----------|-------|----------|
-| STT runs on CPU (slow) | 2.1 | Install PyTorch with CUDA support, use smaller model (Task #0) |
-| Speaker amplifier not working | 2.2 | Hardware debugging needed (power/wiring issue), fallback to file output |
-| Latency still high | 2.3 | Enable GPU acceleration, optimize model inference |
-| Integration with perception | 2.4 | Wire speech to `/r2d2/perception/person_id` for context-aware responses |
-| Conversation context memory | 2.5 | Add conversation history to LLM prompts, implement memory system |
-
----
-
----
-
-## 🔧 Hardware
-
-The iconic R2-D2 is being rebuilt with modern robotics hardware and AI compute.
-
-### Current Hardware Stack
-| Component | Model | Purpose | Status |
-|-----------|-------|---------|--------|
-| **Chassis** | DeAgostini R2-D2 1:2 Kit | Main body (48 cm tall) | ✅ Complete |
-| **Compute** | NVIDIA Jetson AGX Orin 64GB | AI brain (12-core ARM, 504-GPU cores, 100W TDP) | ✅ Mounted & Running |
-| **Camera** | Luxonis OAK-D Lite Auto Focus | Vision (1920×1080 @ 30 FPS, depth + IMU) | ✅ Integrated |
-| **Audio Input** | HyperX QuadCast S USB | Voice capture (44.1kHz stereo) | ✅ Working |
-| **Audio Output** | PAM8403 Amplifier + Speaker | Voice synthesis playback | ✅ Working |
-| **Drive** | DeAgostini DC Motors (2×) | Leg & dome motors with encoders | ⏳ Not yet integrated |
-| **Motor Control** | Pololu MC33926 (2×) | H-bridge drivers for DC motors | ✅ Assembled |
-| **Power** | 4S LiPo 5000 mAh (14.8V) | Main battery system | ✅ Charged & Ready |
-| **Power Dist** | Custom DC-DC (14V→12V/5V) | Jetson + peripherals + motors | ⏳ Partial (Jetson only) |
-| **Internal** | WS2812B RGB LEDs | Status & personality expression | ⏳ Coming in Phase 4 |
-
-### Inside the Bot
-![R2D2 Body With Jetson](docs/photos/body%20with%20jetson.jpg)  
-The internal structure houses the Jetson AGX Orin, OAK-D camera, power distribution, and future motor drivers. Careful cable management ensures room for Phase 2-4 additions.
-
-### Bill of Materials (Full Project)
-See the **Hardware** section below and [003_JETSON_FLASHING_AND_DISPLAY_SETUP.md](003_JETSON_FLASHING_AND_DISPLAY_SETUP.md) for component details (~$3,600 including chassis).
-
-
-
-## Repository Structure
-
-The repository reflects the active development environment on the Jetson AGX Orin.  
-Generated ROS 2 build artifacts are excluded via `.gitignore`, resulting in a clean and minimal source tree.
-
-```text
-.
-├─ ros2_ws/
-│  ├─ src/
-│  │  ├─ r2d2_hello/      # First functional nodes (beep + heartbeat)
-│  │  └─ r2d2_bringup/    # Bringup launch to start the robot system
-│  ├─ build/              # (generated, ignored)
-│  ├─ install/            # (generated, ignored)
-│  └─ log/                # (generated, ignored)
-├─ docs/
-│  └─ photos/             # Build documentation images
-├─ tests/                 # GPU/Audio/Camera “touch-the-ground” tests (planned)
-└─ scripts/               # Utility scripts
-```
-
-
-
-## 🚀 Quick Start
-
-### 1. Clone & Setup (5 min)
+**1. Clone & Setup**
 
 ```bash
-# Clone repository
 git clone git@github.com:severinleuenberger/R2D2-as-real-AI-companion.git
 cd R2D2-as-real-AI-companion
 
-# Set up environment (CRITICAL: order matters!)
+# Set up environment (order matters!)
 source ~/depthai_env/bin/activate
 export OPENBLAS_CORETYPE=ARMV8
 source ~/.bashrc
@@ -421,126 +119,170 @@ cd ros2_ws
 source install/setup.bash
 ```
 
-### 2. Launch Camera & Perception (1 command)
+**2. Launch System**
 
 ```bash
 ros2 launch r2d2_bringup r2d2_camera_perception.launch.py
 ```
 
-**Expected Output (first 5 seconds):**
-```
-[INFO] [camera_node]: OAK-D camera initialized
-[INFO] [image_listener]: ImageListener node initialized
-[INFO] [image_listener]: Haar Cascade loaded successfully
-[INFO] All nodes started successfully
-```
-
-### 3. Verify System (In another terminal, same env setup as above)
+**3. Verify**
 
 ```bash
-# Check camera frame rate (should be ~30 Hz)
+# Check camera (should be ~30 Hz)
 ros2 topic hz /oak/rgb/image_raw
 
-# Check perception output (should be ~13 Hz)
+# Check perception (should be ~13 Hz)
 ros2 topic hz /r2d2/perception/brightness
 
-# See brightness values (should be ~130-140 in normal light)
-watch -n 0.5 'ros2 topic echo /r2d2/perception/brightness -n 1'
-
-# See face detection (0 = no one, 1+ = detected)
+# Check face detection
 ros2 topic echo /r2d2/perception/face_count
 ```
 
-### 4. Troubleshooting
+**4. First Interaction**
 
-If things don't work:
-1. Check **[Troubleshooting](#troubleshooting)** section below or [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md)
-2. Verify environment setup: `echo $OPENBLAS_CORETYPE` should print `ARMV8`
-3. Check camera: `lsusb | grep Movidius`
-
-**Time to working system:** ~7 seconds from launch command
+1. Stand in front of the robot
+2. LED turns ON when recognized (RED status)
+3. Show index finger up (☝️) to start conversation
+4. Speak naturally
+5. Show fist (✊) to stop, or walk away
 
 ---
 
-## 📁 Repository Structure
+## Hardware
+
+The iconic 1:2 DeAgostini R2-D2 rebuilt with modern robotics hardware.
+
+![R2D2 Body With Jetson](docs/photos/body%20with%20jetson.jpg)
+
+| Component | Model | Status |
+|-----------|-------|--------|
+| **Chassis** | DeAgostini R2-D2 1:2 Kit (48 cm tall) | ✅ Complete |
+| **Compute** | NVIDIA Jetson AGX Orin 64GB | ✅ Running |
+| **Camera** | Luxonis OAK-D Lite Auto Focus | ✅ Integrated |
+| **Audio Input** | HyperX QuadCast S USB | ✅ Working |
+| **Audio Output** | PAM8403 Amplifier + Speaker | ✅ Working |
+| **Drive Motors** | DeAgostini DC Motors (2×) with encoders | ⏳ Pending |
+| **Motor Control** | Pololu MC33926 (2×) | ✅ Assembled |
+| **Power** | 4S LiPo 5000 mAh (14.8V) | ✅ Ready |
+
+**Total Cost:** ~$3,600 (including DeAgostini chassis)
+
+---
+
+## Capabilities Summary
+
+### ✅ Operational Now
+
+| Capability | Description |
+|------------|-------------|
+| **Face Recognition** | Detects and identifies trained individuals (~460ms response) |
+| **Visual Feedback** | White LED indicates recognition status |
+| **Audio Feedback** | R2D2 beeps on recognition and loss events |
+| **Voice Conversations** | Natural speech-to-speech via OpenAI Realtime API |
+| **Gesture Control** | Index finger starts, fist stops conversations |
+| **Multi-turn Dialog** | Maintains conversation context |
+| **Conversation Persistence** | All chats saved to SQLite database |
+| **Coding Tutor** | Real-time code narration during Cursor sessions |
+| **General Tutor** | Interactive Q&A teaching mode |
+| **Learning Tracking** | Progress stored in database |
+| **Web Dashboard** | Remote monitoring and control |
+| **Camera Stream** | Live MJPEG video via web |
+| **Service Management** | Start/stop/restart services remotely |
+| **Volume Control** | Adjust audio via web interface |
+| **Training Interface** | Train face recognition via web |
+| **Power Buttons** | Physical shutdown and wake control |
+| **Multi-User Support** | Train multiple people |
+
+### ⏳ Planned (Hardware Ready)
+
+| Capability | Description |
+|------------|-------------|
+| **Head Movement** | Pan rotation via dome motor |
+| **Autonomous Navigation** | SLAM mapping and path planning |
+| **Person Following** | Track and follow recognized person |
+| **Obstacle Avoidance** | Real-time collision prevention |
+| **RGB LED Animations** | Expressive status patterns |
+| **LED Text Display** | Message output panels |
+
+---
+
+## Documentation
+
+### User Guides
+
+| Document | Purpose |
+|----------|---------|
+| [000_UX_AND_FUNCTIONS.md](000_UX_AND_FUNCTIONS.md) | **Complete user experience guide** |
+| [112_WEB_UI_QUICK_START.md](112_WEB_UI_QUICK_START.md) | Web dashboard usage |
+| [303_GESTURE_TRAINING_GUIDE.md](303_GESTURE_TRAINING_GUIDE.md) | Training gestures |
+
+### Technical Reference
+
+| Document | Purpose |
+|----------|---------|
+| [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System architecture |
+| [002_HARDWARE_REFERENCE.md](002_HARDWARE_REFERENCE.md) | Hardware specifications |
+| [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) | Service management |
+| [100_PERCEPTION_STATUS_REFERENCE.md](100_PERCEPTION_STATUS_REFERENCE.md) | Recognition system |
+| [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) | Speech system |
+| [300_AI_TUTOR.md](300_AI_TUTOR.md) | Tutor system |
+| [110_WEB_UI_REFERENCE.md](110_WEB_UI_REFERENCE.md) | Web dashboard |
+
+### Setup & Installation
+
+| Document | Purpose |
+|----------|---------|
+| [003_JETSON_FLASHING_AND_DISPLAY_SETUP.md](003_JETSON_FLASHING_AND_DISPLAY_SETUP.md) | Jetson setup |
+| [101_PERCEPTION_STATUS_INSTALLATION.md](101_PERCEPTION_STATUS_INSTALLATION.md) | Perception setup |
+| [201_SPEECH_SYSTEM_INSTALLATION.md](201_SPEECH_SYSTEM_INSTALLATION.md) | Speech setup |
+| [111_WEB_UI_INSTALLATION.md](111_WEB_UI_INSTALLATION.md) | Web UI setup |
+
+### Troubleshooting
+
+| Document | Purpose |
+|----------|---------|
+| [103_PERCEPTION_STATUS_TROUBLESHOOTING.md](103_PERCEPTION_STATUS_TROUBLESHOOTING.md) | Recognition issues |
+| [203_SPEECH_SYSTEM_TROUBLESHOOTING.md](203_SPEECH_SYSTEM_TROUBLESHOOTING.md) | Speech issues |
+| [000_INTERNAL_AGENT_NOTES.md](000_INTERNAL_AGENT_NOTES.md) | Development notes |
+
+---
+
+## Repository Structure
 
 ```
 r2d2/
-├── README.md                              # This file
-├── 000_INTERNAL_AGENT_NOTES.md             # Internal guidelines, git rules, environment
-├── 001_ARCHITECTURE_OVERVIEW.md            # System design, data flow, integration patterns
-├── 003_JETSON_FLASHING_AND_DISPLAY_SETUP.md # Hardware setup procedures
-├── 004_BACKUP_AND_RESTORE.md              # Backup/restore procedures
-├── 005_SYSTEMD_SERVICES_REFERENCE.md      # All R2D2 systemd services
-├── 006_SYSTEM_STATUS_AND_MONITORING.md    # Monitoring tools and scripts
-├── 007_GPU_ACCELERATION_REFERENCE.md      # GPU acceleration setup
-├── 008_JETSON_OPTIMIZATION_GUIDE.md       # Jetson optimization best practices
-├── 010_PROJECT_GOALS_AND_SETUP.md         # 4-phase roadmap, success metrics
-├── 041_CAMERA_SETUP_DOCUMENTATION.md      # OAK-D camera + DepthAI SDK
-├── 040_FACE_RECOGNITION_COMPLETE.md       # Perception pipeline + Face recognition system
-├── 050-999_*.md                           # Feature-specific documentation
-│
-├── docs/                                  # Supplementary documentation
-│   ├── hardware/                          # Hardware wiring guides
-│   ├── troubleshooting/                   # Troubleshooting guides
-│   ├── setup/                             # Detailed setup guides
-│   ├── reference/                         # Best practices and reference
-│   ├── photos/                            # Build progress photos
-│   └── tools/                             # Tool-specific documentation
-│
-├── scripts/                               # Utility scripts
-│   ├── start/                             # Service startup scripts
-│   ├── install/                           # Installation scripts
-│   ├── util/                              # Helper utilities
-│   └── deprecated/                        # Archived scripts
-│
-├── tools/                                 # Monitoring and utility tools
-│   └── minimal_monitor.py                 # System status monitor
-│
-├── ros2_ws/                               # ROS 2 Humble workspace
-│   ├── src/
-│   │   ├── r2d2_camera/                  # Camera node
-│   │   ├── r2d2_perception/              # Perception node
-│   │   ├── r2d2_speech/                  # Speech processing
-│   │   ├── r2d2_gesture/                 # Gesture recognition
-│   │   ├── r2d2_audio/                   # Audio notifications
-│   │   ├── r2d2_hello/                   # Heartbeat + beep
-│   │   └── r2d2_bringup/                 # Launch files
-│   ├── build/ install/ log/              # (generated, gitignored)
-│
-├── data/
-│   └── face_recognition/models/          # Trained LBPH models
-│
-├── tests/                                 # Component test scripts
-└── _ARCHIVE/                              # Historical documentation
+├── README.md                           # This file
+├── 000_UX_AND_FUNCTIONS.md             # User experience guide
+├── 0XX_*.md                            # Technical documentation
+├── ros2_ws/                            # ROS 2 workspace
+│   └── src/
+│       ├── r2d2_camera/               # Camera driver
+│       ├── r2d2_perception/           # Face/gesture recognition
+│       ├── r2d2_speech/               # Voice conversations
+│       ├── r2d2_gesture/              # Gesture control
+│       ├── r2d2_audio/                # Audio feedback
+│       └── r2d2_bringup/              # Launch files
+├── data/                               # Models and databases
+│   ├── face_recognition/models/       # Trained face models
+│   ├── gesture_recognition/models/    # Trained gesture models
+│   └── persons.db                     # Person registry
+├── web_dashboard/                      # Web interface
+├── scripts/                            # Utility scripts
+├── tools/                              # Monitoring tools
+├── docs/photos/                        # Build photos
+└── tests/                              # Test scripts
 ```
 
 ---
 
-## 🔗 Bill of Materials (BOM)
-
-See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) → "Hardware & Resource Requirements" section for detailed breakdown.
-
-**Quick Summary:**
-- **Total cost (compute + sensors):** ~$2,200
-- **With DeAgostini kit:** ~$3,600
-- **Key sources:** NVIDIA, Luxonis, HobbyKing, Pololu, Seeed Studio
-
----
-
-## 🤝 Contributing & Community
+## Contributing
 
 **GitHub:** [severinleuenberger/R2D2-as-real-AI-companion](https://github.com/severinleuenberger/R2D2-as-real-AI-companion)
 
-**Discussion:**
-- [NVIDIA Developer Forums](https://forums.developer.nvidia.com/) (R2D2 thread)
-- [GitHub Discussions](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/discussions)
-
-**How to Contribute:**
 - **Found a bug?** → [Create an Issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues)
 - **Have an improvement?** → [Submit a Pull Request](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/pulls)
 - **Want to discuss?** → [Start a Discussion](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/discussions)
-- **Building your own R2D2?** → Document it and share!
+- **Building your own?** → Document it and share!
 
 **License:** [MIT](LICENSE) - Free to use, modify, and distribute
 
@@ -548,17 +290,4 @@ See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) → "Hardwa
 
 ---
 
-## 🎯 What's Next?
-
-1. **Current:** Documentation reorganization complete
-2. **This week:** Phase 3 Navigation planning
-3. **Next month:** SLAM mapping and autonomous movement
-4. **Q2 2026:** Full navigation system with obstacle avoidance
-5. **Q3 2026+:** Memory, personality, and deployment
-
-See [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) for the complete Phase 3-4 timeline.
-
----
-
-**Happy building! Questions?** Check the [docs](README.md#-documentation) or [open an issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
-
+**Questions?** Check the [documentation](#documentation) or [open an issue](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/issues).
