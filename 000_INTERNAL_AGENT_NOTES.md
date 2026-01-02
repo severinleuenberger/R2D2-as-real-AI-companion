@@ -29,6 +29,77 @@ START → Build & Test (this file) → TESTED & WORKING → Finalize & Deploy (0
 
 ---
 
+## ⚠️ UX DECISION PROTOCOL (MANDATORY)
+
+**CRITICAL RULE: BEFORE implementing ANY feature that affects user experience:**
+
+1. **READ** [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) for current UX specifications
+2. **IDENTIFY** if your implementation affects any documented UX behavior
+3. **STOP AND ASK** the user about UX preferences before proceeding with implementation
+
+**You CANNOT proceed with implementation until the user confirms the UX approach.**
+
+### UX-Affecting Changes (ALWAYS Ask User First)
+
+Anytime your implementation touches these areas, you MUST ask the user:
+
+- **Audio Feedback:** Sounds, volume levels, timing, alerts, voice characteristics
+- **Visual Feedback:** LED patterns, colors, brightness, blink rates, timing
+- **Gesture Recognition:** Detection behavior, sensitivity thresholds, cooldown periods
+- **Conversation Flow:** Triggers, timeouts, auto-shutdown behavior, response timing
+- **Speech System:** Personalities, voice selection, response patterns, interruption handling
+- **Web Dashboard:** Layout, controls, information display, user interactions
+- **Recognition Behavior:** Detection thresholds, state transitions (RED/GREEN/BLUE)
+- **Training Procedures:** User-facing steps, feedback during training
+- **Any user-facing behavior changes** not explicitly specified in the task
+
+### How to Ask the User
+
+Use this format when consulting about UX decisions:
+
+```
+UX CONSULTATION REQUIRED:
+
+This feature affects [UX area from 000_UX_AND_FUNCTIONS.md].
+
+Current spec in 000_UX_AND_FUNCTIONS.md shows: [current behavior]
+
+I can implement this as:
+- Option A: [description + UX impact + tradeoffs]
+- Option B: [description + UX impact + tradeoffs]
+- Option C: [if applicable]
+
+Which approach do you prefer?
+```
+
+### Examples of When to Ask
+
+✅ **DO ASK:**
+- "Should the new alert sound be loud or subtle?"
+- "When gesture is detected, should LED blink or stay solid?"
+- "Should timeout be 30s or 60s for this interaction?"
+- "Which personality mode should this feature use by default?"
+- "Should dashboard show this metric in the main view or settings?"
+
+❌ **DON'T ASK for purely technical decisions with no UX impact:**
+- Internal code structure choices
+- Build system configuration
+- ROS 2 topic naming (unless user-visible)
+- Database schema design
+- Log format details
+
+### Why This Matters
+
+The R2D2 system is designed for specific user experience goals. Autonomous UX decisions by agents can:
+- Break carefully designed interaction patterns
+- Create inconsistent behavior across features
+- Violate user expectations about how the robot responds
+- Require extensive rework when discovered later
+
+**When in doubt, ask. UX consultation takes 2 minutes. UX rework takes hours.**
+
+---
+
 ## 🎓 AI TUTOR SYSTEM (For Severin's Education)
 
 **IMPORTANT:** The user (Severin) is learning robotics/ROS 2 while building this project. He is a senior BI developer but junior in embedded systems. **Explain your work as you do it!**
@@ -214,6 +285,7 @@ R2D2: "A ROS 2 service is like a stored procedure in SQL. You call it,
 
 **Goal:** Implement and verify feature works manually
 
+- [ ] **UX consultation complete** (if feature affects user experience - see UX DECISION PROTOCOL above)
 - [ ] Feature implemented and tested manually
 - [ ] All ROS 2 packages built successfully (`colcon build`)
 - [ ] No linter errors or Python syntax errors
@@ -933,6 +1005,7 @@ sudo systemctl disable r2d2-<service>.service
 - See `005_SYSTEMD_SERVICES_REFERENCE.md` for complete path audit
 
 ### What You Need to Know From This File
+- **UX Decision Protocol** - MUST consult user before UX-affecting changes
 - Environment setup order (DepthAI → bashrc → ROS2)
 - System architecture (nodes, packages, topics)
 - How to build, test, and install services
