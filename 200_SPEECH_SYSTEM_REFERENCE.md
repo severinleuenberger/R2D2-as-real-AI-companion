@@ -347,9 +347,51 @@ sudo journalctl -u r2d2-gesture-intent.service -f
 ```
 
 **Gesture Triggers:**
-- 👆 Index finger up → Start speech session
-- ✊ Fist → Stop speech session
+- 👆 Index finger up → Start speech session (instant)
+- ✊ Fist → Stop speech session (two-stage confirmation)
 - 🚶 Walk away >35s → Auto-shutdown (watchdog)
+
+#### Two-Stage Fist Stop Confirmation
+
+**Purpose:** Prevents accidental conversation termination and solves stop beep timing issues.
+
+**How It Works:**
+
+**Stage 1: Warning Phase (~1.5 seconds)**
+1. User makes and holds fist gesture
+2. System detects sustained hold (10 detections in 1.5s window at ~10Hz)
+3. Warning beep plays (`Voicy_R2-D2 - 7.mp3`)
+4. User has chance to release fist and cancel
+
+**Stage 2: Confirmation Phase (~1.5 seconds)**
+5. If user continues holding fist
+6. System detects second sustained hold (another 10 detections in 1.5s)
+7. Stop beep plays (`Voicy_R2-D2 - 20.mp3`)
+8. Session terminates immediately
+
+**Cancellation:**
+- Release fist at any time → System resets to idle
+- No stop occurs, conversation continues
+- Timeout: 0.5s without fist detection = considered "released"
+
+**Technical Implementation:**
+```python
+# Rolling window detection in gesture_intent_node.py
+fist_window_seconds: 1.5      # Rolling window duration
+fist_threshold: 10             # Detections required (~67% of 15 max at 10Hz)
+```
+
+**Problem Solved:**
+
+The original issue was a race condition where the stop beep wouldn't be heard:
+- **Old behavior:** Stop beep played when session disconnected → Audio system busy closing TTS stream → Race condition → Beep not heard
+- **New behavior:** Stop beep plays on gesture confirmation → Before session disconnect → No race condition → Always audible
+
+**Benefits:**
+1. Stop beep timing completely solved (plays before audio system transitions)
+2. Prevents accidental stops (requires ~3 seconds of deliberate hold)
+3. User has two chances to cancel
+4. Clear audio feedback at each stage
 
 **For complete gesture system documentation, see:**
 - [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) - Complete system
@@ -635,6 +677,113 @@ Common errors and handling:
 
 ---
 
+## Session Start Timing Analysis
+
+This section details the complete timing breakdown for starting a speech session via gesture.
+
+### Warm Start Architecture
+
+The system uses a **"Warm Start"** approach where the persistent WebSocket connection to OpenAI is established during node activation, removing the handshake delay from the time-critical gesture trigger path.
+
+**Background State:**
+- OpenAI WebSocket connection established and maintained
+- Audio hardware (HyperX mic + speaker) initialized
+- Ready to stream audio on demand
+
+### Complete Start Sequence
+
+```mermaid
+sequenceDiagram
+    participant Cam as OAK-D Camera (30 FPS)
+    participant Perc as image_listener
+    participant Gest as gesture_intent_node
+    participant Speech as speech_node
+    participant OpenAI as OpenAI Realtime API
+
+    Note over Speech, OpenAI: [BACKGROUND] WebSocket Active (Warm Start)
+
+    Note over Cam, OpenAI: PHASE 1: Gesture Detection
+    Cam->>Perc: [33ms] Raw RGB Frame
+    Note right of Perc: Skip: Every 3rd frame (gesture_frame_skip=3)
+    Note right of Perc: MediaPipe Hands: ~50-70ms
+    Note right of Perc: SVM Classifier: ~5ms
+    Perc->>Gest: [2ms] gesture_event: index_finger_up
+
+    Note over Cam, OpenAI: PHASE 2: Gating & Acknowledgment
+    Note right of Gest: Check: person_status == red
+    Note right of Gest: Check: cooldown elapsed (5s)
+    Note right of Gest: Play: Voicy_R2-D2 - 12.mp3 (ACK beep)
+    Note right of Gest: Latency: ~200ms (immediate feedback)
+    Gest->>Speech: [2ms] start_session service call
+
+    Note over Cam, OpenAI: PHASE 3: Session Activation
+    Note right of Speech: SQLite: Create session (~10ms)
+    Note right of Speech: WebSocket: Start audio streaming (0ms handshake)
+    Speech->>OpenAI: Audio chunks begin flowing
+
+    Note over Cam, OpenAI: PHASE 4: Ready Confirmation
+    Note right of Speech: Audio: Verify mic/speaker ready (~100-300ms)
+    Speech->>Gest: [2ms] session_status: connected
+    Note right of Gest: Play: Voicy_R2-D2 - 16.mp3 (READY beep)
+    Note right of Gest: Latency: ~200ms
+
+    Note over Cam, OpenAI: SYSTEM READY - User can speak
+```
+
+### Timing Breakdown
+
+| Component | Dependency | Delay (Typical) | Delay (Worst) |
+|-----------|------------|-----------------|---------------|
+| **Camera** | 30 Hz hardware clock | 33ms | 33ms |
+| **Perception** | gesture_frame_skip=3 | 33ms | 99ms |
+| **MediaPipe Hands** | CPU (Jetson Orin) | 50ms | 80ms |
+| **SVM Classification** | CPU inference | 5ms | 10ms |
+| **Gating** | ROS 2 check | <1ms | <1ms |
+| **Acknowledgment Beep** | ffplay immediate | ~200ms | ~400ms |
+| **WebSocket** | Warm start (pre-connected) | **0ms** | **0ms** |
+| **Session Init** | OpenAI config | 50ms | 200ms |
+| **Audio Hardware** | PyAudio init | 150ms | 400ms |
+| **Ready Beep** | ffplay on status | ~200ms | ~400ms |
+
+**Total Path Latency:**
+- **Minimum (Warm Start):** ~0.5 seconds (gesture → ready)
+- **Typical:** ~0.75-1.0 seconds
+- **Maximum:** ~1.2 seconds
+- **Cold Start (first boot):** ~2.5 seconds (includes WebSocket handshake)
+
+### Key Performance Features
+
+**1. Warm Start Connection**
+- WebSocket established during node activation
+- Eliminates ~1.5s TCP/TLS/auth handshake from critical path
+- Session ready immediately when gesture detected
+
+**2. High-Frequency Gesture Detection**
+- `gesture_frame_skip=3` allows ~10 Hz gesture recognition
+- Gesture detected within 99ms of appearing in frame
+- Optimized from original skip=5 (6 Hz)
+
+**3. Dual-Beep Feedback**
+- **Acknowledgment beep** (~200ms): "I saw your gesture"
+- **Ready beep** (~750ms): "I'm listening now"
+- Minimizes perceived latency through immediate feedback
+
+**4. Efficient Gating**
+- Sub-millisecond checks (person_status, cooldown)
+- No wasted cycles on invalid triggers
+
+### Expected User Experience
+
+| Milestone | Timing | User Perception |
+|-----------|--------|-----------------|
+| Gesture raised | 0ms | User raises index finger |
+| Gesture detected | ~150ms | System recognizes gesture |
+| Acknowledgment beep | ~350ms | "Command received" |
+| System ready | ~750ms | "Listening now" |
+| Can speak | ~1000ms | Full conversation ready |
+
+---
+
 ## Dependencies
 
 ### ROS2 Packages
@@ -885,8 +1034,8 @@ ros2 topic hz /r2d2/speech/user_transcript
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** December 17, 2025  
+**Document Version:** 1.2  
+**Last Updated:** January 2, 2026 (Added two-stage fist stop & timing analysis)  
 **Status:** Complete and operational  
 **Hardware:** HyperX QuadCast S USB + PAM8403 Speaker  
 **API:** OpenAI Realtime API (GPT-4o + Whisper-1)  

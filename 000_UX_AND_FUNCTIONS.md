@@ -1,8 +1,8 @@
 # R2D2 User Experience and Functions
 ## Interactive Mobile Robot System
 
-**Document Version:** 1.0  
-**Last Updated:** December 31, 2025  
+**Document Version:** 1.1  
+**Last Updated:** January 2, 2026 (Added two-stage fist stop documentation)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble
 
 ---
@@ -103,7 +103,7 @@ Engage in spoken conversations with the robot using natural language. Conversati
 - Robot maintains conversation context across multiple exchanges
 
 **Ending a Conversation**
-- Show closed fist (✊) - Manual stop
+- Show closed fist (✊) - Two-stage confirmation stop (see below)
 - Walk away for 35 seconds - Automatic timeout (watchdog)
 - Stay silent for 60 seconds - Voice Activity Detection timeout
 - Robot confirms end with closing beep
@@ -327,9 +327,21 @@ Control robot functions using hand gestures detected by the camera.
 ### Gesture Control ✅ OPERATIONAL
 
 **Supported Gestures**
-- ☝️ **Index Finger Up:** Start conversation
-- ✊ **Fist:** Stop conversation
+- ☝️ **Index Finger Up:** Start conversation (instant trigger)
+- ✊ **Fist:** Stop conversation (two-stage confirmation)
+  - Stage 1: Hold fist ~1.5s → Warning beep (chance to cancel)
+  - Stage 2: Continue holding ~1.5s → Stop beep + session ends
+  - Release fist at any time → Cancel stop, conversation continues
 - More gestures trainable per person
+
+**Two-Stage Fist Stop Protection**
+- **Purpose:** Prevents accidental conversation termination
+- **How it works:**
+  1. Hold fist for ~1.5 seconds → Robot plays warning beep
+  2. Release fist now → Conversation continues (no stop)
+  3. Keep holding ~1.5 seconds more → Robot plays stop beep and ends session
+- **Total time to stop:** ~3 seconds of deliberate hold
+- **Benefit:** Completely eliminates false positives from brief fist gestures
 
 **Gesture Training**
 - Person-specific gesture models

@@ -61,6 +61,8 @@ class GestureIntentNode(Node):
         self.declare_parameter('audio_volume', 0.02)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)
         self.declare_parameter('vad_silence_timeout_seconds', 60.0)  # VAD-based silence timeout (Option 2: VAD-only)
         self.declare_parameter('speaking_start_grace_seconds', 5.0)  # Grace period after starting conversation to ignore fist gestures
+        self.declare_parameter('fist_window_seconds', 1.5)  # Rolling window duration for sustained fist detection
+        self.declare_parameter('fist_threshold', 10)  # Detections required in window (~67% of 15 max at 10Hz)
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value
@@ -73,12 +75,15 @@ class GestureIntentNode(Node):
         self.audio_volume = self.get_parameter('audio_volume').value
         self.vad_silence_timeout = self.get_parameter('vad_silence_timeout_seconds').value
         self.speaking_start_grace = self.get_parameter('speaking_start_grace_seconds').value
+        self.fist_window = self.get_parameter('fist_window_seconds').value
+        self.fist_threshold = self.get_parameter('fist_threshold').value
         
         # Audio feedback paths
         audio_assets_dir = Path.home() / 'dev' / 'r2d2' / 'ros2_ws' / 'src' / 'r2d2_audio' / 'r2d2_audio' / 'assets' / 'audio'
         self.gesture_ack_sound = audio_assets_dir / 'Voicy_R2-D2 - 12.mp3'  # Immediate acknowledgment
         self.start_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 16.mp3'   # Session ready
-        self.stop_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 20.mp3'
+        self.warning_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 7.mp3'   # Fist warning (stage 1)
+        self.stop_beep_sound = audio_assets_dir / 'Voicy_R2-D2 - 20.mp3'    # Session stopped (stage 2)
         
         # State tracking
         self.person_status = None  # "red", "blue", or "green"
@@ -97,6 +102,12 @@ class GestureIntentNode(Node):
         # VAD-based activity tracking (Option 2: VAD-only approach)
         self.vad_state = "silent"  # "speaking" or "silent" from OpenAI VAD
         self.last_vad_activity_time = None  # Last time user was speaking (from VAD)
+        
+        # Two-stage fist gesture detection state machine
+        self.fist_detection_buffer = []  # List of timestamps for rolling window
+        self.fist_stage = "idle"  # "idle" | "stage1" | "warning_played" | "stage2"
+        self.last_fist_detection_time = None  # For timeout detection (release check)
+        self.stop_beep_already_played = False  # Flag to avoid duplicate stop beep
         
         # Create subscriptions
         self.gesture_sub = self.create_subscription(
@@ -190,6 +201,7 @@ class GestureIntentNode(Node):
         self.get_logger().info(f'Audio feedback: {self.audio_feedback_enabled}')
         self.get_logger().info(f'VAD-Only Mode: {self.vad_silence_timeout}s silence timeout (Option 2)')
         self.get_logger().info(f'Speaking grace period: {self.speaking_start_grace}s (ignores fist after start)')
+        self.get_logger().info(f'Two-stage fist stop: window={self.fist_window}s, threshold={self.fist_threshold} detections')
     
     def person_status_callback(self, msg):
         """
@@ -250,10 +262,16 @@ class GestureIntentNode(Node):
                     # Session started (inactive → active or disconnected → connected)
                     self.get_logger().info(f'🔊 Session started (status={status_str})')
                     self._play_audio_feedback(self.start_beep_sound)
+                    # Reset stop beep flag on new session
+                    self.stop_beep_already_played = False
                 else:
                     # Session stopped (active → inactive or connected → disconnected)
                     self.get_logger().info(f'🔊 Session stopped (status={status_str})')
-                    self._play_audio_feedback(self.stop_beep_sound)
+                    # Only play stop beep if not already played by fist gesture
+                    if not self.stop_beep_already_played:
+                        self._play_audio_feedback(self.stop_beep_sound)
+                    else:
+                        self.get_logger().debug('Stop beep already played by fist gesture confirmation')
                     # CRITICAL: Also reset speaking state when session disconnects externally
                     if self.speaking_state == "speaking":
                         self.speaking_state = "idle"
@@ -361,16 +379,13 @@ class GestureIntentNode(Node):
             self.last_trigger_time = current_time
         
         elif gesture_name == "fist":
-            # Stop gesture: works for both Fast Mode and R2-D2 Mode
+            # Two-stage fist stop: requires sustained detection with warning beep
+            # Stage 1: 1.5s sustained → warning beep (chance to cancel)
+            # Stage 2: continue holding 1.5s → actual stop + confirmation beep
+            
             # Must have an active session or intelligent speaking state
             if not self.session_active and self.intelligent_speaking_state != "speaking":
-                self.get_logger().warn('❌ Stop gesture ignored: no active session (neither fast nor R2-D2)')
-                return
-            
-            if time_since_last < self.cooldown_stop:
-                self.get_logger().warn(
-                    f'❌ Stop gesture ignored: cooldown ({time_since_last:.1f}s < {self.cooldown_stop}s)'
-                )
+                self.get_logger().debug('Fist detected but no active session')
                 return
             
             # Check speaking start grace period for Fast Mode
@@ -391,15 +406,70 @@ class GestureIntentNode(Node):
                     )
                     return
             
-            # Stop appropriate mode
-            if self.speaking_state == "speaking":
-                self.get_logger().info('✊ Fist detected → Stopping Fast Mode conversation')
-                self._exit_speaking_state(reason="user_fist_gesture")
-            elif self.intelligent_speaking_state == "speaking":
-                self.get_logger().info('✊ Fist detected → Stopping R2-D2 Mode conversation')
-                self._exit_intelligent_speaking_state(reason="user_fist_gesture")
+            # Rolling window fist detection
+            self.last_fist_detection_time = current_time
+            self.fist_detection_buffer.append(current_time)
             
-            self.last_trigger_time = current_time
+            # Prune old entries outside window
+            cutoff_time = current_time - self.fist_window
+            self.fist_detection_buffer = [t for t in self.fist_detection_buffer if t >= cutoff_time]
+            
+            # Count detections in window
+            detection_count = len(self.fist_detection_buffer)
+            
+            # State machine logic
+            if self.fist_stage == "idle" or self.fist_stage == "stage1":
+                # Stage 1: detecting first sustained hold
+                if detection_count >= self.fist_threshold:
+                    # Threshold met → play warning beep
+                    self.get_logger().info(
+                        f'⚠️  Fist Stage 1 complete ({detection_count}/{self.fist_threshold}) → Playing warning beep'
+                    )
+                    self._play_audio_feedback(self.warning_beep_sound)
+                    
+                    # Transition to warning_played, reset buffer for stage 2
+                    self.fist_stage = "warning_played"
+                    self.fist_detection_buffer = []
+                    self.last_trigger_time = current_time
+                else:
+                    # Still accumulating
+                    if self.fist_stage == "idle":
+                        self.fist_stage = "stage1"
+                    self.get_logger().debug(
+                        f'✊ Fist Stage 1: {detection_count}/{self.fist_threshold} detections in {self.fist_window}s window'
+                    )
+            
+            elif self.fist_stage == "warning_played" or self.fist_stage == "stage2":
+                # Stage 2: detecting confirmation hold after warning
+                if detection_count >= self.fist_threshold:
+                    # Threshold met again → STOP session
+                    self.get_logger().info(
+                        f'🛑 Fist Stage 2 complete ({detection_count}/{self.fist_threshold}) → Stopping session'
+                    )
+                    
+                    # Play stop beep IMMEDIATELY (on gesture confirmation, not on disconnect)
+                    self._play_audio_feedback(self.stop_beep_sound)
+                    self.stop_beep_already_played = True  # Prevent duplicate in session_status_callback
+                    
+                    # Stop appropriate mode
+                    if self.speaking_state == "speaking":
+                        self.get_logger().info('✊ Fist confirmed → Stopping Fast Mode conversation')
+                        self._exit_speaking_state(reason="user_fist_gesture_confirmed")
+                    elif self.intelligent_speaking_state == "speaking":
+                        self.get_logger().info('✊ Fist confirmed → Stopping R2-D2 Mode conversation')
+                        self._exit_intelligent_speaking_state(reason="user_fist_gesture_confirmed")
+                    
+                    # Reset state machine
+                    self.fist_stage = "idle"
+                    self.fist_detection_buffer = []
+                    self.last_trigger_time = current_time
+                else:
+                    # Still accumulating stage 2
+                    if self.fist_stage == "warning_played":
+                        self.fist_stage = "stage2"
+                    self.get_logger().debug(
+                        f'✊ Fist Stage 2: {detection_count}/{self.fist_threshold} detections (continue holding to stop)'
+                    )
         
         elif gesture_name == "open_hand":
             # Open hand gesture: trigger R2-D2 Mode (REST APIs with intelligent model)
@@ -430,6 +500,18 @@ class GestureIntentNode(Node):
         
         else:
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')
+        
+        # Check for fist release (cancel two-stage stop if user releases fist)
+        if gesture_name != "fist" and self.fist_stage != "idle":
+            # User made a different gesture or no gesture - check if fist was released
+            if self.last_fist_detection_time is not None:
+                time_since_fist = current_time - self.last_fist_detection_time
+                if time_since_fist > 0.5:  # 0.5s timeout = consider fist released
+                    self.get_logger().info(
+                        f'✋ Fist released (stage={self.fist_stage}) → Cancelling stop sequence'
+                    )
+                    self.fist_stage = "idle"
+                    self.fist_detection_buffer = []
     
     def _enter_speaking_state(self):
         """Enter SPEAKING state when conversation starts (Option 2: VAD-only)."""
@@ -672,8 +754,11 @@ class GestureIntentNode(Node):
         # Stop the REST session
         self._call_service(self.stop_intelligent_client, 'stop_intelligent_session')
         
-        # Play stop beep
-        self._play_audio_feedback(self.stop_beep_sound)
+        # Play stop beep (unless already played by fist gesture confirmation)
+        if not self.stop_beep_already_played:
+            self._play_audio_feedback(self.stop_beep_sound)
+        else:
+            self.get_logger().debug('Stop beep already played by fist gesture confirmation')
     
     def _process_intelligent_turn(self):
         """
