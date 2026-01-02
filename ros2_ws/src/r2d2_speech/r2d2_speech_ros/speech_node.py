@@ -25,7 +25,7 @@ from r2d2_speech.realtime import RealtimeClient, EventRouter, TranscriptHandler
 from r2d2_speech.utils import AudioStreamManager
 
 # Import ROS2 bridge
-from .ros2_bridge import ROS2TranscriptHandler, ROS2StatusPublisher, ros2_params_to_config
+from .ros2_bridge import ROS2TranscriptHandler, ROS2StatusPublisher, ROS2VADPublisher, ros2_params_to_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +62,7 @@ class SpeechNode(LifecycleNode):
         self.transcript_handler: Optional[TranscriptHandler] = None
         self.ros2_transcript_handler: Optional[ROS2TranscriptHandler] = None
         self.status_publisher: Optional[ROS2StatusPublisher] = None
+        self.vad_publisher: Optional[ROS2VADPublisher] = None
         
         # Persistent connection state
         self.connection_ready: bool = False  # WebSocket connected and session configured
@@ -111,6 +112,7 @@ class SpeechNode(LifecycleNode):
             
             # Create ROS2 interfaces
             self.status_publisher = ROS2StatusPublisher(self)
+            self.vad_publisher = ROS2VADPublisher(self)
             
             self.command_sub = self.create_subscription(
                 String, '/r2d2/speech/commands', self._command_callback, 10)
@@ -203,6 +205,7 @@ class SpeechNode(LifecycleNode):
             self.config = None
             self.session_id = None
             self.status_publisher = None
+            self.vad_publisher = None
             
             self.get_logger().info("Cleanup complete")
             return TransitionCallbackReturn.SUCCESS
@@ -265,7 +268,8 @@ class SpeechNode(LifecycleNode):
             
             self.event_router = EventRouter(
                 self.client, self.ros2_transcript_handler,
-                audio_playback=self.audio_manager.playback)
+                audio_playback=self.audio_manager.playback,
+                vad_publisher=self.vad_publisher)
             
             self.connection_ready = True
             self.get_logger().info("✓ Persistent connection established")

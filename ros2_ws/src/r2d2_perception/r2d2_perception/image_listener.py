@@ -440,13 +440,15 @@ class ImageListener(Node):
                         gesture_name, confidence = self._predict_gesture(downscaled)
                         
                         if gesture_name and confidence > self.gesture_confidence_threshold:
-                            # Publish gesture event only on state change (not continuous)
+                            # Publish gesture event continuously (for rolling window detection in gesture_intent_node)
+                            gesture_msg = String()
+                            gesture_msg.data = gesture_name
+                            self.gesture_event_publisher.publish(gesture_msg)
+                            
+                            # Log only on state change to avoid spam
                             if gesture_name != self.last_gesture:
-                                gesture_msg = String()
-                                gesture_msg.data = gesture_name
-                                self.gesture_event_publisher.publish(gesture_msg)
-                                self.last_gesture = gesture_name
                                 self.get_logger().debug(f"Gesture detected: {gesture_name} (confidence: {confidence:.2f})")
+                                self.last_gesture = gesture_name
                         else:
                             # Clear last gesture if no valid gesture detected
                             self.last_gesture = None

@@ -59,10 +59,10 @@ class GestureIntentNode(Node):
         self.declare_parameter('auto_restart_on_return', False)
         self.declare_parameter('audio_feedback_enabled', True)
         self.declare_parameter('audio_volume', 0.02)  # 0.0-1.0 (audio feedback volume) - 30% volume (from config/audio_params.yaml)
-        self.declare_parameter('vad_silence_timeout_seconds', 60.0)  # VAD-based silence timeout (Option 2: VAD-only)
+        self.declare_parameter('vad_silence_timeout_seconds', 30.0)  # VAD-based silence timeout (Option 2: VAD-only)
         self.declare_parameter('speaking_start_grace_seconds', 5.0)  # Grace period after starting conversation to ignore fist gestures
-        self.declare_parameter('fist_window_seconds', 1.5)  # Rolling window duration for sustained fist detection
-        self.declare_parameter('fist_threshold', 10)  # Detections required in window (~67% of 15 max at 10Hz)
+        self.declare_parameter('fist_window_seconds', 1.0)  # Rolling window duration for sustained fist detection
+        self.declare_parameter('fist_threshold', 2)  # Detections required in window (~20% of 10 max at 10Hz)
         
         # Get parameters
         self.cooldown_start = self.get_parameter('cooldown_start_seconds').value

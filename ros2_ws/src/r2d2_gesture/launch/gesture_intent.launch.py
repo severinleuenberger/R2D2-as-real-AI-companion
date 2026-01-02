@@ -85,8 +85,8 @@ def generate_launch_description():
     
     vad_silence_timeout_arg = DeclareLaunchArgument(
         'vad_silence_timeout_seconds',
-        default_value='60.0',
-        description='VAD-based silence timeout (Option 2: VAD-only approach, default: 60 seconds)'
+        default_value='30.0',
+        description='VAD-based silence timeout (Option 2: VAD-only approach, default: 30 seconds)'
     )
     
     speaking_start_grace_arg = DeclareLaunchArgument(
