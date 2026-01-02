@@ -98,24 +98,56 @@ journalctl -u r2d2-your-service.service -f
 
 **Purpose:** Document the feature so others (and future you) can understand and use it
 
+⚠️ **CRITICAL: Search existing documentation BEFORE writing anything new.**  
+Duplicated documentation WILL go out of sync and cause confusion. When in doubt, reference - don't duplicate.
+
+#### Step 1: Documentation Discovery (MANDATORY)
+
+**Before writing ANY documentation, search for existing content:**
+
+```bash
+# Search for related documentation by keyword
+grep -ri "keyword" ~/dev/r2d2/*.md
+grep -ri "service-name" ~/dev/r2d2/*.md
+
+# List all documentation files to review
+ls -la ~/dev/r2d2/*.md
+```
+
+**If related documentation exists:**
+- Add to existing file (preferred) OR
+- Add cross-reference: `See [XXX_Feature.md](XXX_Feature.md) for details`
+- NEVER duplicate procedures, parameters, or configuration values
+
+**Decision framework:**
+- Parameters already documented elsewhere? → Add reference, don't duplicate
+- Procedure already exists? → Link to it, don't rewrite
+- New feature with some shared components? → Document new parts only, reference existing
+
+---
+
+#### Step 2: Write Documentation (only if needed)
+
+- [ ] **Searched existing docs first** (Step 1 completed)
+- [ ] No duplicate content created - using references where content already exists
 - [ ] Installation steps documented in relevant `NNN_*.md` file
 - [ ] Service management commands added to documentation
 - [ ] Auto-start behavior documented (which services auto-start, which are manual)
 - [ ] Troubleshooting section updated if needed
 - [ ] Update `000_INTERNAL_AGENT_NOTES.md` if new patterns emerged
 
-**Documentation checklist:**
+**What to include in documentation:**
 - Configuration parameters explained (what they do, valid ranges, defaults)
 - Example usage provided
 - Common errors and solutions documented
 - Dependencies and requirements listed
 - Testing procedures documented
 
-**Documentation deduplication check:**
-- [ ] Parameters documented? Check if authoritative source exists first (see table in `000_INTERNAL_AGENT_NOTES.md`)
-- [ ] If copying config values: Add "Source of Truth" reference with file path
-- [ ] If procedure already documented: Use cross-reference, don't duplicate content
-- [ ] Verify parameter values match actual config files
+**Final deduplication verification:**
+- [ ] Parameters documented? Checked if authoritative source exists first (see table in `000_INTERNAL_AGENT_NOTES.md`)
+- [ ] If referencing config values: Added "Source of Truth" reference with file path
+- [ ] If procedure already documented elsewhere: Used cross-reference, didn't duplicate content
+- [ ] Verified parameter values match actual config files (no drift between docs and code)
 
 ---
 
@@ -255,7 +287,11 @@ watch -n 2 'systemctl status r2d2-your-service.service'
 # Phase 4: Documentation
 # ========================================
 
-# Update relevant documentation file
+# Step 1: Search for existing documentation first
+grep -ri "your-feature" ~/dev/r2d2/*.md
+ls -la ~/dev/r2d2/*.md
+
+# Step 2: Update relevant documentation file (if needed)
 vim ~/dev/r2d2/2XX_YOUR_FEATURE.md
 
 # Document service in internal notes (if new patterns)
@@ -421,5 +457,5 @@ systemctl list-units --failed
 
 **This document is for final deployment steps only. For development and testing, refer to `000_INTERNAL_AGENT_NOTES.md`.**
 
-**Last Updated:** December 29, 2025 - Added Security Pre-Commit Check (MANDATORY)
+**Last Updated:** January 2, 2026 - Enhanced Phase 4 with mandatory documentation discovery step to prevent duplicate documentation
 
