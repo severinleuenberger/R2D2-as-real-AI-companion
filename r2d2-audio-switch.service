@@ -1,0 +1,18 @@
+[Unit]
+Description=R2D2 Audio Output Switch Monitor
+After=pulseaudio.service bluetooth.service
+Wants=pulseaudio.service bluetooth.service
+Documentation=file:///home/severin/dev/r2d2/280_PAM8403_AUDIO_SWITCH_TEST_PLAN.md
+
+[Service]
+Type=simple
+User=severin
+Environment="XDG_RUNTIME_DIR=/run/user/1000"
+Environment="PULSE_SERVER=unix:/run/user/1000/pulse/native"
+ExecStart=/usr/bin/python3 /home/severin/dev/r2d2/scripts/audio_switch_service.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

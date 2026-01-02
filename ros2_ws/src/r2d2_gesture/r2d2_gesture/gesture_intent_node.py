@@ -394,7 +394,7 @@ class GestureIntentNode(Node):
             # Stop appropriate mode
             if self.speaking_state == "speaking":
                 self.get_logger().info('✊ Fist detected → Stopping Fast Mode conversation')
-            self._exit_speaking_state(reason="user_fist_gesture")
+                self._exit_speaking_state(reason="user_fist_gesture")
             elif self.intelligent_speaking_state == "speaking":
                 self.get_logger().info('✊ Fist detected → Stopping R2-D2 Mode conversation')
                 self._exit_intelligent_speaking_state(reason="user_fist_gesture")
@@ -605,9 +605,10 @@ class GestureIntentNode(Node):
             effective_volume = self.master_volume * self.audio_volume
             
             # Play audio in background (non-blocking)
+            # pan=stereo|c0=c0|c1=c0 duplicates mono to both L+R channels (for single earbud use)
             subprocess.Popen(
                 ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
-                 '-af', f'volume={effective_volume}', str(audio_file)],
+                 '-af', f'pan=stereo|c0=c0|c1=c0,volume={effective_volume}', str(audio_file)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )

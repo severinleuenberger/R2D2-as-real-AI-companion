@@ -372,7 +372,7 @@ class AudioPlayback:
         """
         self.output_device = output_device
         self.input_sample_rate = 24000  # Realtime API outputs 24kHz
-        self.channels = 1
+        self.channels = 2  # Stereo output (duplicate mono to L+R for single earbud use)
         
         self.p = None
         self.stream = None
@@ -523,6 +523,11 @@ class AudioPlayback:
             # Resample if needed
             if self.resampler:
                 audio_array = self.resampler.resample_chunk(audio_array)
+            
+            # Duplicate mono to stereo (both L+R channels) for single earbud use
+            if len(audio_array.shape) == 1:  # Mono input from Realtime API
+                # Interleave: [L, R, L, R, ...] where L=R=mono_sample
+                audio_array = np.column_stack([audio_array, audio_array]).flatten()
             
             # Convert back to bytes
             audio_bytes = audio_array.tobytes()

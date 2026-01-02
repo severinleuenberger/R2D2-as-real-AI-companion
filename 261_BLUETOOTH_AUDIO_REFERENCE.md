@@ -1,7 +1,8 @@
 # R2D2 Bluetooth Audio Reference
 
-> **Last Updated**: 2025-12-29  
-> **Status**: Production (alternative to PAM8403 speaker)
+> **Last Updated**: 2026-01-02  
+> **Status**: Production (alternative to PAM8403 speaker)  
+> **Mono Support**: ✅ Single earbud use supported (L+R channels duplicated)
 
 ## Overview
 
@@ -44,6 +45,28 @@ R2D2 supports Bluetooth audio output as an alternative to the built-in PAM8403 s
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+### Mono Audio Support (Single Earbud Use)
+
+**Status:** ✅ Fully Supported (January 2, 2026)
+
+All audio sources output **dual-mono stereo** - identical content on both L+R channels. This ensures users with only one earbud (left OR right) hear all audio without loss.
+
+**Implementation:**
+- **Speech TTS:** `AudioPlayback` class duplicates mono to stereo (`audio_stream.py` line 527-529)
+- **Gesture Beeps:** `ffplay` uses pan filter `pan=stereo|c0=c0|c1=c0` (`gesture_intent_node.py` line 611)
+- **Audio Files:** R2D2 beeps are mono (1 channel), automatically duplicated to both ears
+
+**Testing:**
+```bash
+# Test with single earbud (left OR right) - should hear full audio
+ffplay -autoexit -nodisp -af 'pan=stereo|c0=c0|c1=c0' \
+  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/Voicy_R2-D2\ -\ 12.mp3
+```
+
+**Known Issue:** Stop beep (fist gesture) may not be audible due to timing - see [`999_FIX_STOP_BEEP_TIMING.md`](999_FIX_STOP_BEEP_TIMING.md)
+
+---
 
 ### Audio Routing Modes
 
