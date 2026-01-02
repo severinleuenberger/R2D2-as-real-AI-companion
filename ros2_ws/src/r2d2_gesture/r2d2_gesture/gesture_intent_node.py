@@ -703,18 +703,21 @@ class GestureIntentNode(Node):
             
             self.get_logger().info(f'🔊 Playing: {audio_file.name}, vol={effective_volume:.3f}')
             
+            # Prepare environment with PulseAudio variables
+            import os
+            env = os.environ.copy()
+            env['SDL_AUDIODRIVER'] = 'pulseaudio'
+            env['XDG_RUNTIME_DIR'] = '/run/user/1000'
+            env['PULSE_SERVER'] = 'unix:/run/user/1000/pulse/native'
+            
             # Play audio in background (non-blocking)
-            proc = subprocess.Popen(
-                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'info', 
+            subprocess.Popen(
+                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
                  '-af', f'volume={effective_volume}', str(audio_file)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=env
             )
-            self.get_logger().info(f'✓ ffplay PID: {proc.pid}')
-            # Log any errors
-            if proc.poll() is not None:
-                stderr = proc.stderr.read().decode() if proc.stderr else ""
-                self.get_logger().error(f'ffplay died immediately! Error: {stderr}')
         except FileNotFoundError:
             # Try aplay as fallback (no volume control)
             try:

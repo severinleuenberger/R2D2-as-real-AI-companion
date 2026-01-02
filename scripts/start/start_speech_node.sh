@@ -14,6 +14,6 @@ source /opt/ros/humble/setup.bash
 # Source workspace overlay
 source install/setup.bash
 
-# Launch speech node (auto_start=false for gesture control)
-exec ros2 launch r2d2_speech speech_node.launch.py auto_start:=false
+# Launch speech node (auto_start=true for immediate readiness on boot)
+exec ros2 launch r2d2_speech speech_node.launch.py auto_start:=true
 
