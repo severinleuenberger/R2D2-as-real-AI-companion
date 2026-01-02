@@ -108,6 +108,7 @@ class GestureIntentNode(Node):
         self.fist_stage = "idle"  # "idle" | "stage1" | "warning_played" | "stage2"
         self.last_fist_detection_time = None  # For timeout detection (release check)
         self.stop_beep_already_played = False  # Flag to avoid duplicate stop beep
+        self.waiting_for_fist_release = False  # After Stage 1, wait for release before Stage 2
         
         # Create subscriptions
         self.gesture_sub = self.create_subscription(
@@ -430,7 +431,9 @@ class GestureIntentNode(Node):
                     # Transition to warning_played, reset buffer for stage 2
                     self.fist_stage = "warning_played"
                     self.fist_detection_buffer = []
+                    self.waiting_for_fist_release = True  # Wait for user to release fist
                     self.last_trigger_time = current_time
+                    self.get_logger().info('⏸️  Waiting for fist release (you can cancel by not making fist again)')
                 else:
                     # Still accumulating
                     if self.fist_stage == "idle":
@@ -441,6 +444,11 @@ class GestureIntentNode(Node):
             
             elif self.fist_stage == "warning_played" or self.fist_stage == "stage2":
                 # Stage 2: detecting confirmation hold after warning
+                # Skip if waiting for release (user must release fist first)
+                if self.waiting_for_fist_release:
+                    self.get_logger().debug('Fist detected but waiting for release first')
+                    return
+                
                 if detection_count >= self.fist_threshold:
                     # Threshold met again → STOP session
                     self.get_logger().info(
@@ -462,6 +470,7 @@ class GestureIntentNode(Node):
                     # Reset state machine
                     self.fist_stage = "idle"
                     self.fist_detection_buffer = []
+                    self.waiting_for_fist_release = False
                     self.last_trigger_time = current_time
                 else:
                     # Still accumulating stage 2
@@ -500,6 +509,12 @@ class GestureIntentNode(Node):
         
         else:
             self.get_logger().debug(f'Unknown gesture: {gesture_name}')
+        
+        # Detect fist release after Stage 1 (any non-fist gesture)
+        if gesture_name != "fist" and self.waiting_for_fist_release:
+            self.get_logger().info('✅ Fist released → Ready for Stage 2 (make fist again to stop)')
+            self.waiting_for_fist_release = False
+            self.fist_stage = "idle"  # Reset to idle, ready for new fist detection
         
         # Check for fist release (cancel two-stage stop if user releases fist)
         if gesture_name != "fist" and self.fist_stage != "idle":
@@ -686,14 +701,20 @@ class GestureIntentNode(Node):
             # Calculate effective volume: master_volume * audio_volume
             effective_volume = self.master_volume * self.audio_volume
             
+            self.get_logger().info(f'🔊 Playing: {audio_file.name}, vol={effective_volume:.3f}')
+            
             # Play audio in background (non-blocking)
-            # pan=stereo|c0=c0|c1=c0 duplicates mono to both L+R channels (for single earbud use)
-            subprocess.Popen(
-                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', 
-                 '-af', f'pan=stereo|c0=c0|c1=c0,volume={effective_volume}', str(audio_file)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+            proc = subprocess.Popen(
+                ['ffplay', '-nodisp', '-autoexit', '-loglevel', 'info', 
+                 '-af', f'volume={effective_volume}', str(audio_file)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
             )
+            self.get_logger().info(f'✓ ffplay PID: {proc.pid}')
+            # Log any errors
+            if proc.poll() is not None:
+                stderr = proc.stderr.read().decode() if proc.stderr else ""
+                self.get_logger().error(f'ffplay died immediately! Error: {stderr}')
         except FileNotFoundError:
             # Try aplay as fallback (no volume control)
             try:

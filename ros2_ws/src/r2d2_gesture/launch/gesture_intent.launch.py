@@ -79,8 +79,8 @@ def generate_launch_description():
     
     audio_volume_arg = DeclareLaunchArgument(
         'audio_volume',
-        default_value='0.02',
-        description='Audio volume for gesture beeps (0.0-1.0) - 2% volume (very quiet)'
+        default_value='0.3',
+        description='Audio volume for gesture beeps (0.0-1.0) - 30% volume'
     )
     
     vad_silence_timeout_arg = DeclareLaunchArgument(
