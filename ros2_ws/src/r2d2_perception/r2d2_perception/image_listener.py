@@ -8,6 +8,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Int32, String, Bool
+from geometry_msgs.msg import Point
 from cv_bridge import CvBridge
 import cv2
 import time
@@ -163,6 +164,14 @@ class ImageListener(Node):
         self.gesture_event_publisher = self.create_publisher(
             String,
             '/r2d2/perception/gesture_event',
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
+        # Create publisher for face bounding box (for head tracking)
+        # Publishes normalized face center position: x,y in [0,1], z = relative face size
+        self.face_bbox_publisher = self.create_publisher(
+            Point,
+            '/r2d2/perception/face_bbox',
             qos_profile=rclpy.qos.QoSProfile(depth=10)
         )
         
@@ -380,6 +389,25 @@ class ImageListener(Node):
         face_count_msg = Int32()
         face_count_msg.data = stable_face_count
         self.face_count_publisher.publish(face_count_msg)
+        
+        # Publish face bounding box for head tracking (if faces detected)
+        # Uses raw detection (not hysteresis) for responsive tracking
+        if len(faces) > 0:
+            # Select largest face (closest person) for tracking
+            largest_face = max(faces, key=lambda f: f[2] * f[3])
+            (fx, fy, fw, fh) = largest_face
+            
+            # Normalize to 0-1 range (0.5 = center of frame)
+            # Image is downscaled to 640x360
+            face_center_x = (fx + fw / 2.0) / 640.0
+            face_center_y = (fy + fh / 2.0) / 360.0
+            face_size = fw / 640.0  # Relative size for distance estimation
+            
+            bbox_msg = Point()
+            bbox_msg.x = face_center_x
+            bbox_msg.y = face_center_y
+            bbox_msg.z = face_size
+            self.face_bbox_publisher.publish(bbox_msg)
         
         # Perform face recognition if enabled - runs on ANY raw face detection (RED-first architecture)
         # Recognition is PRIMARY - no hysteresis gate, immediate attempt on any face

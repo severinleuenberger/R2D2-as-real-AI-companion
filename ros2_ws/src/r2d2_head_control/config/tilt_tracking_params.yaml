@@ -1,0 +1,43 @@
+# Tilt Tracking Parameters
+# Configuration for face-tracking tilt servo control
+
+tilt_tracking_node:
+  ros__parameters:
+    # Enable/disable tracking
+    enabled: true
+    tracking_rate_hz: 30.0
+    
+    # Input processing
+    # Deadband: fraction of frame height where no movement occurs (prevents jitter)
+    deadband: 0.08  # 8% of frame height
+    # Smoothing alpha: 0=heavy smoothing (slow response), 1=no smoothing (instant response)
+    smoothing_alpha: 0.3
+    
+    # PID Controller Gains
+    # Kp: Proportional - how aggressively to respond to error
+    # Ki: Integral - helps eliminate steady-state error (set low to avoid oscillation)
+    # Kd: Derivative - dampens oscillation, smooths response
+    kp: 30.0   # Degrees of adjustment per unit of normalized error
+    ki: 0.5    # Integral gain (keep low)
+    kd: 5.0    # Derivative gain for damping
+    
+    # Servo Angle Limits (degrees)
+    # Adjust based on your physical servo mounting and desired range
+    min_angle: 60.0      # Maximum tilt UP (servo rotates one way)
+    max_angle: 120.0     # Maximum tilt DOWN (servo rotates other way)
+    neutral_angle: 90.0  # Center/rest position
+    
+    # Loss Handling
+    # When face is lost, behavior is:
+    # 1. Hold current position for hold_timeout_sec
+    # 2. After neutral_timeout_sec, slowly return to neutral
+    hold_timeout_sec: 0.5      # Hold position briefly when face lost
+    neutral_timeout_sec: 3.0   # After this time, start returning to neutral
+    neutral_return_speed: 5.0  # Degrees per second when returning to neutral
+    
+    # Hardware Configuration
+    # GPIO pin for servo signal (BCM numbering)
+    servo_gpio_pin: 13        # GPIO13 = Physical Pin 33 on 40-pin header
+    # Set to true to test without hardware connected
+    simulate_hardware: false
+
