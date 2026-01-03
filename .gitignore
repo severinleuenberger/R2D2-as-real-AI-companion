@@ -32,6 +32,7 @@ TEMP_*.md  # Root-level temporary markdown files
 
 # Log files
 log/**/*.log
+logs/
 
 # VPN Configuration - SENSITIVE (never commit!)
 vpn_config/client_wg0.conf
@@ -44,6 +45,7 @@ vpn_config/*.backup
 
 # Python virtual environments
 r2d2_speech_env/
+web_dashboard/web_dashboard_env/
 
 # Environment variables and secrets (SECURITY)
 .env

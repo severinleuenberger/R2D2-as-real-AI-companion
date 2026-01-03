@@ -1556,3 +1556,239 @@ function showCopyFeedback(elementId) {
         }, 2000);
     }
 }
+
+// =============================================================================
+// Database Access Functions
+// =============================================================================
+
+// Load API key from localStorage on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadApiKey();
+    loadDatabaseInfo();
+    loadQueryExamples();
+});
+
+function loadApiKey() {
+    const savedKey = localStorage.getItem('r2d2_db_api_key');
+    const apiKeyInput = document.getElementById('db-api-key');
+    const apiKeyStatus = document.getElementById('api-key-status');
+    
+    if (savedKey && apiKeyInput) {
+        apiKeyInput.value = savedKey;
+        if (apiKeyStatus) {
+            apiKeyStatus.textContent = 'API key saved';
+            apiKeyStatus.className = 'api-key-status configured';
+        }
+    }
+}
+
+function saveApiKey() {
+    const apiKeyInput = document.getElementById('db-api-key');
+    const apiKeyStatus = document.getElementById('api-key-status');
+    
+    if (apiKeyInput && apiKeyInput.value.trim()) {
+        localStorage.setItem('r2d2_db_api_key', apiKeyInput.value.trim());
+        if (apiKeyStatus) {
+            apiKeyStatus.textContent = 'API key saved';
+            apiKeyStatus.className = 'api-key-status configured';
+        }
+        // Reload database info with new key
+        loadDatabaseInfo();
+    } else {
+        localStorage.removeItem('r2d2_db_api_key');
+        if (apiKeyStatus) {
+            apiKeyStatus.textContent = 'Not configured';
+            apiKeyStatus.className = 'api-key-status';
+        }
+    }
+}
+
+function toggleApiKeyVisibility() {
+    const apiKeyInput = document.getElementById('db-api-key');
+    if (apiKeyInput) {
+        apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+    }
+}
+
+async function loadDatabaseInfo() {
+    const infoDiv = document.getElementById('database-info');
+    const apiKey = localStorage.getItem('r2d2_db_api_key');
+    
+    if (!infoDiv) return;
+    
+    if (!apiKey) {
+        infoDiv.innerHTML = '<div class="db-notice">Enter API key to view database information</div>';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/database/info`, {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        });
+        
+        if (response.status === 401) {
+            infoDiv.innerHTML = '<div class="db-error">Invalid API key</div>';
+            const apiKeyStatus = document.getElementById('api-key-status');
+            if (apiKeyStatus) {
+                apiKeyStatus.textContent = 'Invalid key';
+                apiKeyStatus.className = 'api-key-status error';
+            }
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        displayDatabaseInfo(data);
+        
+        // Update status
+        const apiKeyStatus = document.getElementById('api-key-status');
+        if (apiKeyStatus) {
+            apiKeyStatus.textContent = 'Connected';
+            apiKeyStatus.className = 'api-key-status configured';
+        }
+    } catch (error) {
+        console.error('Failed to load database info:', error);
+        infoDiv.innerHTML = `<div class="db-error">Failed to load: ${error.message}</div>`;
+    }
+}
+
+function displayDatabaseInfo(data) {
+    const infoDiv = document.getElementById('database-info');
+    if (!infoDiv) return;
+    
+    let html = '<div class="db-list">';
+    
+    for (const [name, info] of Object.entries(data)) {
+        const exists = info.exists ? '✓' : '✗';
+        const statusClass = info.exists ? 'exists' : 'missing';
+        
+        html += `
+            <div class="db-item ${statusClass}">
+                <div class="db-header">
+                    <span class="db-name">${name}.db</span>
+                    <span class="db-status">${exists}</span>
+                </div>
+                <div class="db-desc">${info.description || ''}</div>
+        `;
+        
+        if (info.exists) {
+            html += `
+                <div class="db-meta">
+                    <span class="db-size">${info.size_human}</span>
+                    <span class="db-modified">${new Date(info.last_modified).toLocaleDateString()}</span>
+                </div>
+                <div class="db-tables">
+            `;
+            
+            if (info.tables && info.tables.length > 0) {
+                info.tables.forEach(table => {
+                    html += `<span class="db-table">${table.name}: ${table.row_count} rows</span>`;
+                });
+            }
+            
+            html += '</div>';
+        }
+        
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    infoDiv.innerHTML = html;
+}
+
+async function downloadDatabase(dbName) {
+    const apiKey = localStorage.getItem('r2d2_db_api_key');
+    
+    if (!apiKey) {
+        alert('Please enter your API key first');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/database/download/${dbName}`, {
+            headers: {
+                'X-API-Key': apiKey
+            }
+        });
+        
+        if (response.status === 401) {
+            alert('Invalid API key');
+            return;
+        }
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(`Download failed: ${error.detail || 'Unknown error'}`);
+            return;
+        }
+        
+        // Trigger file download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${dbName}.db`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        addStreamMessage('status', `Downloaded ${dbName}.db`);
+    } catch (error) {
+        console.error('Download failed:', error);
+        alert(`Download failed: ${error.message}`);
+    }
+}
+
+async function loadQueryExamples() {
+    const examplesDiv = document.getElementById('query-examples');
+    if (!examplesDiv) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/database/query-examples`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        displayQueryExamples(data);
+    } catch (error) {
+        console.error('Failed to load query examples:', error);
+        examplesDiv.innerHTML = '<p>Failed to load examples</p>';
+    }
+}
+
+function displayQueryExamples(data) {
+    const examplesDiv = document.getElementById('query-examples');
+    if (!examplesDiv) return;
+    
+    let html = '';
+    
+    for (const [dbKey, dbInfo] of Object.entries(data)) {
+        html += `<div class="query-db"><h4>${dbInfo.description}</h4>`;
+        
+        if (dbInfo.examples) {
+            dbInfo.examples.forEach(example => {
+                html += `
+                    <div class="query-example">
+                        <div class="query-name">${example.name}</div>
+                        <pre class="query-sql">${escapeHtml(example.sql)}</pre>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+    }
+    
+    examplesDiv.innerHTML = html;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

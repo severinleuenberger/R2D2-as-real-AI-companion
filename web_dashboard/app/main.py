@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.config import BASE_DIR, HOST, PORT
-from app.api import services, audio, training, status, system
+from app.api import services, audio, training, status, system, database
 
 # Create FastAPI app
 app = FastAPI(
@@ -19,6 +19,7 @@ app.include_router(audio.router)
 app.include_router(training.router)
 app.include_router(status.router)
 app.include_router(system.router)
+app.include_router(database.router)
 
 # Serve static files
 static_dir = BASE_DIR / "app" / "static"

@@ -167,6 +167,38 @@
                 <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
             </div>
 
+            <!-- Database Access Panel -->
+            <div class="panel database-panel compact">
+                <h2>🗄️ Database Access</h2>
+                <div class="database-auth">
+                    <div class="api-key-input-group">
+                        <input type="password" id="db-api-key" placeholder="Enter API Key" 
+                               onchange="saveApiKey()" />
+                        <button class="btn-small" onclick="toggleApiKeyVisibility()" title="Show/Hide API Key">👁️</button>
+                    </div>
+                    <div class="api-key-status" id="api-key-status">Not configured</div>
+                </div>
+                <div class="database-info" id="database-info">
+                    <div class="db-loading">Loading database info...</div>
+                </div>
+                <div class="database-actions">
+                    <button class="btn-database" onclick="downloadDatabase('persons')" id="btn-download-persons">
+                        📥 Download persons.db
+                    </button>
+                    <button class="btn-database" onclick="downloadDatabase('conversations')" id="btn-download-conversations">
+                        📥 Download conversations.db
+                    </button>
+                </div>
+                <div class="database-help">
+                    <details>
+                        <summary>📋 Example SQL Queries</summary>
+                        <div class="query-examples" id="query-examples">
+                            <p>Loading examples...</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
             <!-- Lower-Right: Training -->
             <div class="panel training-panel">
                 <h2>Face Recognition Training</h2>

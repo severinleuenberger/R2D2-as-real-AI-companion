@@ -479,6 +479,118 @@ Response: {
 }
 ```
 
+### Database Access API
+
+**Security Model:**
+- All database endpoints require API key authentication via `X-API-Key` header
+- API key stored securely at `~/.r2d2/database_api_key` (chmod 600)
+- All access logged to `~/dev/r2d2/logs/database_access.log` with rotation
+- Only accessible via Tailscale VPN (defense in depth)
+
+**Available Databases:**
+| Database | Path | Description |
+|----------|------|-------------|
+| `persons` | `~/dev/r2d2/data/persons.db` | Person registry, face models, learning progress |
+| `conversations` | `~/dev/r2d2/r2d2_speech/data/conversations.db` | Speech sessions and transcripts |
+
+**Get Database Info** (Requires API Key)
+```http
+GET /api/database/info
+X-API-Key: <your-api-key>
+
+Response: {
+    "persons": {
+        "description": "Person registry with face/gesture models and learning progress",
+        "path": "/home/severin/dev/r2d2/data/persons.db",
+        "exists": true,
+        "size_bytes": 57344,
+        "size_human": "56.0 KB",
+        "last_modified": "2025-01-03T10:30:00",
+        "tables": [
+            {"name": "persons", "row_count": 2},
+            {"name": "learning_topics", "row_count": 45},
+            {"name": "learning_sessions", "row_count": 12}
+        ]
+    },
+    "conversations": {
+        "description": "Speech conversation sessions and transcripts",
+        ...
+    }
+}
+```
+
+**Download Database** (Requires API Key)
+```http
+GET /api/database/download/{db_name}
+X-API-Key: <your-api-key>
+
+# Example: Download persons database
+GET /api/database/download/persons
+X-API-Key: abc123...
+
+Response: Binary SQLite file (application/x-sqlite3)
+```
+
+**Get Database Schema** (Requires API Key)
+```http
+GET /api/database/schema/{db_name}
+X-API-Key: <your-api-key>
+
+Response: {
+    "database": "persons",
+    "tables": {
+        "persons": "CREATE TABLE persons (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, ...)",
+        "learning_topics": "CREATE TABLE learning_topics (id TEXT PRIMARY KEY, ...)",
+        "learning_sessions": "CREATE TABLE learning_sessions (id TEXT PRIMARY KEY, ...)"
+    }
+}
+```
+
+**Get Query Examples** (Public - No Auth Required)
+```http
+GET /api/database/query-examples
+
+Response: {
+    "persons_db": {
+        "description": "Person registry database",
+        "examples": [
+            {"name": "List all persons", "sql": "SELECT display_name, face_model_path FROM persons;"},
+            {"name": "Learning progress by category", "sql": "SELECT category, COUNT(*) as topics..."},
+            ...
+        ]
+    },
+    "conversations_db": {
+        "description": "Conversation history database",
+        "examples": [...]
+    }
+}
+```
+
+**Using the API from Command Line:**
+```bash
+# Get API key (first 16 chars shown)
+head -c 16 ~/.r2d2/database_api_key
+
+# Test info endpoint
+curl -H "X-API-Key: $(cat ~/.r2d2/database_api_key)" \
+     http://100.x.x.x:8080/api/database/info
+
+# Download persons.db
+curl -H "X-API-Key: $(cat ~/.r2d2/database_api_key)" \
+     http://100.x.x.x:8080/api/database/download/persons \
+     -o persons.db
+
+# Get schema
+curl -H "X-API-Key: $(cat ~/.r2d2/database_api_key)" \
+     http://100.x.x.x:8080/api/database/schema/persons
+```
+
+**Using from SQL Tools (e.g., DBeaver, DataGrip):**
+1. Download the database file via API
+2. Open locally in your SQL tool
+3. Run queries offline for analysis
+4. (Database is read-only copy; changes won't sync back)
+
 ---
 
 ## ROS 2 Integration
@@ -521,6 +633,18 @@ Response: {
 - ✅ **Tailscale VPN Only:** Services bind strictly to `100.x.x.x`.
 - ✅ **Local Access Blocked:** Services are NOT accessible from local WiFi (192.168.x.x).
 - ✅ **Service Mode:** Full Web UI is stopped by default to reduce attack surface.
+- ✅ **Database API Key:** Sensitive database endpoints require API key authentication.
+- ✅ **Audit Logging:** All database access attempts logged with rotation.
+
+### Database Security
+
+**Defense in Depth for Private Data:**
+- ✅ **API Key Authentication:** `X-API-Key` header required for all sensitive database endpoints
+- ✅ **Secure Key Storage:** API key at `~/.r2d2/database_api_key` with `chmod 600`
+- ✅ **Audit Trail:** All access logged to `~/dev/r2d2/logs/database_access.log` (1MB rotation, 5 backups)
+- ✅ **Git Exclusion:** All `.db` files excluded via `.gitignore` - never committed
+- ✅ **Read-Only Access:** Download provides copies; no direct write access via API
+- ✅ **Database Whitelisting:** Only known databases (`persons`, `conversations`) accessible
 
 ### Input Validation
 - ✅ **Regex Validation:** Person names must be alphanumeric + underscore.
@@ -549,6 +673,7 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 - ✅ Volume range validation (0.0-1.0)
 - ✅ Person name validation (alphanumeric + underscore)
 - ✅ Service name validation (whitelist)
+- ✅ Database name validation (whitelist: `persons`, `conversations`)
 
 **Additional Recommendations:**
 - Sanitize all user inputs
@@ -612,6 +737,16 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 | **Requirements** | `~/dev/r2d2/web_dashboard/requirements.txt` |
 | **Startup Script** | `~/dev/r2d2/web_dashboard/start_server.sh` |
 | **rosbridge Launch** | `~/dev/r2d2/web_dashboard/launch/rosbridge.launch.py` |
+
+### Database & Security
+
+| File | Location |
+|------|----------|
+| **Database API** | `~/dev/r2d2/web_dashboard/app/api/database.py` |
+| **Persons Database** | `~/dev/r2d2/data/persons.db` |
+| **Conversations Database** | `~/dev/r2d2/r2d2_speech/data/conversations.db` |
+| **API Key (Secure)** | `~/.r2d2/database_api_key` |
+| **Access Audit Log** | `~/dev/r2d2/logs/database_access.log` |
 
 ### Training Scripts
 
@@ -810,10 +945,14 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** December 17, 2025  
+**Document Version:** 1.1  
+**Last Updated:** January 3, 2026  
 **Status:** Complete and operational  
 **Platform:** NVIDIA Jetson AGX Orin 64GB with ROS 2 Humble  
 **Access:** Via Tailscale VPN
+
+**Changelog:**
+- v1.1 (Jan 3, 2026): Added Database Access API with security documentation
+- v1.0 (Dec 17, 2025): Initial release
 
 
