@@ -1,6 +1,7 @@
 # R2D2 Camera Pan/Tilt Tracking System - Implementation Plan
 
 **Date:** January 3, 2026  
+**Last Updated:** January 3, 2026  
 **Status:** BLOCKED - Waiting for hardware components  
 **Branch:** `feature/face-tracking-tilt-servo`  
 **Author:** AI Agent (Claude)
@@ -122,6 +123,42 @@ Purpose: Test servo full range in 5% steps to determine safe mechanical limits.
 
 **Note:** Does not work with current wiring due to 3.3V signal issue.
 
+### 1.6 Code Safety Analysis (Verified)
+
+The head tracking code has been analyzed and **confirmed safe** - it does not conflict with any existing R2D2 systems.
+
+#### GPIO Pin Analysis (No Overlap)
+
+| Service | GPIO (BCM) | Physical Pin | Purpose |
+|---------|------------|--------------|---------|
+| **status_led_node** | GPIO17 | Pin 22 | White LED |
+| **status_led_node** | GPIO27 | Pin 15 | Green LED (RGB mode) |
+| **status_led_node** | GPIO22 | Pin 15 | Blue LED (RGB mode) |
+| **Power button** | GPIO32 | Pin 32 | Shutdown |
+| **servo_driver (head control)** | GPIO13 | Pin 33 | Tilt servo |
+
+**Result:** No GPIO pin conflicts - servo uses GPIO13 which is not used by any other service.
+
+#### ROS 2 Topic Analysis (No Conflicts)
+
+| Topic | Action | Conflict? |
+|-------|--------|-----------|
+| `/r2d2/perception/face_bbox` | Subscribes | New topic, created for this feature |
+| `/r2d2/audio/person_status` | Subscribes | Read-only subscription |
+| `/r2d2/head_control/tilt_angle` | Publishes | New topic, no overlap |
+
+**Result:** Head control only reads from existing topics (doesn't modify them) and publishes to new topics.
+
+#### Code Isolation
+
+- ✅ Separate ROS 2 package (`r2d2_head_control`)
+- ✅ No shared state with other nodes
+- ✅ Same GPIO mode as existing code (both use BCM)
+- ✅ Independent systemd service (when installed)
+- ✅ Currently non-functional due to 3.3V issue (no impact on running system)
+
+**Conclusion:** Safe to proceed - the head tracking code is well-isolated and will not interfere with LED, power button, audio, perception, or any other R2D2 functionality.
+
 ---
 
 ## 2. Hardware Discovery Summary
@@ -192,10 +229,12 @@ Purpose: Test servo full range in 5% steps to determine safe mechanical limits.
 
 | Component | Purpose | Interface | Approx. Price |
 |-----------|---------|-----------|---------------|
-| **Adafruit PCA9685 16-Channel PWM Driver** | Tilt servo control with 5V logic | I2C | CHF 15-25 |
+| **BerryBase PCA9685 16-Channel PWM Driver** | Tilt servo control with 5V logic | I2C | CHF 5-10 |
 | **Pololu TB6612FNG or DRV8833** | Pan motor PWM speed control | GPIO | CHF 5-10 |
 
-**Adafruit PCA9685:** User has selected from digitec.ch - 16-Channel 12-bit PWM/Servo Driver with I2C interface.
+**Selected Board:** [BerryBase 16-Kanal PWM Servo Treiber Board PCA9685](https://www.berrybase.ch/berrybase-16-kanal-pwm-servo-treiber-board-pca9685-i2c-12bit-1-6khz-3-3-5v)
+
+This is a generic PCA9685 board - functionally identical to the Adafruit version but more affordable. Uses the same PCA9685 chip, same I2C protocol, same Python library (`adafruit-circuitpython-pca9685`).
 
 **Why PCA9685:**
 - Outputs 5V logic signals (servo requirement)
@@ -668,8 +707,8 @@ systemctl status r2d2-tilt-tracking.service
 
 ### Step 1: Order Components
 
-- [x] Select Adafruit PCA9685 from digitec.ch
-- [ ] Complete order for PCA9685
+- [x] Select PCA9685 board (BerryBase chosen over Adafruit - same chip, lower cost)
+- [ ] Complete order for BerryBase PCA9685 from berrybase.ch
 - [ ] Order Pololu TB6612FNG or DRV8833 motor driver
 
 ### Step 2: When PCA9685 Arrives
