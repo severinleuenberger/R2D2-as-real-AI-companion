@@ -532,8 +532,11 @@ class GestureIntentNode(Node):
         """Enter SPEAKING state when conversation starts (Option 2: VAD-only)."""
         self.speaking_state = "speaking"
         self.speaking_start_time = self.get_clock().now()
-        self.last_vad_activity_time = None  # No silence timer until speech_stopped received
-        self.vad_state = "speaking"  # Assume speaking when session starts
+        # FIX: Start silence timer immediately so session auto-stops if user never speaks
+        # If user speaks, VAD callback will reset the timer. If user stays silent for
+        # vad_silence_timeout seconds, watchdog will auto-stop the session.
+        self.last_vad_activity_time = self.get_clock().now()  # Start timer now
+        self.vad_state = "silent"  # User hasn't spoken yet (changed from "speaking")
         
         self.get_logger().info(
             f'🗣️  Entered SPEAKING state (VAD-only: {self.vad_silence_timeout}s silence timeout)'

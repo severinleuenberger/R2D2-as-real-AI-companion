@@ -33,11 +33,11 @@ The R2D2 Perception and Status System provides comprehensive person recognition,
 
 **Quick Monitor:** Run `python3 ~/dev/r2d2/tools/minimal_monitor.py` for a real-time one-line display of Time, Status, Person, Gesture, Faces, Speech, and Phase.
 
-The following sequence diagram shows the complete end-to-end flow from camera input through recognition, gestures, speech, and back to idle state:
+The following comprehensive diagram shows the complete end-to-end flow with all timing details, delays, loops, and state transitions:
 
 ```mermaid
 sequenceDiagram
-    participant OAK as OAK_D_Camera
+    participant OAK as OAK_D_Camera_30FPS
     participant ImgList as image_listener
     participant AudioNot as audio_notification_node
     participant StatusLED as status_led_node
@@ -45,123 +45,282 @@ sequenceDiagram
     participant Speech as speech_node
     participant OpenAI as OpenAI_API
 
-    Note over OAK,OpenAI: PHASE 1 - Recognition is PRIMARY - Runs on ANY Face
+    Note over OAK,OpenAI: PHASE 1 - Camera & Preprocessing - Continuous Loop
 
-    OAK->>ImgList: Raw frame 30Hz
-    ImgList->>ImgList: Downscale 640x360 Haar Cascade
-    ImgList->>ImgList: Face detected raw NO HYSTERESIS WAIT
-
-    rect rgb(255, 200, 200)
-        Note over ImgList,AudioNot: IMMEDIATE Recognition - No 0.3s gate
-        ImgList->>ImgList: LBPH recognition 6.5Hz starts IMMEDIATELY
-        ImgList->>ImgList: Confidence check against 150 threshold
-        ImgList->>AudioNot: person_id target_person or unknown
+    loop Every 33ms Frame
+        OAK->>ImgList: RGB frame 1920x1080 @ 30 FPS
+        ImgList->>ImgList: Downscale to 640x360 for efficiency
+        ImgList->>ImgList: Convert to grayscale
+        ImgList->>ImgList: Haar Cascade face detection ~40ms
     end
 
-    Note over OAK,OpenAI: PHASE 2 - Rolling Window Filter - RED Entry Decision
+    Note over ImgList,AudioNot: RECOGNITION: Skip=2 means process every 2nd frame
+
+    loop Every 154ms Recognition Cycle
+        ImgList->>ImgList: Face detected - IMMEDIATE recognition
+        ImgList->>ImgList: NO hysteresis wait - RED-first architecture
+        ImgList->>ImgList: Extract face ROI resize to 100x100
+        ImgList->>ImgList: LBPH recognition ~20ms
+        ImgList->>ImgList: Compare against threshold 150.0
+        ImgList->>AudioNot: person_id every 154ms 6.5Hz
+    end
+
+    Note over AudioNot: FACE COUNT: Hysteresis for stable detection
+
+    loop Every 77ms Face Count Update
+        ImgList->>ImgList: Detect faces with Haar Cascade
+        ImgList->>ImgList: Hysteresis 2s presence 5s absence
+        ImgList->>AudioNot: face_count smoothed @ 13 Hz
+    end
+
+    Note over OAK,OpenAI: PHASE 2 - Rolling Window Filter for RED Entry
 
     rect rgb(255, 230, 200)
-        Note over AudioNot: Rolling 1s window - Need 3 matches for RED
-        AudioNot->>AudioNot: Buffer add person_id target_person
-        AudioNot->>AudioNot: Count matches in 1s window
+        Note over AudioNot: Rolling Window 1.5s - Need 4 matches for RED
         
-        alt Match count >= 3 in 1s
-            AudioNot->>AudioNot: THRESHOLD MET - Transition to RED
-            AudioNot->>StatusLED: person_status RED
-            StatusLED->>StatusLED: GPIO 17 HIGH LED ON
-            AudioNot->>AudioNot: Play Hello beep 2mp3
+        loop Person ID arrives 6.5 Hz
+            AudioNot->>AudioNot: Receive person_id target_person
+            AudioNot->>AudioNot: Timestamp add to rolling buffer
+            AudioNot->>AudioNot: Clean buffer entries older than 1.5s
+            AudioNot->>AudioNot: Count matches in window
+        end
+        
+        Note over AudioNot: At 6.5Hz 1.5s = ~10 frames window size
+        Note over AudioNot: 4 matches in 1.5s = ~615ms to trigger
+        
+        alt Match count >= 4 in 1.5s window
+            AudioNot->>AudioNot: THRESHOLD MET - Enter RED state
+            AudioNot->>StatusLED: person_status RED 10Hz
+            StatusLED->>StatusLED: GPIO 17 HIGH - LED ON <10ms
+            AudioNot->>AudioNot: "Play Hello beep 2.mp3 2s duration"
+            AudioNot->>AudioNot: Cooldown 2s before next same beep
             AudioNot->>GestInt: person_status RED - Gestures enabled
-            Note over AudioNot: RED timer 15s starts - resets on each match
-        else Match count < 3 - RED NOT achieved
-            Note over AudioNot: Stay in current state - Check face detection
+            AudioNot->>AudioNot: RED timer 15s START resets each match
+        else Match count < 4 in window
+            Note over AudioNot: Stay BLUE or GREEN - Check face_count
+            
+            alt face_count > 0 for 2.0s AND status != RED
+                AudioNot->>AudioNot: Transition to GREEN unknown
+                AudioNot->>StatusLED: person_status GREEN
+                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+            end
+            
+            alt face_count == 0 for 3.0s AND status != RED
+                AudioNot->>AudioNot: Transition to BLUE no person
+                AudioNot->>StatusLED: person_status BLUE
+                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+            end
         end
     end
 
-    Note over OAK,OpenAI: PHASE 3 - ONLY IF NOT RED - Face Detection for GREEN or BLUE
-
-    rect rgb(200, 255, 200)
-        Note over AudioNot: Secondary check - Only when RED threshold not met
-        
-        alt face_count > 0 for 2s AND status != RED
-            AudioNot->>AudioNot: Transition to GREEN unknown person
-            AudioNot->>StatusLED: person_status GREEN
-            StatusLED->>StatusLED: GPIO 17 LOW LED OFF
-        else face_count == 0 for 3s AND status != RED
-            AudioNot->>AudioNot: Transition to BLUE no person
-            AudioNot->>StatusLED: person_status BLUE
-            StatusLED->>StatusLED: GPIO 17 LOW LED OFF
-        end
-    end
-
-    Note over OAK,OpenAI: PHASE 4 - RED State Active - Gestures Authorized
+    Note over OAK,OpenAI: PHASE 3 - RED State Active Loop Monitoring
 
     rect rgb(255, 200, 200)
-        Note over GestInt: person_status RED - Gestures now work
-        ImgList->>ImgList: MediaPipe Hands detect index_finger_up
-        ImgList->>GestInt: gesture_event index_finger_up
-        GestInt->>GestInt: Gate check - person_status RED PASS
-        GestInt->>Speech: start_session service call
+        Note over AudioNot: RED state - Active engagement mode
+        
+        loop Every recognition match while RED
+            AudioNot->>AudioNot: Match detected - RESET 15s timer
+            AudioNot->>AudioNot: Update rolling buffer
+            Note over AudioNot: Timer continuously resets each match
+        end
+        
+        Note over AudioNot: IF no match for 15s RED timer expires
+        
+        alt RED timer expires 15s no match
+            AudioNot->>AudioNot: Check rolling buffer first
+            
+            alt Buffer still has recent matches
+                AudioNot->>AudioNot: Stay RED reset timer
+            else Buffer empty AND face_count > 0
+                AudioNot->>AudioNot: Transition to GREEN
+                AudioNot->>AudioNot: "Play Lost beep 5.mp3 5s duration"
+                AudioNot->>AudioNot: Cooldown 5s after loss
+                AudioNot->>StatusLED: person_status GREEN
+                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+            else Buffer empty AND face_count == 0
+                AudioNot->>AudioNot: Transition to BLUE
+                AudioNot->>AudioNot: "Play Lost beep 5.mp3"
+                AudioNot->>StatusLED: person_status BLUE
+                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+            end
+        end
     end
 
-    Note over OAK,OpenAI: PHASE 5 - Speech Session Active
+    Note over OAK,OpenAI: PHASE 4 - Gesture Detection Only When RED
+
+    rect rgb(255, 200, 200)
+        Note over ImgList,GestInt: Gestures GATED by RED status
+        
+        loop Every 67ms gesture_frame_skip=2
+            ImgList->>ImgList: Check if person_status == RED
+            
+            alt person_status == RED
+                ImgList->>ImgList: MediaPipe Hands detection ~50ms
+                ImgList->>ImgList: Extract 21 landmarks 63 features
+                ImgList->>ImgList: SVM classification ~10ms
+                ImgList->>ImgList: Gesture recognized index_finger_up
+                ImgList->>GestInt: gesture_event index_finger_up
+            else person_status != RED
+                ImgList->>ImgList: Skip gesture processing saves CPU
+            end
+        end
+        
+        Note over GestInt: Gesture gating and cooldowns
+        
+        GestInt->>GestInt: Check person_status == RED PASS
+        GestInt->>GestInt: Check cooldown_start 5s elapsed
+        GestInt->>GestInt: Check session not already active
+        GestInt->>GestInt: "Play ACK beep 12.mp3 immediate ~200ms"
+        GestInt->>Speech: start_session service call
+        GestInt->>GestInt: Update last_trigger_time
+    end
+
+    Note over OAK,OpenAI: PHASE 5 - Speech Session Initialization
 
     rect rgb(220, 255, 220)
-        Speech->>OpenAI: WebSocket connect
-        OpenAI-->>Speech: Connection established
-        Speech->>GestInt: session_status connected
-        GestInt->>GestInt: session_active true SPEAKING state
-        GestInt->>GestInt: Play Start beep 16mp3
-        Note over GestInt: Grace period 5s - VAD monitoring starts
+        Note over Speech: Warm start WebSocket already connected
+        
+        Speech->>Speech: SQLite create session ~10ms
+        Speech->>Speech: Start audio streaming 0ms handshake
+        Speech->>OpenAI: Audio chunks begin flowing 24kHz PCM16
+        Speech->>GestInt: "session_status connected JSON"
+        
+        GestInt->>GestInt: Set session_active TRUE
+        GestInt->>GestInt: Enter SPEAKING state
+        GestInt->>GestInt: Set vad_state silent FIXED BUG
+        GestInt->>GestInt: Set last_vad_activity_time NOW
+        GestInt->>GestInt: Start speaking_start_time for grace
+        GestInt->>GestInt: "Play READY beep 16.mp3 ~200ms"
+        
+        Note over GestInt: Grace period 5s ignore fist gestures
+        Note over GestInt: VAD timeout 30s starts immediately
     end
 
-    Note over OAK,OpenAI: PHASE 6 - Conversation with VAD Protection
+    Note over OAK,OpenAI: PHASE 6 - Conversation Loop with VAD Monitoring
 
     rect rgb(230, 230, 255)
-        Speech->>OpenAI: Audio stream user speaking
-        OpenAI-->>Speech: Audio response GPT4o
-        Speech->>GestInt: voice_activity speaking or silent
-        Note over GestInt: VAD speaking pauses 60s timer
-        Note over GestInt: VAD silent starts 60s timer
+        Note over Speech,GestInt: Continuous conversation cycle
+        
+        loop While session_active TRUE
+            Speech->>OpenAI: Microphone audio stream upload
+            OpenAI->>Speech: VAD event speech_started
+            Speech->>GestInt: "voice_activity speaking"
+            
+            GestInt->>GestInt: Set vad_state speaking
+            GestInt->>GestInt: Set last_vad_activity_time None
+            Note over GestInt: Timer PAUSED while speaking
+            
+            OpenAI->>Speech: VAD event speech_stopped
+            Speech->>GestInt: "voice_activity silent"
+            
+            GestInt->>GestInt: Set vad_state silent
+            GestInt->>GestInt: Set last_vad_activity_time NOW
+            Note over GestInt: 30s silence timer STARTS
+            
+            OpenAI->>Speech: GPT-4o response generation
+            OpenAI->>Speech: TTS audio synthesis 24kHz
+            Speech->>Speech: Audio playback via speaker
+        end
+        
+        Note over GestInt: Watchdog monitors every 10s
+        
+        loop Every 10s watchdog check
+            GestInt->>GestInt: Check if SPEAKING state
+            
+            alt vad_state == speaking
+                GestInt->>GestInt: Return user talking no timeout
+            else vad_state == silent
+                GestInt->>GestInt: Calculate time_silent
+                
+                alt time_silent > 30s
+                    GestInt->>GestInt: VAD timeout trigger
+                    GestInt->>Speech: stop_session VAD timeout
+                else time_silent mod 15 == 0
+                    Note over GestInt: "Log Silent for Xs / 30s remaining Y"
+                end
+            end
+        end
     end
 
-    Note over OAK,OpenAI: PHASE 7 - Manual Stop or Auto Timeout
+    Note over OAK,OpenAI: PHASE 7 - Session Stop Manual or Auto
 
     rect rgb(255, 220, 255)
-        alt Fist gesture detected
-            ImgList->>GestInt: gesture_event fist
-            GestInt->>Speech: stop_session manual
-        else VAD 60s silence timeout
-            GestInt->>Speech: stop_session vad_timeout
-        else Watchdog 35s no person
-            GestInt->>Speech: stop_session watchdog
+        Note over ImgList,GestInt: Three stop triggers possible
+        
+        alt Stop Trigger 1 Fist Gesture Two-Stage
+            Note over ImgList,GestInt: Two-stage confirmation prevents accidents
+            
+            loop Every 67ms gesture detection
+                ImgList->>ImgList: Detect fist gesture
+                ImgList->>GestInt: gesture_event fist
+                
+                GestInt->>GestInt: Check grace period 5s elapsed
+                GestInt->>GestInt: Add timestamp to fist_buffer
+                GestInt->>GestInt: Prune buffer older than 1.0s
+                GestInt->>GestInt: Count detections in 1.0s window
+            end
+            
+            alt Stage 1 count >= 2 in 1.0s
+                GestInt->>GestInt: "Play WARNING beep 7.mp3"
+                GestInt->>GestInt: Set fist_stage warning_played
+                GestInt->>GestInt: Clear buffer wait for release
+                Note over GestInt: User can cancel by releasing
+            end
+            
+            Note over GestInt: Wait for fist release detected
+            
+            alt Stage 2 fist again count >= 2 in 1.0s
+                GestInt->>GestInt: "Play STOP beep 20.mp3"
+                GestInt->>GestInt: Set stop_beep_already_played TRUE
+                GestInt->>GestInt: Exit SPEAKING state user_fist
+                GestInt->>Speech: stop_session manual
+            end
+        else Stop Trigger 2 VAD Silence Timeout
+            Note over GestInt: Watchdog detects 30s silence
+            
+            GestInt->>GestInt: Calculate time_silent 30s
+            GestInt->>GestInt: Exit SPEAKING state vad_timeout
+            GestInt->>Speech: stop_session auto VAD
+        else Stop Trigger 3 Watchdog No Person
+            Note over GestInt: Person leaves camera view
+            
+            loop Every 10s watchdog IDLE check
+                GestInt->>GestInt: Check person_status != RED
+                GestInt->>GestInt: Start absence timer if None
+                GestInt->>GestInt: Calculate time_since_red
+                
+                alt time_since_red > 35s AND session_active
+                    GestInt->>GestInt: "Idle watchdog 35s trigger"
+                    GestInt->>Speech: stop_session watchdog
+                end
+            end
         end
         
-        Speech->>OpenAI: WebSocket disconnect
-        Speech->>GestInt: session_status disconnected
-        GestInt->>GestInt: Play Stop beep 20mp3
-    end
-
-    Note over OAK,OpenAI: PHASE 8 - RED Timeout and Exit
-
-    rect rgb(200, 220, 255)
-        Note over AudioNot: RED timer 15s expires - no recognition matches
-        AudioNot->>AudioNot: Check rolling buffer FIRST
+        Note over Speech,GestInt: Session teardown sequence
         
-        alt Rolling buffer still has matches
-            AudioNot->>AudioNot: Stay RED reset timer
-        else Rolling buffer empty AND face_count > 0
-            AudioNot->>AudioNot: Transition to GREEN
-            AudioNot->>AudioNot: Play Lost beep 5mp3
-        else Rolling buffer empty AND face_count == 0
-            AudioNot->>AudioNot: Transition to BLUE
-            AudioNot->>AudioNot: Play Lost beep 5mp3
+        Speech->>Speech: Cancel speech_task
+        Speech->>Speech: Stop event_router
+        Speech->>Speech: Stop audio_manager
+        Speech->>Speech: Keep WebSocket connected warm
+        Speech->>GestInt: "session_status disconnected"
+        
+        GestInt->>GestInt: Set session_active FALSE
+        GestInt->>GestInt: Set speaking_state idle
+        GestInt->>GestInt: Clear all timers and buffers
+        
+        alt stop_beep_already_played == FALSE
+            GestInt->>GestInt: "Play STOP beep 20.mp3"
+        else
+            Note over GestInt: Beep already played by fist confirmation
         end
-        
-        AudioNot->>StatusLED: person_status BLUE or GREEN
-        StatusLED->>StatusLED: GPIO 17 LOW LED OFF
     end
 
-    Note over OAK,OpenAI: System returns to Phase 1 - Recognition continues
+    Note over OAK,OpenAI: PHASE 8 - Return to Monitoring Loop
+
+    Note over OAK,OpenAI: System returns to Phase 1
+    Note over OAK,OpenAI: Recognition continues at 6.5Hz
+    Note over OAK,OpenAI: Status machine monitors at 10Hz
+    Note over OAK,OpenAI: Ready for next interaction
 ```
 
 **Key Flow:**
