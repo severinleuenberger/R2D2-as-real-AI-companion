@@ -378,6 +378,12 @@ body {
     margin-bottom: 10px;
 }
 
+.test-buttons > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
 .btn-test {
     background: #30363d;
     color: #c9d1d9;
@@ -465,6 +471,28 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 168, 255, 0.7);
+}
+
+/* Documentation Links */
+.doc-link {
+    display: block;
+    font-size: 0.7rem;
+    color: #888;
+    text-decoration: none;
+    margin-top: 2px;
+    margin-bottom: 4px;
+    transition: color 0.2s;
+    text-align: left;
+}
+
+.doc-link:hover {
+    color: #00a8ff;
+    text-decoration: underline;
+}
+
+.doc-link::after {
+    content: " ↗";
+    font-size: 0.65rem;
 }
 
 /* Animations */
