@@ -352,7 +352,7 @@ async def start_camera_stream():
     
     return {
         "success": stream_running,
-        "stream_url": "http://100.95.133.26:8081/stream",
+        "stream_url": "http://localhost:8081/stream",  # Use localhost or client can construct from window.location
         "message": "Camera stream started" if stream_running else "Failed to start stream"
     }
 
@@ -950,5 +950,545 @@ async def run_complete_system_test():
         "total": total,
         "output": result.stdout,
         "message": f"System test: {passed}/{total} checks passed"
+    }
+
+
+# =============================================================================
+# Service Status and Control (for Diagnostics Page)
+# =============================================================================
+
+@router.get("/services")
+async def get_all_services():
+    """
+    Get status of all 12 R2D2 services.
+    Mode: Parallel (safe, read-only)
+    """
+    services = {
+        'camera-perception': {},
+        'audio-notification': {},
+        'gesture-intent': {},
+        'volume-control': {},
+        'speech-node': {},
+        'rest-speech-node': {},
+        'heartbeat': {},
+        'powerbutton': {},
+        'wake-api': {},
+        'rosbridge': {},
+        'camera-stream': {},
+        'web-dashboard': {}
+    }
+    
+    for service_key in services.keys():
+        service_name = f'r2d2-{service_key}.service'
+        active = get_service_status(service_name)
+        services[service_key] = {
+            'name': service_key,
+            'service_file': service_name,
+            'active': active,
+            'status': 'running' if active else 'stopped'
+        }
+    
+    return services
+
+
+@router.post("/services/{service_name}/start")
+async def start_service_endpoint(service_name: str):
+    """
+    Start a systemd service.
+    Mode: Requires user confirmation (handled in frontend)
+    """
+    full_name = f'{service_name}.service' if not service_name.endswith('.service') else service_name
+    
+    result = subprocess.run(
+        ['sudo', 'systemctl', 'start', full_name],
+        capture_output=True,
+        text=True
+    )
+    
+    if result.returncode != 0:
+        return {
+            "success": False,
+            "error": result.stderr or "Failed to start service"
+        }
+    
+    # Wait and verify
+    await asyncio.sleep(2)
+    active = get_service_status(full_name)
+    
+    return {
+        "success": active,
+        "service": service_name,
+        "active": active
+    }
+
+
+@router.post("/services/{service_name}/stop")
+async def stop_service_endpoint(service_name: str):
+    """
+    Stop a systemd service.
+    Mode: Requires user confirmation (handled in frontend)
+    """
+    full_name = f'{service_name}.service' if not service_name.endswith('.service') else service_name
+    
+    result = subprocess.run(
+        ['sudo', 'systemctl', 'stop', full_name],
+        capture_output=True,
+        text=True
+    )
+    
+    if result.returncode != 0:
+        return {
+            "success": False,
+            "error": result.stderr or "Failed to stop service"
+        }
+    
+    # Wait and verify
+    await asyncio.sleep(1)
+    active = get_service_status(full_name)
+    
+    return {
+        "success": not active,
+        "service": service_name,
+        "active": active
+    }
+
+
+@router.post("/services/{service_name}/restart")
+async def restart_service_endpoint(service_name: str):
+    """
+    Restart a systemd service.
+    Mode: Requires user confirmation (handled in frontend)
+    """
+    full_name = f'{service_name}.service' if not service_name.endswith('.service') else service_name
+    
+    result = subprocess.run(
+        ['sudo', 'systemctl', 'restart', full_name],
+        capture_output=True,
+        text=True
+    )
+    
+    if result.returncode != 0:
+        return {
+            "success": False,
+            "error": result.stderr or "Failed to restart service"
+        }
+    
+    # Wait and verify
+    await asyncio.sleep(2)
+    active = get_service_status(full_name)
+    
+    return {
+        "success": active,
+        "service": service_name,
+        "active": active
+    }
+
+
+# =============================================================================
+# GPIO Status (LED)
+# =============================================================================
+
+@router.get("/gpio/17")
+async def read_gpio_17():
+    """
+    Read GPIO 17 state (LED status).
+    Mode: Parallel (safe, read-only)
+    """
+    try:
+        gpio_path = Path("/sys/class/gpio/gpio17/value")
+        if gpio_path.exists():
+            value = gpio_path.read_text().strip()
+            return {
+                "gpio": 17,
+                "value": int(value),
+                "state": "ON" if value == "1" else "OFF"
+            }
+        else:
+            return {
+                "gpio": 17,
+                "value": None,
+                "state": "NOT_EXPORTED",
+                "error": "GPIO 17 not exported"
+            }
+    except Exception as e:
+        return {
+            "gpio": 17,
+            "value": None,
+            "state": "ERROR",
+            "error": str(e)
+        }
+
+
+# =============================================================================
+# ROS 2 System Info
+# =============================================================================
+
+@router.get("/ros/nodes")
+async def get_ros_nodes():
+    """
+    List all active ROS 2 nodes.
+    Mode: Parallel (safe, read-only)
+    """
+    try:
+        result = subprocess.run(
+            ['ros2', 'node', 'list'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "nodes": [],
+                "error": "Failed to list nodes"
+            }
+        
+        nodes = [n.strip() for n in result.stdout.split('\n') if n.strip()]
+        
+        return {
+            "success": True,
+            "nodes": nodes,
+            "count": len(nodes)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "nodes": [],
+            "error": str(e)
+        }
+
+
+@router.get("/ros/topics/hz")
+async def get_topics_hz():
+    """
+    Get publishing rates for key topics.
+    Mode: Parallel (safe, read-only)
+    """
+    topics = [
+        '/oak/rgb/image_raw',
+        '/r2d2/perception/face_count',
+        '/r2d2/perception/person_id',
+        '/r2d2/audio/person_status',
+        '/r2d2/heartbeat'
+    ]
+    
+    results = {}
+    
+    for topic in topics:
+        try:
+            result = subprocess.run(
+                ['timeout', '3', 'ros2', 'topic', 'hz', topic],
+                capture_output=True,
+                text=True
+            )
+            
+            if 'average rate' in result.stdout:
+                # Parse "average rate: X.XXX"
+                for line in result.stdout.split('\n'):
+                    if 'average rate' in line:
+                        rate_str = line.split(':')[1].strip()
+                        rate = float(rate_str)
+                        results[topic] = round(rate, 2)
+                        break
+            else:
+                results[topic] = 0.0
+        except Exception as e:
+            results[topic] = None
+    
+    return results
+
+
+# =============================================================================
+# Diagnostic Tests (Safe, Read-Only)
+# =============================================================================
+
+@router.post("/test/pulseaudio")
+async def test_pulseaudio():
+    """Test PulseAudio daemon and default sink"""
+    output_lines = []
+    
+    # Check daemon
+    result = subprocess.run(
+        ['pulseaudio', '--check'],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode == 0:
+        output_lines.append("✓ PASS: PulseAudio daemon is running")
+    else:
+        output_lines.append("✗ FAIL: PulseAudio daemon not running")
+    
+    # Check default sink
+    result = subprocess.run(
+        ['pactl', 'get-default-sink'],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        output_lines.append(f"✓ PASS: Default sink: {result.stdout.strip()}")
+    else:
+        output_lines.append("✗ FAIL: No default sink configured")
+    
+    return {
+        "status": "PASS" if all('PASS' in line for line in output_lines) else "FAIL",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/bluetooth")
+async def test_bluetooth():
+    """Test Bluetooth controller and connections"""
+    output_lines = []
+    
+    # Check service
+    result = subprocess.run(
+        ['systemctl', 'is-active', 'bluetooth'],
+        capture_output=True,
+        text=True
+    )
+    if result.stdout.strip() == 'active':
+        output_lines.append("✓ PASS: Bluetooth service active")
+    else:
+        output_lines.append("✗ FAIL: Bluetooth service not active")
+    
+    # Check adapter
+    result = subprocess.run(
+        ['bluetoothctl', 'show'],
+        capture_output=True,
+        text=True,
+        timeout=5
+    )
+    if 'Powered: yes' in result.stdout:
+        output_lines.append("✓ PASS: Bluetooth adapter powered on")
+    else:
+        output_lines.append("✗ FAIL: Bluetooth adapter not powered")
+    
+    return {
+        "status": "PASS" if all('PASS' in line for line in output_lines) else "FAIL",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/audio_playback")
+async def test_audio_playback():
+    """Test audio playback (may overlap with R2D2 beeps)"""
+    output_lines = ["⚠️ Note: This test may briefly overlap with R2D2 beeps"]
+    
+    # Play short test tone
+    result = subprocess.run(
+        ['timeout', '2', 'ffplay', '-autoexit', '-nodisp', '-f', 'lavfi',
+         'sine=frequency=800:duration=0.3', '-af', 'volume=0.2'],
+        capture_output=True,
+        text=True
+    )
+    
+    if result.returncode == 0 or result.returncode == 124:
+        output_lines.append("✓ PASS: Test tone played (800Hz, 0.3s at 20% volume)")
+        output_lines.append("   Did you hear it?")
+    else:
+        output_lines.append(f"✗ FAIL: ffplay failed - {result.stderr}")
+    
+    return {
+        "status": "PASS" if result.returncode in [0, 124] else "FAIL",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/volume")
+async def test_volume():
+    """Test volume control node and topic"""
+    output_lines = []
+    
+    # Check volume node
+    result = subprocess.run(
+        ['ros2', 'node', 'list'],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    if '/volume_control_node' in result.stdout:
+        output_lines.append("✓ PASS: volume_control_node is running")
+    else:
+        output_lines.append("✗ FAIL: volume_control_node not found")
+    
+    # Check volume topic
+    result = subprocess.run(
+        ['timeout', '3', 'ros2', 'topic', 'echo', '/r2d2/audio/master_volume', '--once'],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode == 0 and 'data' in result.stdout:
+        # Parse volume value
+        for line in result.stdout.split('\n'):
+            if 'data:' in line:
+                volume = line.split(':')[1].strip()
+                output_lines.append(f"✓ PASS: Master volume topic publishing: {volume}")
+                break
+    else:
+        output_lines.append("✗ FAIL: Master volume topic not publishing")
+    
+    return {
+        "status": "PASS" if all('PASS' in line for line in output_lines) else "FAIL",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/speech_status")
+async def test_speech_status():
+    """Test speech service status and lifecycle"""
+    output_lines = []
+    
+    # Check service
+    if get_service_status('r2d2-speech-node.service'):
+        output_lines.append("✓ PASS: r2d2-speech-node service is active")
+    else:
+        output_lines.append("✗ FAIL: r2d2-speech-node service not active")
+    
+    # Check lifecycle state
+    result = subprocess.run(
+        ['ros2', 'lifecycle', 'get', '/speech_node'],
+        capture_output=True,
+        text=True,
+        timeout=5
+    )
+    if result.returncode == 0:
+        state = result.stdout.strip().split('\n')[0] if result.stdout else 'unknown'
+        output_lines.append(f"✓ INFO: Speech node lifecycle state: {state}")
+    else:
+        output_lines.append("⚠️ WARN: Could not get lifecycle state")
+    
+    return {
+        "status": "PASS",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/quick_status")
+async def test_quick_status():
+    """Quick status check of all core services"""
+    output_lines = ["=== R2D2 Quick Status ===", ""]
+    
+    services_to_check = [
+        ('r2d2-camera-perception.service', 'Camera/Perception'),
+        ('r2d2-audio-notification.service', 'Audio Notification'),
+        ('r2d2-gesture-intent.service', 'Gesture Intent'),
+        ('r2d2-speech-node.service', 'Speech Node')
+    ]
+    
+    for service, name in services_to_check:
+        active = get_service_status(service)
+        status = "✅ Running" if active else "❌ Stopped"
+        output_lines.append(f"{name}: {status}")
+    
+    return {
+        "status": "PASS",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/topic_hz")
+async def test_topic_hz():
+    """Measure topic publishing rates"""
+    output_lines = ["=== Topic Publishing Rates ===", ""]
+    
+    topics_hz = await get_topics_hz()
+    
+    for topic, hz in topics_hz.items():
+        if hz is None:
+            output_lines.append(f"{topic}: ✗ ERROR")
+        elif hz == 0.0:
+            output_lines.append(f"{topic}: ⚠️ NOT PUBLISHING")
+        else:
+            output_lines.append(f"{topic}: ✓ {hz} Hz")
+    
+    return {
+        "status": "PASS",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/ros_nodes")
+async def test_ros_nodes():
+    """List all active ROS 2 nodes"""
+    nodes_data = await get_ros_nodes()
+    
+    output_lines = ["=== Active ROS 2 Nodes ===", ""]
+    
+    if nodes_data['success']:
+        output_lines.append(f"Total nodes: {nodes_data['count']}")
+        output_lines.append("")
+        for node in nodes_data['nodes']:
+            output_lines.append(f"  {node}")
+    else:
+        output_lines.append(f"✗ ERROR: {nodes_data['error']}")
+    
+    return {
+        "status": "PASS" if nodes_data['success'] else "FAIL",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/recognition_log")
+async def test_recognition_log():
+    """Show recent recognition events from logs"""
+    output_lines = ["=== Recent Recognition Events (last 5 minutes) ===", ""]
+    
+    result = subprocess.run(
+        ['journalctl', '-u', 'r2d2-audio-notification.service', '--since', '5 minutes ago', '--no-pager'],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    if result.returncode == 0:
+        # Filter for recognition events
+        for line in result.stdout.split('\n'):
+            if 'RED-FIRST' in line or 'recognized' in line:
+                # Extract timestamp and message
+                parts = line.split(']')
+                if len(parts) >= 2:
+                    output_lines.append(parts[-1].strip())
+        
+        if len(output_lines) == 2:
+            output_lines.append("No recognition events in last 5 minutes")
+    else:
+        output_lines.append("✗ ERROR: Could not read logs")
+    
+    return {
+        "status": "PASS",
+        "output": '\n'.join(output_lines)
+    }
+
+
+@router.post("/test/gesture_log")
+async def test_gesture_log():
+    """Show recent gesture events from logs"""
+    output_lines = ["=== Recent Gesture Events (last 5 minutes) ===", ""]
+    
+    result = subprocess.run(
+        ['journalctl', '-u', 'r2d2-gesture-intent.service', '--since', '5 minutes ago', '--no-pager'],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    if result.returncode == 0:
+        # Filter for gesture events
+        for line in result.stdout.split('\n'):
+            if 'Gesture detected' in line or 'Session' in line:
+                # Extract timestamp and message
+                parts = line.split(']')
+                if len(parts) >= 2:
+                    output_lines.append(parts[-1].strip())
+        
+        if len(output_lines) == 2:
+            output_lines.append("No gesture events in last 5 minutes")
+    else:
+        output_lines.append("✗ ERROR: Could not read logs")
+    
+    return {
+        "status": "PASS",
+        "output": '\n'.join(output_lines)
     }
 

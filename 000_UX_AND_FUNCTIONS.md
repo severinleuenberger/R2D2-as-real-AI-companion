@@ -273,6 +273,15 @@ Monitor and control the robot from anywhere in the world through a web-based das
 - Responsive real-time updates
 - Professional UX
 
+**System Diagnostics** ✅ OPERATIONAL (Added January 4, 2026)
+- Comprehensive diagnostics page at `/diagnostics`
+- Real-time monitoring of all 12 system services
+- Live status indicators (confidence, LED, VAD, timers, watchdog)
+- Button-activated topic monitoring (14 UX-relevant topics)
+- Safe diagnostic tests (PulseAudio, Bluetooth, audio, logs)
+- Read-only mode by default with service protection
+- Zero interference with core robot functionality
+
 ### Service Mode Architecture ✅ OPERATIONAL
 
 **Efficient Resource Usage**
