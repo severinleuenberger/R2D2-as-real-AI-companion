@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R2D2 Diagnostics</title>
+    <link rel="stylesheet" href="/static/css/diagnostics.css">
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+</head>
+<body>
+    <div class="diagnostics-container">
+        <header class="diagnostics-header">
+            <h1>🔧 R2D2 System Diagnostics</h1>
+            <div class="header-actions">
+                <a href="/" class="btn-back">← Back to Dashboard</a>
+            </div>
+        </header>
+
+        <!-- STATUS INDICATORS -->
+        <section class="panel status-indicators-panel">
+            <h2>Live Status Indicators</h2>
+            <div class="status-indicators">
+                <div class="indicator">
+                    <span class="indicator-label">Status:</span>
+                    <span id="status-value" class="status-badge">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Person:</span>
+                    <span id="person-value">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Confidence:</span>
+                    <div class="confidence-bar">
+                        <div id="confidence-fill" class="confidence-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="confidence-text">0%</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">LED:</span>
+                    <span id="led-value">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Faces:</span>
+                    <span id="faces-value">0</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Gesture:</span>
+                    <span id="gesture-value">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Phase:</span>
+                    <span id="phase-value">--</span>
+                </div>
+            </div>
+            <div class="status-indicators">
+                <div class="indicator">
+                    <span class="indicator-label">Speech:</span>
+                    <span id="speech-mode-value">🔇 OFF</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">VAD:</span>
+                    <span id="vad-value">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Silence:</span>
+                    <span id="silence-timer">--/60s</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Fist Stop:</span>
+                    <span id="fist-stop-value">--</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Cooldowns:</span>
+                    <span id="cooldowns-value">Start -- Stop --</span>
+                </div>
+                <div class="indicator">
+                    <span class="indicator-label">Watchdog:</span>
+                    <span id="watchdog-value">--/35s</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SERVICE STATUS -->
+        <section class="panel services-panel">
+            <div class="panel-header">
+                <h2>Service Status</h2>
+                <div class="mode-control">
+                    <span id="mode-indicator" class="mode-safe">🔒 READ-ONLY MODE</span>
+                    <button id="toggle-control-btn" class="btn-toggle-control" onclick="toggleControlMode()">
+                        🔓 Enable Control
+                    </button>
+                </div>
+            </div>
+            <div class="service-grid" id="service-grid">
+                <!-- Services will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- TOPIC MONITORS -->
+        <section class="panel topic-monitors-panel">
+            <h2>Topic Monitors (Click to Subscribe)</h2>
+            <div class="topic-categories">
+                <div class="topic-category">
+                    <h3>Perception</h3>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/face_count', 'std_msgs/Int32')">face_count</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/person_id', 'std_msgs/String')">person_id</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/face_confidence', 'std_msgs/Float32')">face_confidence</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/gesture_event', 'std_msgs/String')">gesture_event</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/face_bbox', 'geometry_msgs/Point')">face_bbox</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div class="topic-category">
+                    <h3>Audio</h3>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/audio/person_status', 'std_msgs/String')">person_status</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/audio/master_volume', 'std_msgs/Float32')">master_volume</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/260_VOLUME_CONTROL_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/audio/notification_event', 'std_msgs/String')">notification_event</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div class="topic-category">
+                    <h3>Speech</h3>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/session_status', 'std_msgs/String')">session_status</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/voice_activity', 'std_msgs/String')">voice_activity</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/user_transcript', 'std_msgs/String')">user_transcript</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/assistant_transcript', 'std_msgs/String')">assistant_transcript</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/intelligent/session_status', 'std_msgs/String')">rest_session_status</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/rest_user_transcript', 'std_msgs/String')">rest_user_transcript</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/rest_assistant_transcript', 'std_msgs/String')">rest_assistant_transcript</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div class="topic-category">
+                    <h3>System</h3>
+                    <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/heartbeat', 'std_msgs/String')">heartbeat</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/006_SYSTEM_STATUS_AND_MONITORING.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+            </div>
+            <div id="topic-output-container" class="topic-output-container" style="display: none;">
+                <div class="topic-output-header">
+                    <span id="active-topic-name">No topic selected</span>
+                    <button class="btn-stop-monitor" onclick="stopTopicMonitor()">Stop Monitor</button>
+                </div>
+                <div id="topic-output" class="topic-output"></div>
+            </div>
+        </section>
+
+        <!-- DIAGNOSTIC TESTS -->
+        <section class="panel tests-panel">
+            <h2>Diagnostic Tests</h2>
+            <div class="test-buttons">
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('pulseaudio')">PulseAudio</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/261_BLUETOOTH_AUDIO_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('bluetooth')">Bluetooth</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/261_BLUETOOTH_AUDIO_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test warn" onclick="runTest('audio_playback')" title="May briefly overlap with R2D2 beeps">Audio Playback*</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/260_VOLUME_CONTROL_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('volume')">Volume</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/260_VOLUME_CONTROL_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('speech_status')">Speech Status</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('quick_status')">Quick Status</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/005_SYSTEMD_SERVICES_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('topic_hz')">Topic Hz</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/001_ARCHITECTURE_OVERVIEW.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('ros_nodes')">ROS Nodes</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/001_ARCHITECTURE_OVERVIEW.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('recognition_log')">Recognition Log</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+                <div style="display: inline-block;">
+                    <button class="btn-test" onclick="runTest('gesture_log')">Gesture Log</button>
+                    <a href="https://github.com/severinleuenberger/R2D2-as-real-AI-companion/blob/main/dev/r2d2/100_PERCEPTION_STATUS_REFERENCE.md" target="_blank" class="doc-link">📖 Docs</a>
+                </div>
+            </div>
+            <div class="test-note">* Audio Playback may briefly overlap with R2D2 beeps</div>
+            <div id="test-output-container" class="test-output-container">
+                <div id="test-output" class="test-output"></div>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/js/diagnostics.js"></script>
+</body>
+</html>
+
