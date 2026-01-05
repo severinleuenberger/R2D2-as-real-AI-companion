@@ -22,6 +22,12 @@ The R2D2 speech system provides real-time speech-to-speech conversations using O
 
 **Historical Note:** Original planning documents (200-206, archived) specified a ReSpeaker 2-Mic HAT with local Whisper+Grok+Piper architecture. The actual implementation uses HyperX QuadCast S USB microphone with OpenAI Realtime API for superior quality and lower latency.
 
+**Cost Protection (January 2026):** Four-layer defense system prevents stuck sessions and API waste:
+1. **Emergency Cleanup:** Streaming loop exits trigger automatic cleanup
+2. **Health Check Timer:** 5-second monitoring detects dead WebSocket connections
+3. **Blue Auto-Stop:** Person leaving (BLUE status) immediately stops speech service
+4. **Gesture Gating:** Gestures only work when person_status==RED (prevents accidental triggers)
+
 ---
 
 ## Architecture Overview
@@ -1031,12 +1037,66 @@ ros2 topic hz /r2d2/speech/user_transcript
 - **Subtask 2:** Audio pipeline (AudioStreamManager, HyperX support)
 - **Subtask 3:** ROS2 integration (SpeechNode, ROS2Bridge)
 - **Completion Date:** December 17, 2025
+- **Cost Protection (January 5, 2026):** Four-layer anti-stuck system implemented
 
 ---
 
-**Document Version:** 1.2  
-**Last Updated:** January 2, 2026 (Added two-stage fist stop & timing analysis)  
-**Status:** Complete and operational  
+## Cost Protection & Anti-Stuck System (January 2026)
+
+### Problem Solved
+
+**Issue:** Speech service could get stuck with stale "connected" status when:
+- WebSocket connection silently fails
+- Person walks away but session remains active  
+- Network errors occur without proper cleanup
+- **Result:** Continued API billing with no active conversation
+
+### Four-Layer Defense System
+
+#### Layer 1: Emergency Cleanup (speech_node.py)
+**Protection:** Streaming loop always triggers cleanup on exit.
+
+#### Layer 2: Health Check Timer (speech_node.py)
+**Protection:** 5-second monitoring detects dead WebSocket connections.
+
+#### Layer 3: Blue Auto-Stop (gesture_intent_node.py)
+**Protection:** Person leaving (BLUE status) immediately stops service.
+
+#### Layer 4: Gesture Gating by Status (image_listener.py)
+**Protection:** Gestures only work when person_status==RED.
+
+### How They Work Together
+
+```
+Person Leaves → Gestures Stop (Layer 4)
+   ↓ (~15-20s)
+Status BLUE → Speech Stop Requested (Layer 3)
+   ↓
+Loop Exits → Emergency Cleanup (Layer 1)
+   ↓ (within 5s)
+Health Check Verifies (Layer 2)
+   ↓
+✅ API Connection Closed!
+```
+
+### Testing
+
+**Test Blue Auto-Stop:**
+```bash
+cd ~/dev/r2d2 && python3 tools/minimal_monitor.py
+# Start speech → Walk away → Watch status go RED→BLUE → Speech stops
+```
+
+**Test Health Check:**
+```bash
+journalctl -u r2d2-speech-node.service -f | grep -i "health\|cleanup"
+```
+
+---
+
+**Document Version:** 1.3  
+**Last Updated:** January 5, 2026 (Added four-layer cost protection system)  
+**Status:** Complete and operational with anti-stuck protections  
 **Hardware:** HyperX QuadCast S USB + PAM8403 Speaker  
 **API:** OpenAI Realtime API (GPT-4o + Whisper-1)  
 **Voice:** Sage (Star Wars R2-D2 personality)

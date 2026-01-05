@@ -13,6 +13,7 @@ from cv_bridge import CvBridge
 import cv2
 import time
 import os
+import json
 import numpy as np
 from r2d2_common.person_config import PersonConfig
 
@@ -254,6 +255,19 @@ class ImageListener(Node):
         self.gesture_frame_counter = 0
         self.last_person_id = None
         
+        # Track current person_status for gesture gating (from audio_notification_node)
+        # CRITICAL: Gestures should only be processed when person_status == "red"
+        # This prevents gestures from being detected when person has left (status == "blue")
+        self.person_status = None
+        
+        # Subscribe to person status for gesture gating
+        self.person_status_sub = self.create_subscription(
+            String,
+            '/r2d2/audio/person_status',
+            self.person_status_callback,
+            qos_profile=rclpy.qos.QoSProfile(depth=10)
+        )
+        
         if self.enable_gesture_recognition:
             try:
                 import mediapipe as mp
@@ -297,6 +311,29 @@ class ImageListener(Node):
         
         if self.gesture_recognizer_enabled:
             self.get_logger().info(f'Gesture recognition enabled (threshold={self.gesture_confidence_threshold}, frame_skip={self.gesture_frame_skip})')
+    
+    def person_status_callback(self, msg):
+        """
+        Track person status for gesture gating.
+        
+        This callback receives status updates from audio_notification_node and
+        stores the current status. Gestures are only processed when status == "red".
+        
+        Args:
+            msg: String message containing JSON status data
+        """
+        try:
+            status_data = json.loads(msg.data)
+            old_status = self.person_status
+            self.person_status = status_data.get('status', None)
+            
+            # Log status changes for debugging
+            if old_status != self.person_status:
+                self.get_logger().debug(f'Gesture gating: status changed {old_status} → {self.person_status}')
+        except json.JSONDecodeError as e:
+            self.get_logger().warn(f'Failed to parse person status: {e}')
+        except Exception as e:
+            self.get_logger().warn(f'Error in person_status_callback: {e}')
     
     def image_callback(self, msg: Image):
         """
@@ -454,16 +491,18 @@ class ImageListener(Node):
                     except Exception as e:
                         self.get_logger().error(f'Face recognition failed: {e}')
         
-        # Perform gesture recognition if enabled and ANY authorized person recognized
+        # Perform gesture recognition if enabled and person_status is RED
+        # CRITICAL: Gate by person_status, not last_person_id
+        # This prevents gestures from being processed when person has left (status != "red")
         if self.gesture_recognizer_enabled:
             # Use frame skip to manage CPU load
             self.gesture_frame_counter += 1
             if self.gesture_frame_counter >= self.gesture_frame_skip:
                 self.gesture_frame_counter = 0
                 
-                # MULTI-USER: Any recognized person (not "unknown", not empty) can use gestures
-                # The training itself is the authorization - if LBPH recognizes them, they're authorized
-                if self.last_person_id and self.last_person_id != "unknown":
+                # GATE BY STATUS: Only process gestures when person_status == "red"
+                # This is the primary fix to prevent stuck speech sessions
+                if self.person_status == "red":
                     try:
                         gesture_name, confidence = self._predict_gesture(downscaled)
                         

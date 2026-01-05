@@ -81,6 +81,9 @@ class SpeechNode(LifecycleNode):
         self.start_session_srv = None
         self.stop_session_srv = None
         
+        # Health check timer for connection monitoring
+        self.health_check_timer = None
+        
         # Master volume from physical volume knob
         self.master_volume = 1.0
         
@@ -157,6 +160,10 @@ class SpeechNode(LifecycleNode):
             else:
                 self.get_logger().info("Auto-start disabled")
             
+            # Create health check timer to monitor connection state (every 5 seconds)
+            self.health_check_timer = self.create_timer(5.0, self.check_connection_health)
+            self.get_logger().info("✓ Health check timer started (5s interval)")
+            
             self.status_publisher.publish_status("active")
             self.get_logger().info("Activation complete")
             return TransitionCallbackReturn.SUCCESS
@@ -170,6 +177,13 @@ class SpeechNode(LifecycleNode):
         self.get_logger().info("Deactivating...")
         
         try:
+            # Stop health check timer
+            if self.health_check_timer:
+                self.health_check_timer.cancel()
+                self.destroy_timer(self.health_check_timer)
+                self.health_check_timer = None
+                self.get_logger().info("✓ Health check timer stopped")
+            
             if self.streaming_active:
                 self._run_in_asyncio_loop(self._stop_streaming())
             if self.connection_ready:
@@ -357,9 +371,14 @@ class SpeechNode(LifecycleNode):
         await self._disconnect_client()
     
     async def _stream_audio_loop(self) -> None:
-        """Continuous audio streaming"""
+        """Continuous audio streaming WITH ERROR HANDLING"""
         try:
             while self.audio_manager and self.audio_manager.is_running:
+                # Check WebSocket health
+                if not self.client or not self.client.connected:
+                    self.get_logger().error("WebSocket disconnected during streaming!")
+                    break
+                
                 success = await self.audio_manager.process_and_send()
                 if not success:
                     await asyncio.sleep(0.01)
@@ -369,6 +388,47 @@ class SpeechNode(LifecycleNode):
             pass
         except Exception as e:
             self.get_logger().error(f"Streaming error: {e}")
+        finally:
+            # CRITICAL: Always cleanup on loop exit
+            await self._emergency_cleanup()
+    
+    async def _emergency_cleanup(self) -> None:
+        """
+        Cleanup after unexpected streaming failure.
+        
+        This ensures that if the streaming loop exits for ANY reason
+        (network failure, API error, WebSocket disconnect), we properly
+        update the status flags and notify other nodes.
+        """
+        if self.streaming_active:
+            self.get_logger().warn("⚠️  Emergency cleanup triggered - streaming loop exited unexpectedly")
+            self.streaming_active = False
+            self.status_publisher.publish_status("disconnected")
+            
+            # Stop audio manager if still running
+            if self.audio_manager and self.audio_manager.is_running:
+                try:
+                    await self.audio_manager.stop()
+                    self.get_logger().info("✓ Audio manager stopped")
+                except Exception as e:
+                    self.get_logger().error(f"Error stopping audio manager: {e}")
+    
+    def check_connection_health(self) -> None:
+        """
+        Periodic health check for WebSocket connection.
+        
+        Runs every 5 seconds to verify the connection is still alive.
+        If streaming is active but WebSocket is dead, trigger emergency cleanup.
+        """
+        if self.streaming_active:
+            if not self.client or not self.client.connected:
+                self.get_logger().error("🚨 Health check FAILED: WebSocket connection dead!")
+                self.get_logger().error("Triggering emergency cleanup...")
+                # Run cleanup in asyncio loop
+                try:
+                    self._run_in_asyncio_loop(self._emergency_cleanup())
+                except Exception as e:
+                    self.get_logger().error(f"Health check cleanup error: {e}")
     
     def _start_asyncio_loop(self) -> None:
         """Start asyncio loop in background thread"""

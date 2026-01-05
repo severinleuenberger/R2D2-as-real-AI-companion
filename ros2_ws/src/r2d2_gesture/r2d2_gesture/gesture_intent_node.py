@@ -222,6 +222,25 @@ class GestureIntentNode(Node):
             # Log status changes
             if old_status != self.person_status:
                 self.get_logger().debug(f'👤 Person status: {old_status} → {self.person_status}')
+            
+            # CRITICAL: BLUE AUTO-STOP - Person left, kill speech immediately to prevent API waste
+            # This is the primary defense against stuck speech sessions
+            if self.person_status == "blue":
+                # Stop Fast Mode (Realtime API) if active
+                if self.speaking_state == "speaking":
+                    self.get_logger().warn(
+                        f'🚨 BLUE status detected (was {old_status}). '
+                        'Person absent. Auto-stopping Fast Mode speech service to prevent API waste.'
+                    )
+                    self._exit_speaking_state(reason="person_absent_blue_status")
+                
+                # Stop R2-D2 Mode (REST APIs) if active
+                if self.intelligent_speaking_state == "speaking":
+                    self.get_logger().warn(
+                        f'🚨 BLUE status detected (was {old_status}). '
+                        'Person absent. Auto-stopping R2-D2 Mode speech service to prevent API waste.'
+                    )
+                    self._exit_intelligent_speaking_state(reason="person_absent_blue_status")
                 
             # Reset idle watchdog when person returns (for auto-restart feature)
             if self.person_status == "red":
