@@ -151,7 +151,7 @@ sequenceDiagram
     rect rgb(255, 200, 200)
         Note over ImgList,GestInt: Gestures GATED by RED status
         
-        loop Every 67ms gesture_frame_skip=2
+        loop Every 100ms gesture_frame_skip=3
             ImgList->>ImgList: Check if person_status == RED
             
             alt person_status == RED
@@ -803,7 +803,7 @@ face_recognition_model_path: "auto"  # Auto-resolved from PersonRegistry
 **Gesture Recognition:**
 ```yaml
 enable_gesture_recognition: true
-gesture_frame_skip: 5
+gesture_frame_skip: 3
 gesture_confidence_threshold: 0.7
 gesture_recognition_model_path: "auto"  # Auto-resolved from PersonRegistry
 target_person_gesture_name: "target_person"

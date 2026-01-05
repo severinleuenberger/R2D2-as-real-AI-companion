@@ -26,7 +26,7 @@ The R2D2 system is a modular ROS 2-based pipeline that provides seamless gesture
 - ✅ **Rolling Window Filter:** 4 recognition matches in 1.5s window for robust RED entry
 - ✅ **Multi-User Support:** Any trained person triggers RED via PersonRegistry auto-resolution
 - ✅ **Person-Specific Gestures:** MediaPipe + SVM gesture recognition (only active in RED status)
-- ✅ **Optimized Gesture Polling:** 15 Hz sampling (gesture_frame_skip=2) for snappy response
+- ✅ **Optimized Gesture Polling:** 10 Hz sampling (gesture_frame_skip=3) for snappy response
 - ✅ **Warm-Start Speech:** Persistent OpenAI connection eliminates 1.5s handshake delay
 - ✅ **Dual-Beep Feedback:** Immediate acknowledgment (~350ms) + ready confirmation (~750ms)
 - ✅ **VAD-Based Conversation Protection:** 60s silence timeout (immune to camera flickers)
@@ -877,7 +877,7 @@ AVAILABLE PARAMETERS:
   enable_gesture_recognition     (bool, default: false)
   gesture_recognition_model_path (string, default: ~/dev/r2d2/data/gesture_recognition/models/...)
   gesture_confidence_threshold   (float, default: 0.7)
-  gesture_frame_skip             (int, default: 5)
+  gesture_frame_skip             (int, default: 3)
   log_every_n_frames            (int, default: 30)
   log_face_detections           (bool, default: false)
   save_debug_gray_frame         (bool, default: false)
@@ -1025,7 +1025,7 @@ EXAMPLES:
 | | | `enable_gesture_recognition` | bool | false | Enable gesture recognition |
 | | | `gesture_recognition_model_path` | string | ~/dev/r2d2/data/... | Path to gesture model PKL |
 | | | `gesture_confidence_threshold` | float | 0.7 | Gesture confidence threshold |
-| | | `gesture_frame_skip` | int | 5 | Process every Nth frame for gestures |
+| | | `gesture_frame_skip` | int | 3 | Process every Nth frame for gestures |
 | **r2d2_audio** | audio_notification_node | `target_person` | string | "target_person" | Person to recognize |
 | | | `audio_volume` | float | 0.30 | Global volume (0.0-1.0) |
 | | | `jitter_tolerance_seconds` | float | 5.0 | Brief gap tolerance |
@@ -1055,7 +1055,7 @@ EXAMPLES:
 - **False Alarm Prevention:** Increase `jitter_tolerance_seconds` (e.g., 7.0) for noisy environments
 
 **Gesture Recognition:**
-- **CPU Optimization:** Increase `gesture_frame_skip` (e.g., 7 or 10) for lower CPU usage
+- **CPU Optimization:** Increase `gesture_frame_skip` (e.g., 5 or 7) for lower CPU usage
 - **Accuracy:** Lower `gesture_confidence_threshold` (e.g., 0.6) for more sensitive detection
 - **Responsiveness:** Lower `cooldown_start_seconds` (e.g., 3.0) for faster gesture recognition
 - **Cost Optimization:** Adjust `auto_shutdown_timeout_seconds` (e.g., 60.0 for 1 min, 300.0 for 5 min)

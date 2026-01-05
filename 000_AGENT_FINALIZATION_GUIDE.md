@@ -157,37 +157,9 @@ ls -la ~/dev/r2d2/*.md
 
 #### Security Pre-Commit Check (MANDATORY)
 
-⚠️ **Before ANY git commit, verify no sensitive data is being committed:**
+⚠️ **Before ANY git commit, run security checks from Core Rules.**
 
-```bash
-# Check for real Tailscale IPs (100.x.x.x range)
-grep -rE "100\.[0-9]+\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
-
-# Check for local network IPs (192.168.x.x range)
-grep -rE "192\.168\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
-
-# Check for email addresses
-grep -rE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" ~/dev/r2d2/*.md
-```
-
-**If real IPs or emails are found, replace with placeholders:**
-- `100.95.x.x` → `100.x.x.x`
-- `192.168.55.1` → `192.168.x.1`
-- `user@domain.com` → `user@example.com`
-
-**Security-sensitive items (NEVER commit):**
-- ❌ Real IP addresses (use placeholders like `100.x.x.x`)
-- ❌ API keys or tokens (use environment variables)
-- ❌ SSH key fingerprints
-- ❌ Real email addresses
-- ❌ Credentials or passwords
-
-**Safe to commit:**
-- ✅ Placeholder IPs and generic examples
-- ✅ Scripts using environment variables
-- ✅ Architecture documentation with sanitized examples
-
-**For detailed security guidelines, see:** `000_INTERNAL_AGENT_NOTES.md` (Security section)
+**For detailed security guidelines:** See [`000_AGENT_CORE_RULES.md`](000_AGENT_CORE_RULES.md) (Security section)
 
 #### Git Commit Checklist
 
@@ -215,134 +187,37 @@ grep -rE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" ~/dev/r2d2/*.md
 
 ## Git Best Practices
 
-### Commit Message Pattern
+### Commit Message Format
+
 ```
-<Type>: <Short summary (50 chars)>
+<type>: <Short summary (50 chars)>
 
-<Body: What changed, why, and measured results>
-
-Example:
----
-feat: Add audio volume parameter to audio notification node
-
-- Implement global audio_volume parameter (0.0-1.0)
-- Current default: 0.05 (5% - very quiet)
-- Tested: Audio plays at 50% volume as expected
-- Updated: Both source code and systemd service
-- Measured: Service restart successful, no errors
+<Body: What changed and why>
 ```
 
-**Commit types:**
-- `feat:` - New feature
-- `fix:` - Bug fix
-- `docs:` - Documentation only
-- `refactor:` - Code restructuring (no behavior change)
-- `perf:` - Performance improvement
-- `test:` - Adding tests
-- `chore:` - Build process, dependencies, config
+**Types:** `feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `chore:`
 
-### Before Every Push
+### Pre-Push Checklist
+
 ```bash
 git branch -a           # Verify on 'main'
-git log --oneline -3    # Check last 3 commits
 git status              # Clean working tree?
 git push origin main    # Push
 ```
 
-**Pre-push verification:**
-1. No uncommitted changes (`git status` clean)
-2. All files added (`git add` complete)
-3. Commit message is descriptive
-4. On correct branch (`main` or specified feature branch)
-5. No sensitive data in commit (API keys, passwords)
-
----
-
-## Example Workflow: Full Feature Finalization
-
-```bash
-# ========================================
-# Phase 3: Verification
-# ========================================
-
-# Test service restart
-sudo systemctl restart r2d2-your-service.service
-systemctl status r2d2-your-service.service
-
-# Test reboot (critical services only)
-sudo reboot
-
-# After reboot - verify auto-start
-systemctl status r2d2-your-service.service
-journalctl -u r2d2-your-service.service -n 50
-
-# Functional test (example: check ROS topic)
-ros2 topic echo /your/topic -n 5
-
-# Monitor stability
-watch -n 2 'systemctl status r2d2-your-service.service'
-# (Ctrl+C after 2-5 minutes if stable)
-
-# ========================================
-# Phase 4: Documentation
-# ========================================
-
-# Step 1: Search for existing documentation first
-grep -ri "your-feature" ~/dev/r2d2/*.md
-ls -la ~/dev/r2d2/*.md
-
-# Step 2: Update relevant documentation file (if needed)
-vim ~/dev/r2d2/2XX_YOUR_FEATURE.md
-
-# Document service in internal notes (if new patterns)
-vim ~/dev/r2d2/000_INTERNAL_AGENT_NOTES.md
-
-# ========================================
-# Phase 5: Git & Deployment
-# ========================================
-
-# Verify branch
-git branch  # Must show: * main
-
-# Add all changes
-git add .
-
-# Commit with descriptive message
-git commit -m "feat: add your-service with auto-start
-
-- Implemented feature X with parameters Y and Z
-- Service auto-starts on boot via systemd
-- Tested: survives reboot, runs for 5+ minutes stable
-- Documentation: Updated 2XX_YOUR_FEATURE.md with setup and usage
-- Verified: No resource conflicts, CPU usage within limits"
-
-# Verify commit
-git log -n 1
-
-# Check working tree is clean
-git status
-
-# Push to GitHub
-git push origin main
-
-# Verify on GitHub
-# (Open GitHub web interface and check commit appears)
-```
+**Verify:**
+1. No uncommitted changes
+2. Commit message is descriptive
+3. On correct branch
+4. No sensitive data in commit
 
 ---
 
 ## Common Finalization Issues
 
-### Issue: Service fails after reboot
+### Service fails after reboot
 
-**Symptoms:**
-- Service works when started manually
-- After reboot, service is `inactive (dead)`
-
-**Diagnosis:**
-```bash
-systemctl is-enabled r2d2-your-service.service  # Returns: disabled
-```
+**Diagnosis:** `systemctl is-enabled r2d2-your-service.service` returns `disabled`
 
 **Solution:**
 ```bash
@@ -350,65 +225,21 @@ sudo systemctl enable r2d2-your-service.service
 sudo systemctl start r2d2-your-service.service
 ```
 
----
-
-### Issue: Service starts but fails immediately
-
-**Symptoms:**
-- `systemctl status` shows `failed` or `exited`
+### Service starts but fails immediately
 
 **Diagnosis:**
 ```bash
 journalctl -u r2d2-your-service.service -n 50 --no-pager
 ```
 
-**Common causes:**
-- Missing environment variables (check `Environment=` in service file)
-- Wrong working directory (check `WorkingDirectory=` in service file)
-- Missing ROS 2 sourcing (add `source /opt/ros/humble/setup.bash` to ExecStartPre)
-- File permissions (ensure script is executable: `chmod +x`)
+**Common causes:** Missing env vars, wrong directory, missing ROS 2 sourcing, file permissions
 
----
-
-### Issue: Git push rejected
-
-**Symptoms:**
-```
-! [rejected]        main -> main (fetch first)
-error: failed to push some refs to 'origin'
-```
+### Git push rejected
 
 **Solution:**
 ```bash
-# Pull latest changes first
 git pull origin main
-
-# Resolve any conflicts if present
-# Then push again
-git push origin main
-```
-
----
-
-### Issue: Uncommitted changes blocking push
-
-**Symptoms:**
-```
-git status shows modified files
-```
-
-**Solution:**
-```bash
-# Add all changes
-git add .
-
-# Or selectively add files
-git add file1.py file2.md
-
-# Commit
-git commit -m "feat: descriptive message"
-
-# Push
+# Resolve conflicts if any
 git push origin main
 ```
 
@@ -457,5 +288,5 @@ systemctl list-units --failed
 
 **This document is for final deployment steps only. For development and testing, refer to `000_INTERNAL_AGENT_NOTES.md`.**
 
-**Last Updated:** January 2, 2026 - Enhanced Phase 4 with mandatory documentation discovery step to prevent duplicate documentation
+**Last Updated:** January 5, 2026 - Condensed for token efficiency (removed duplicate examples and security details now in Core Rules)
 

@@ -393,7 +393,7 @@ ros2 topic echo /r2d2/perception/face_confidence
 # 4. Check rolling window parameters
 ros2 param get /audio_notification_node red_entry_match_threshold
 ros2 param get /audio_notification_node red_entry_window_seconds
-# EXPECT: 3 and 1.0
+# EXPECT: 4 and 1.5
 ```
 
 **Solutions:**

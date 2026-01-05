@@ -934,7 +934,7 @@ sudo systemctl disable r2d2-<service>.service
 - Trade-off: Slower recognition response (~150ms slower per frame skip increment)
 
 **Gesture Recognition (if CPU constrained):**
-- Increase `gesture_frame_skip` (default: 5) → 7 or 10 for lower CPU usage
+- Increase `gesture_frame_skip` (default: 3) → 5 or 7 for lower CPU usage
 - Trade-off: Reduced responsiveness
 
 **Audio Alerts (if silent environment needed):**
