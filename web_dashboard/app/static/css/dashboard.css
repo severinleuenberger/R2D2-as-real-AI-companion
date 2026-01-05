@@ -405,6 +405,11 @@ body {
     animation: fadeIn 0.2s ease-in-out;
 }
 
+/* Show first view by default until JavaScript loads */
+.view-container[data-view="camera"] {
+    display: block;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
