@@ -9,77 +9,211 @@
 </head>
 <body>
     <div class="dashboard-container">
-        <header class="dashboard-header">
+        <!-- STICKY HEADER WITH CRITICAL STATUS -->
+        <header class="sticky-header">
             <h1>🤖 R2D2 System Monitor</h1>
-            <div class="header-right">
-                <a href="/diagnostics" class="diagnostics-link" title="Open System Diagnostics">
-                    🔧 Diagnostics
-                </a>
-                <button class="service-mode-btn" onclick="exitServiceMode()" title="Stop Web UI services and save resources">
-                    Exit Service Mode
-                </button>
+            <div class="critical-status-bar">
+                <!-- Recognition Status (Largest, Most Important) -->
+                <div class="status-recognition">
+                    <span class="status-color-dot" id="status-color-dot">●</span>
+                    <div class="status-details-mini">
+                        <div class="status-state" id="header-status-state">--</div>
+                        <div class="status-meta">
+                            <span id="header-person">--</span> •
+                            <span id="header-confidence">--%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Health (Green check, Yellow warning, or Red error) -->
+                <div class="status-health">
+                    <span class="health-icon" id="health-icon">--</span>
+                    <div class="health-info">
+                        <div class="health-text" id="health-text">Checking...</div>
+                        <div class="health-detail" id="health-detail">--</div>
+                    </div>
+                </div>
+                
+                <!-- Connection Status -->
+                <div class="status-connection">
+                    <span class="connection-dot" id="header-connection-dot">●</span>
+                    <div class="connection-info">
+                        <div class="connection-text" id="header-connection-text">Connecting...</div>
+                    </div>
+                </div>
+                
+                <!-- Service Mode Indicator (only when active) -->
+                <div class="status-service-mode" id="status-service-mode" style="display: none;">
+                    🔴 SERVICE MODE
+                </div>
+                
+                <!-- Instance Info -->
                 <div class="instance-info" id="instance-info">
                     <span class="instance-label">Instance:</span>
                     <span class="instance-id" id="instance-id">--</span>
                     <span class="instance-status" id="instance-status">--</span>
                 </div>
-                <div class="connection-status" id="connection-status">
-                    <div>
-                        <span class="status-indicator" id="ros-status">●</span>
-                        <span id="ros-status-text">Connecting...</span>
-                    </div>
-                    <span id="ros-status-details" class="status-details-text"></span>
-                </div>
             </div>
         </header>
 
-        <div class="dashboard-grid">
-            <!-- Left Column: Stacked Panels -->
-            <div class="left-column">
-                <!-- Top: Recognition Status (1/3 taller) -->
-                <div class="panel status-panel compact">
-                <h2>Recognition Status</h2>
-                <div class="status-display compact" id="status-display">
-                    <div class="status-color" id="status-color"></div>
-                    <div class="status-info">
-                        <div class="status-text" id="status-text">Service Not Running</div>
-                        <div class="status-details compact">
-                            <div>Person: <span id="person-id">no_person</span></div>
-                            <div>Confidence: <span id="confidence">0%</span></div>
-                            <div>Duration: <span id="duration">0s</span></div>
-                            <div>Faces: <span id="face-count">0</span></div>
-                        </div>
-                        <div class="status-service-message" id="status-service-message" style="display: none;">
-                            ⚠️ Audio service is not running.
-                        </div>
-                    </div>
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar" id="sidebar">
+            <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+            
+            <!-- PRIMARY NAVIGATION (Always expanded) -->
+            <nav class="nav-primary">
+                <a href="#camera" data-view="camera" class="nav-link">
+                    <span class="nav-icon">📹</span>
+                    <span class="nav-text">Camera Stream</span>
+                </a>
+                <a href="#metrics" data-view="metrics" class="nav-link">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Live Metrics</span>
+                </a>
+                <a href="#volume" data-view="volume" class="nav-link">
+                    <span class="nav-icon">🔊</span>
+                    <span class="nav-text">Volume</span>
+                </a>
+                <a href="#events" data-view="events" class="nav-link">
+                    <span class="nav-icon">📜</span>
+                    <span class="nav-text">Events</span>
+                </a>
+            </nav>
+            
+            <!-- CONTROL SECTION (Expanded by default) -->
+            <div class="nav-section" id="nav-section-control">
+                <div class="nav-section-title" onclick="toggleSection('control')">
+                    <span class="section-arrow" id="section-arrow-control">▼</span>
+                    <span class="section-text">Control</span>
                 </div>
-                <div class="recognition-controls">
-                    <div class="copyable-command" onclick="copyToClipboard('recognition-start-command')" title="Click to copy command">
-                        <span class="command-label">Start Recognition</span>
-                        <code id="recognition-start-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service && sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</code>
-                        <span class="copy-indicator">📋</span>
-                    </div>
-                    <div class="copyable-command" onclick="copyToClipboard('recognition-stop-command')" title="Click to copy command">
-                        <span class="command-label">Stop Recognition</span>
-                        <code id="recognition-stop-command" style="display: none;">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service</code>
-                        <span class="copy-indicator">📋</span>
-                    </div>
+                <nav class="nav-section-items" id="section-control">
+                    <a href="#control-services" data-view="control-services" class="nav-link">
+                        <span class="nav-icon">🎮</span>
+                        <span class="nav-text">Services</span>
+                    </a>
+                    <a href="#control-speech" data-view="control-speech" class="nav-link">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-text">Speech</span>
+                    </a>
+                    <a href="#control-gesture" data-view="control-gesture" class="nav-link">
+                        <span class="nav-icon">✋</span>
+                        <span class="nav-text">Gesture</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- SETUP SECTION (Collapsed by default) -->
+            <div class="nav-section collapsed" id="nav-section-setup">
+                <div class="nav-section-title" onclick="toggleSection('setup')">
+                    <span class="section-arrow" id="section-arrow-setup">▶</span>
+                    <span class="section-text">Setup</span>
                 </div>
-                <div class="command-hint" id="recognition-status-command">ros2 topic echo /r2d2/audio/person_status</div>
-                <div class="mode-indicator" id="mode-indicator">Mode: Idle</div>
-                <div class="status-stream-section">
-                    <h3>Status Stream</h3>
-                    <div class="status-stream-container" id="status-stream-container">
-                        <div class="status-stream-placeholder" id="status-stream-placeholder">
-                            Waiting for status updates... (Ensure rosbridge is running)
+                <nav class="nav-section-items" id="section-setup">
+                    <a href="#setup-training" data-view="setup-training" class="nav-link">
+                        <span class="nav-icon">👤</span>
+                        <span class="nav-text">Train Person</span>
+                    </a>
+                    <a href="#setup-parameters" data-view="setup-parameters" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-text">Parameters</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- ADMIN SECTION (Collapsed by default) -->
+            <div class="nav-section collapsed" id="nav-section-admin">
+                <div class="nav-section-title" onclick="toggleSection('admin')">
+                    <span class="section-arrow" id="section-arrow-admin">▶</span>
+                    <span class="section-text">Admin</span>
+                </div>
+                <nav class="nav-section-items" id="section-admin">
+                    <a href="#admin-database" data-view="admin-database" class="nav-link">
+                        <span class="nav-icon">🗄️</span>
+                        <span class="nav-text">Database</span>
+                    </a>
+                    <a href="#admin-diagnostics" data-view="admin-diagnostics" class="nav-link">
+                        <span class="nav-icon">🔧</span>
+                        <span class="nav-text">Diagnostics</span>
+                    </a>
+                    <a href="#admin-topics" data-view="admin-topics" class="nav-link">
+                        <span class="nav-icon">📡</span>
+                        <span class="nav-text">Topics</span>
+                    </a>
+                    <a href="#admin-tests" data-view="admin-tests" class="nav-link">
+                        <span class="nav-icon">🧪</span>
+                        <span class="nav-text">Tests</span>
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Exit Service Mode Button (at bottom) -->
+            <div class="sidebar-footer">
+                <button class="service-mode-btn" onclick="exitServiceMode()" title="Stop Web UI services and save resources">
+                    Exit Service Mode
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content" id="main-content">
+            <!-- VIEW 1: Camera Stream -->
+            <div class="view-container" data-view="camera">
+                <div class="panel camera-stream-panel">
+                    <h2>Camera Stream</h2>
+                    <div class="stream-controls">
+                        <button id="stream-toggle-btn" class="btn-stream" onclick="toggleStream()">
+                            Start Stream
+                        </button>
+                        <span class="stream-status" id="stream-status">Stopped</span>
+                    </div>
+                    <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
+                        <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
+                    </div>
+                    <div class="stream-placeholder" id="stream-placeholder">
+                        <p>Camera stream not active</p>
+                    </div>
+                    <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: Live Metrics Dashboard -->
+            <div class="view-container" data-view="metrics">
+                <!-- Recognition Status Panel -->
+                <div class="panel status-panel">
+                    <h2>Recognition Status</h2>
+                    <div class="status-display" id="status-display">
+                        <div class="status-color" id="status-color"></div>
+                        <div class="status-info">
+                            <div class="status-text" id="status-text">Service Not Running</div>
+                            <div class="status-details">
+                                <div>Person: <span id="person-id">no_person</span></div>
+                                <div>Confidence: <span id="confidence">0%</span></div>
+                                <div>Duration: <span id="duration">0s</span></div>
+                                <div>Faces: <span id="face-count">0</span></div>
+                            </div>
+                            <div class="status-service-message" id="status-service-message" style="display: none;">
+                                ⚠️ Audio service is not running.
+                            </div>
                         </div>
                     </div>
-                </div>
+                    <div class="recognition-controls">
+                        <div class="copyable-command" onclick="copyToClipboard('recognition-start-command')" title="Click to copy command">
+                            <span class="command-label">Start Recognition</span>
+                            <code id="recognition-start-command" style="display: none;">sudo systemctl stop r2d2-camera-stream.service && sudo systemctl start r2d2-camera-perception.service && sudo systemctl start r2d2-audio-notification.service</code>
+                            <span class="copy-indicator">📋</span>
+                        </div>
+                        <div class="copyable-command" onclick="copyToClipboard('recognition-stop-command')" title="Click to copy command">
+                            <span class="command-label">Stop Recognition</span>
+                            <code id="recognition-stop-command" style="display: none;">sudo systemctl stop r2d2-audio-notification.service && sudo systemctl stop r2d2-camera-perception.service</code>
+                            <span class="copy-indicator">📋</span>
+                        </div>
+                    </div>
+                    <div class="command-hint" id="recognition-status-command">ros2 topic echo /r2d2/audio/person_status</div>
+                    <div class="mode-indicator" id="mode-indicator">Mode: Idle</div>
                 </div>
 
-                <!-- Middle: System Health -->
-                <div class="panel health-panel compact">
+                <!-- System Health Panel -->
+                <div class="panel health-panel">
                     <h2>System Health</h2>
                     <div class="health-status">
                         <div class="health-indicator">
@@ -88,7 +222,7 @@
                         </div>
                         <div class="health-timestamp" id="health-timestamp">--</div>
                     </div>
-                    <div class="health-metrics compact">
+                    <div class="health-metrics">
                         <div class="health-metric">
                             <label>CPU</label>
                             <div class="metric-bar-container">
@@ -127,10 +261,10 @@
                     <div class="command-hint" id="health-command-hint">ros2 topic echo /r2d2/heartbeat</div>
                 </div>
 
-                <!-- Bottom: System Metrics -->
-                <div class="panel metrics-panel compact">
+                <!-- System Metrics Panel -->
+                <div class="panel metrics-panel">
                     <h2>System Metrics</h2>
-                    <div class="metrics-grid compact">
+                    <div class="metrics-grid">
                         <div class="metric">
                             <label>Camera</label>
                             <span id="camera-rate">-- Hz</span>
@@ -152,100 +286,331 @@
                 </div>
             </div>
 
-            <!-- Right Column: Camera Stream -->
-            <div class="panel camera-stream-panel center">
-                <h2>Camera Stream</h2>
-                <div class="stream-controls">
-                    <button id="stream-toggle-btn" class="btn-stream" onclick="toggleStream()">
-                        Start Stream
-                    </button>
-                    <span class="stream-status" id="stream-status">Stopped</span>
-                </div>
-                <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
-                    <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
-                </div>
-                <div class="stream-placeholder" id="stream-placeholder">
-                    <p>Camera stream not active</p>
-                </div>
-                <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
-            </div>
-
-            <!-- Database Access Panel -->
-            <div class="panel database-panel compact">
-                <h2>🗄️ Database Access</h2>
-                <div class="database-auth">
-                    <div class="api-key-input-group">
-                        <input type="password" id="db-api-key" placeholder="Enter API Key" 
-                               onchange="saveApiKey()" />
-                        <button class="btn-small" onclick="toggleApiKeyVisibility()" title="Show/Hide API Key">👁️</button>
-                    </div>
-                    <div class="api-key-status" id="api-key-status">Not configured</div>
-                </div>
-                <div class="database-info" id="database-info">
-                    <div class="db-loading">Loading database info...</div>
-                </div>
-                <div class="database-actions">
-                    <button class="btn-database" onclick="downloadDatabase('persons')" id="btn-download-persons">
-                        📥 Download persons.db
-                    </button>
-                    <button class="btn-database" onclick="downloadDatabase('conversations')" id="btn-download-conversations">
-                        📥 Download conversations.db
-                    </button>
-                </div>
-                <div class="database-help">
-                    <details>
-                        <summary>📋 Example SQL Queries</summary>
-                        <div class="query-examples" id="query-examples">
-                            <p>Loading examples...</p>
+            <!-- VIEW 3: Volume Control -->
+            <div class="view-container" data-view="volume">
+                <div class="panel volume-panel">
+                    <h2>Audio Volume Control</h2>
+                    <div class="volume-control">
+                        <div class="volume-slider-container">
+                            <label for="volume-slider">Volume: <span id="volume-display">--</span>%</label>
+                            <input type="range" id="volume-slider" min="0" max="100" value="5" 
+                                   oninput="updateVolumeDisplay(this.value)" 
+                                   onchange="setVolume(this.value)" />
                         </div>
-                    </details>
+                        <div class="volume-presets">
+                            <button class="btn-preset" onclick="setVolumePreset(2)">Quiet (2%)</button>
+                            <button class="btn-preset" onclick="setVolumePreset(25)">Medium (25%)</button>
+                            <button class="btn-preset" onclick="setVolumePreset(50)">Loud (50%)</button>
+                        </div>
+                        <div class="volume-status" id="volume-status">Loading...</div>
+                    </div>
+                    <div class="audio-parameters" id="audio-parameters">
+                        <h3>Audio Parameters</h3>
+                        <div class="parameter-list" id="parameter-list">Loading...</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Lower-Right: Training -->
-            <div class="panel training-panel">
-                <h2>Face Recognition Training</h2>
-                <div class="training-menu">
-                    <div class="training-option">
-                        <button class="training-btn" onclick="startTraining(1)">[1] Train New Person</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
+            <!-- VIEW 4: Recent Events -->
+            <div class="view-container" data-view="events">
+                <div class="panel events-panel">
+                    <h2>Event Stream</h2>
+                    <div class="events-controls">
+                        <button class="btn-clear" onclick="clearEvents()">Clear Events</button>
+                        <label><input type="checkbox" id="auto-scroll-events" checked> Auto-scroll</label>
                     </div>
-                    <div class="training-option">
-                        <button class="training-btn" onclick="startTraining(2)">[2] Add More Pictures</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
-                    </div>
-                    <div class="training-option">
-                        <button class="training-btn" onclick="startTraining(3)">[3] Retrain Model</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
-                    </div>
-                    <div class="training-option">
-                        <button class="training-btn" onclick="startTraining(4)">[4] Test Accuracy</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
-                    </div>
-                    <div class="training-option">
-                        <button class="training-btn" onclick="startTraining(5)">[5] Real-time Test</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
-                    </div>
-                    <div class="training-option">
-                        <button class="training-btn" onclick="listPeople()">[6] List People/Models</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
-                    </div>
-                    <div class="training-option">
-                        <button class="training-btn danger" onclick="showDeleteDialog()">[7] Delete Person</button>
-                        <div class="command-hint training-command-hint" style="display: none;"></div>
+                    <div class="status-stream-container" id="status-stream-container">
+                        <div class="status-stream-placeholder" id="status-stream-placeholder">
+                            Waiting for status updates... (Ensure rosbridge is running)
+                        </div>
                     </div>
                 </div>
-                <div class="person-input">
-                    <input type="text" id="person-name-input" placeholder="Person name (e.g., alice)" />
-                </div>
-                <div class="training-status" id="training-status" style="display: none;">
-                    <h3>Training Status</h3>
-                    <div class="training-progress" id="training-progress"></div>
-                    <div class="training-logs" id="training-logs"></div>
-                </div>
-                <div class="people-list" id="people-list"></div>
             </div>
-        </div>
+
+            <!-- VIEW 5: Service Control -->
+            <div class="view-container" data-view="control-services">
+                <div class="panel services-control-panel">
+                    <h2>Service Control</h2>
+                    <div class="services-grid" id="services-grid">
+                        <!-- Services will be populated by JavaScript -->
+                        <p>Loading services...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 6: Speech Status -->
+            <div class="view-container" data-view="control-speech">
+                <div class="panel speech-panel">
+                    <h2>Speech & Conversation Status</h2>
+                    <div class="speech-status">
+                        <div class="status-item">
+                            <label>Session Status:</label>
+                            <span id="speech-session-status">--</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Voice Activity:</label>
+                            <span id="speech-vad-status">--</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Silence Timer:</label>
+                            <span id="speech-silence-timer">--/60s</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Speech Mode:</label>
+                            <span id="speech-mode-indicator">--</span>
+                        </div>
+                    </div>
+                    <div class="speech-transcripts">
+                        <h3>Recent Transcripts</h3>
+                        <div class="transcript-list" id="transcript-list">
+                            <p class="placeholder">No transcripts yet...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 7: Gesture Status -->
+            <div class="view-container" data-view="control-gesture">
+                <div class="panel gesture-panel">
+                    <h2>Gesture Detection Status</h2>
+                    <div class="gesture-status">
+                        <div class="status-item">
+                            <label>Current Gesture:</label>
+                            <span id="gesture-current">--</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Confidence:</label>
+                            <span id="gesture-confidence">--</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Cooldown (Start):</label>
+                            <span id="gesture-cooldown-start">--</span>
+                        </div>
+                        <div class="status-item">
+                            <label>Cooldown (Stop):</label>
+                            <span id="gesture-cooldown-stop">--</span>
+                        </div>
+                    </div>
+                    <div class="gesture-events">
+                        <h3>Recent Gesture Events</h3>
+                        <div class="gesture-log" id="gesture-log">
+                            <p class="placeholder">No gestures detected yet...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 8: Training -->
+            <div class="view-container" data-view="setup-training">
+                <div class="panel training-panel">
+                    <h2>Face Recognition Training</h2>
+                    <div class="training-menu">
+                        <div class="training-option">
+                            <button class="training-btn" onclick="startTraining(1)">[1] Train New Person</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn" onclick="startTraining(2)">[2] Add More Pictures</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn" onclick="startTraining(3)">[3] Retrain Model</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn" onclick="startTraining(4)">[4] Test Accuracy</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn" onclick="startTraining(5)">[5] Real-time Test</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn" onclick="listPeople()">[6] List People/Models</button>
+                        </div>
+                        <div class="training-option">
+                            <button class="training-btn danger" onclick="showDeleteDialog()">[7] Delete Person</button>
+                        </div>
+                    </div>
+                    <div class="person-input">
+                        <input type="text" id="person-name-input" placeholder="Person name (e.g., alice)" />
+                    </div>
+                    <div class="training-status" id="training-status" style="display: none;">
+                        <h3>Training Status</h3>
+                        <div class="training-progress" id="training-progress"></div>
+                        <div class="training-logs" id="training-logs"></div>
+                    </div>
+                    <div class="people-list" id="people-list"></div>
+                </div>
+            </div>
+
+            <!-- VIEW 9: Parameters -->
+            <div class="view-container" data-view="setup-parameters">
+                <div class="panel parameters-panel">
+                    <h2>System Parameters</h2>
+                    <p>Advanced parameter configuration coming soon...</p>
+                    <div class="parameter-groups">
+                        <div class="parameter-group">
+                            <h3>Audio Parameters</h3>
+                            <div id="audio-params-detailed">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 10: Database Access -->
+            <div class="view-container" data-view="admin-database">
+                <div class="panel database-panel">
+                    <h2>🗄️ Database Access</h2>
+                    <div class="database-auth">
+                        <div class="api-key-input-group">
+                            <input type="password" id="db-api-key" placeholder="Enter API Key" 
+                                   onchange="saveApiKey()" />
+                            <button class="btn-small" onclick="toggleApiKeyVisibility()" title="Show/Hide API Key">👁️</button>
+                        </div>
+                        <div class="api-key-status" id="api-key-status">Not configured</div>
+                    </div>
+                    <div class="database-info" id="database-info">
+                        <div class="db-loading">Loading database info...</div>
+                    </div>
+                    <div class="database-actions">
+                        <button class="btn-database" onclick="downloadDatabase('persons')" id="btn-download-persons">
+                            📥 Download persons.db
+                        </button>
+                        <button class="btn-database" onclick="downloadDatabase('conversations')" id="btn-download-conversations">
+                            📥 Download conversations.db
+                        </button>
+                    </div>
+                    <div class="database-help">
+                        <details>
+                            <summary>📋 Example SQL Queries</summary>
+                            <div class="query-examples" id="query-examples">
+                                <p>Loading examples...</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 11: Diagnostics (Status Indicators) -->
+            <div class="view-container" data-view="admin-diagnostics">
+                <div class="panel diagnostics-panel">
+                    <h2>System Diagnostics - Status Indicators</h2>
+                    <div class="status-indicators">
+                        <div class="indicator">
+                            <span class="indicator-label">Status:</span>
+                            <span id="diag-status-value" class="status-badge">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Person:</span>
+                            <span id="diag-person-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Confidence:</span>
+                            <div class="confidence-bar">
+                                <div id="diag-confidence-fill" class="confidence-fill" style="width: 0%"></div>
+                            </div>
+                            <span id="diag-confidence-text">0%</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">LED:</span>
+                            <span id="diag-led-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Faces:</span>
+                            <span id="diag-faces-value">0</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Gesture:</span>
+                            <span id="diag-gesture-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Phase:</span>
+                            <span id="diag-phase-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Speech:</span>
+                            <span id="diag-speech-mode-value">🔇 OFF</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">VAD:</span>
+                            <span id="diag-vad-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Silence:</span>
+                            <span id="diag-silence-timer">--/60s</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Fist Stop:</span>
+                            <span id="diag-fist-stop-value">--</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Cooldowns:</span>
+                            <span id="diag-cooldowns-value">Start -- Stop --</span>
+                        </div>
+                        <div class="indicator">
+                            <span class="indicator-label">Watchdog:</span>
+                            <span id="diag-watchdog-value">--/35s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 12: Topic Monitors -->
+            <div class="view-container" data-view="admin-topics">
+                <div class="panel topics-panel">
+                    <h2>Topic Monitors (Click to Subscribe)</h2>
+                    <div class="topic-categories">
+                        <div class="topic-category">
+                            <h3>Perception</h3>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/face_count', 'std_msgs/Int32')">face_count</button>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/person_id', 'std_msgs/String')">person_id</button>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/face_confidence', 'std_msgs/Float32')">face_confidence</button>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/perception/gesture_event', 'std_msgs/String')">gesture_event</button>
+                        </div>
+                        <div class="topic-category">
+                            <h3>Audio</h3>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/audio/person_status', 'std_msgs/String')">person_status</button>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/audio/master_volume', 'std_msgs/Float32')">master_volume</button>
+                        </div>
+                        <div class="topic-category">
+                            <h3>Speech</h3>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/session_status', 'std_msgs/String')">session_status</button>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/speech/voice_activity', 'std_msgs/String')">voice_activity</button>
+                        </div>
+                        <div class="topic-category">
+                            <h3>System</h3>
+                            <button class="btn-monitor" onclick="startTopicMonitor('/r2d2/heartbeat', 'std_msgs/String')">heartbeat</button>
+                        </div>
+                    </div>
+                    <div id="topic-output-container" class="topic-output-container" style="display: none;">
+                        <div class="topic-output-header">
+                            <span id="active-topic-name">No topic selected</span>
+                            <button class="btn-stop-monitor" onclick="stopTopicMonitor()">Stop Monitor</button>
+                        </div>
+                        <div id="topic-output" class="topic-output"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 13: Diagnostic Tests -->
+            <div class="view-container" data-view="admin-tests">
+                <div class="panel tests-panel">
+                    <h2>Diagnostic Tests</h2>
+                    <div class="test-buttons">
+                        <button class="btn-test" onclick="runTest('pulseaudio')">PulseAudio</button>
+                        <button class="btn-test" onclick="runTest('bluetooth')">Bluetooth</button>
+                        <button class="btn-test warn" onclick="runTest('audio_playback')" title="May briefly overlap with R2D2 beeps">Audio Playback*</button>
+                        <button class="btn-test" onclick="runTest('volume')">Volume</button>
+                        <button class="btn-test" onclick="runTest('speech_status')">Speech Status</button>
+                        <button class="btn-test" onclick="runTest('quick_status')">Quick Status</button>
+                        <button class="btn-test" onclick="runTest('topic_hz')">Topic Hz</button>
+                        <button class="btn-test" onclick="runTest('ros_nodes')">ROS Nodes</button>
+                        <button class="btn-test" onclick="runTest('recognition_log')">Recognition Log</button>
+                        <button class="btn-test" onclick="runTest('gesture_log')">Gesture Log</button>
+                    </div>
+                    <div class="test-note">* Audio Playback may briefly overlap with R2D2 beeps</div>
+                    <div id="test-output-container" class="test-output-container">
+                        <div id="test-output" class="test-output"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Delete Confirmation Dialog -->
@@ -282,19 +647,9 @@
             }
             
             try {
-                // Call the Wake API stop endpoint (cross-origin request to port 8079)
-                // Note: We use the hostname from the current URL to match the Tailscale IP
                 const wakeApiUrl = `http://${window.location.hostname}:8079/api/stop`;
-                
-                // We use no-cors because we just want to fire the request, we can't read the response due to CORS
-                // However, the browser might block it. A better way is to have the main API proxy it or just fire and forget.
-                // Since we are stopping *this* server, the request might fail anyway.
-                
-                // Alternative: Add an endpoint to THIS server to stop itself
-                // But let's try calling the Wake API first.
                 await fetch(wakeApiUrl, { method: 'POST', mode: 'no-cors' });
                 
-                // Redirect to Wake API
                 setTimeout(() => {
                     window.location.href = `http://${window.location.hostname}:8079`;
                 }, 1000);
@@ -307,5 +662,3 @@
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>
-
-
