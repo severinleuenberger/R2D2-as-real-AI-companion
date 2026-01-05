@@ -61,11 +61,45 @@ grep -rE "192\.168\.[0-9]+\.[0-9]+" ~/dev/r2d2/*.md
 grep -rE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" ~/dev/r2d2/*.md
 ```
 
-### 3. Branch Policy
+### 3. Git Workflow: Main + Tags 🏷️
 
-**Default:** Work on `main` branch  
-**Never use:** `master` (deleted)  
-**Exception:** Task-specific instructions may override
+**Simple Workflow (For Beginners):**
+
+1. **Work on `main` branch** (default)
+2. **Create golden tags** when everything works
+3. **Rollback if needed** using tags
+
+**Creating a Golden Tag:**
+```bash
+# After testing and confirming everything works:
+git tag -a golden-YYYY-MM-DD -m "Brief description of what's working"
+git push origin golden-YYYY-MM-DD
+```
+
+**Viewing All Golden Tags:**
+```bash
+git tag -l "golden-*"
+```
+
+**Rolling Back to a Golden Point:**
+```bash
+# Create a backup branch first (optional but safe):
+git branch backup-before-rollback
+
+# Roll back to the golden tag:
+git reset --hard golden-YYYY-MM-DD
+
+# If you also want to update GitHub (use with caution):
+git push --force origin main
+```
+
+**Important Notes:**
+- Tags are **permanent checkpoints** you can always return to
+- They're simpler than branches (no merging needed)
+- Golden tags = "known good states"
+- Never use `master` branch (deleted)
+
+**Advanced Users:** Task-specific instructions may override with feature branches
 
 ### 4. Code is Truth 🔍
 
