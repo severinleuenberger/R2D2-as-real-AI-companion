@@ -1,0 +1,18 @@
+[Unit]
+Description=R2D2 Tilt Tracking Service (Face Tracking Servo)
+Documentation=file:///home/severin/dev/r2d2/400_HEAD_TRACKING_REFERENCE.md
+After=network.target r2d2-camera-perception.service
+Wants=r2d2-audio-notification.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
+Environment="OPENBLAS_CORETYPE=ARMV8"
+ExecStart=/bin/bash -c 'source /opt/ros/humble/setup.bash && source /home/severin/dev/r2d2/ros2_ws/install/setup.bash && ros2 launch r2d2_head_control tilt_tracking.launch.py'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

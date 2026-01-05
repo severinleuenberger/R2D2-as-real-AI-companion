@@ -54,6 +54,25 @@ body {
     gap: 15px;
 }
 
+.diagnostics-link {
+    background-color: #30363d;
+    color: #c9d1d9;
+    border: 1px solid #8b949e;
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    margin-right: 15px;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.diagnostics-link:hover {
+    background-color: #00a8ff;
+    color: white;
+    border-color: #00a8ff;
+}
+
 .service-mode-btn {
     background-color: #30363d;
     color: #c9d1d9;

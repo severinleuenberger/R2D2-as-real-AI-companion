@@ -593,6 +593,150 @@ curl -H "X-API-Key: $(cat ~/.r2d2/database_api_key)" \
 
 ---
 
+## Diagnostics Page
+
+**Added:** January 4, 2026  
+**URL:** `/diagnostics`  
+**Purpose:** Comprehensive system diagnostics and monitoring with safety-first design
+
+### Overview
+
+The Diagnostics page provides complete visibility into all R2D2 system components without risking core UX functionality. It operates in **read-only mode by default** with protection levels for critical services.
+
+### Key Features
+
+**Real-Time Status Indicators (13 indicators):**
+- Status (RED/GREEN/BLUE), Person, Confidence (with color-coded bar), LED state
+- Faces, Gesture, Phase, Speech Mode
+- VAD state, Silence Timer, Fist Stop Progress, Cooldowns, Watchdog Timer
+
+**Service Status Grid (12 services):**
+- Displays all systemd services with accurate status badges
+- Protection levels: 🛡️ Critical (red), ⚡ High (yellow), unmarked Low
+- Read-only mode hides control buttons by default
+- Control mode requires explicit activation + confirmations
+
+**Button-Activated Topic Monitoring:**
+- Click to subscribe to any of 14 UX-relevant topics
+- Categories: Perception, Audio, Speech, System
+- Live streaming output with auto-scroll
+- One topic at a time (or switch easily)
+
+**Diagnostic Tests (10 safe tests):**
+- PulseAudio, Bluetooth, Audio Playback, Volume, Speech Status
+- Quick Status, Topic Hz, ROS Nodes, Recognition Log, Gesture Log
+- All tests are read-only and safe to run in parallel with R2D2 operation
+
+### Safety Architecture
+
+**Protection Levels:**
+
+| Level | Services | Confirmation Required |
+|-------|----------|----------------------|
+| **Critical** (🛡️) | camera-perception, audio-notification, gesture-intent | Double confirmation with warning |
+| **High** (⚡) | speech-node, rest-speech-node, volume-control | Single confirmation with warning |
+| **Low** | rosbridge, camera-stream, heartbeat, powerbutton, wake-api, web-dashboard | Standard confirmation |
+
+**Safety Features:**
+- Read-only mode by default (service control hidden)
+- Must explicitly enable control mode
+- Critical services require two confirmations
+- Clear warnings about UX functionality impact
+- Graceful degradation when services unavailable
+
+### Status Indicators Details
+
+| Indicator | Source | Update Rate | Description |
+|-----------|--------|-------------|-------------|
+| Status | `/r2d2/audio/person_status` | 10 Hz | RED/GREEN/BLUE state |
+| Person | `/r2d2/audio/person_status` | 10 Hz | Recognized person name |
+| Confidence | `/r2d2/perception/face_confidence` | 6.5 Hz | 0-100% with color bar |
+| LED | GPIO 17 read | 2s | Actual hardware state |
+| Faces | `/r2d2/perception/face_count` | 13 Hz | Number of faces |
+| Gesture | `/r2d2/perception/gesture_event` | Event | ☝️/✊/🖐️ (clears after 2s) |
+| Phase | Computed | 500ms | Phase 1-7 based on state |
+| Speech Mode | Both session topics | Event | Fast/R2-D2/OFF |
+| VAD | `/r2d2/speech/voice_activity` | Event | Speaking/Silent |
+| Silence Timer | Computed from VAD | 500ms | Countdown to timeout |
+| Fist Stop | Gesture + timing | 500ms | Stage 1/2 progress |
+| Cooldowns | Internal state | 500ms | Start/Stop indicators |
+| Watchdog | Computed from status | 500ms | 35s countdown |
+
+### Topic Monitors
+
+**Available Topics (14 total):**
+
+**Perception:**
+- `/r2d2/perception/face_count` (Int32, 13 Hz)
+- `/r2d2/perception/person_id` (String, 6.5 Hz)
+- `/r2d2/perception/face_confidence` (Float32, 6.5 Hz)
+- `/r2d2/perception/gesture_event` (String, Event)
+- `/r2d2/perception/face_bbox` (Point, 13 Hz)
+
+**Audio:**
+- `/r2d2/audio/person_status` (String JSON, 10 Hz)
+- `/r2d2/audio/master_volume` (Float32, Event)
+- `/r2d2/audio/notification_event` (String, Event)
+
+**Speech:**
+- `/r2d2/speech/session_status` (String JSON, Event)
+- `/r2d2/speech/voice_activity` (String JSON, Event)
+- `/r2d2/speech/user_transcript` (String, Event)
+- `/r2d2/speech/assistant_transcript` (String, Event)
+- `/r2d2/speech/intelligent/session_status` (String JSON, Event)
+- `/r2d2/speech/rest_user_transcript` (String, Event)
+- `/r2d2/speech/rest_assistant_transcript` (String, Event)
+
+**System:**
+- `/r2d2/heartbeat` (String JSON, 1 Hz)
+
+**For complete topic definitions, see:** [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) Section 2.3
+
+### Diagnostic Tests
+
+| Test | What It Checks | Safe? |
+|------|----------------|-------|
+| PulseAudio | PA daemon, default sink | ✅ Yes |
+| Bluetooth | BT service, adapter, devices | ✅ Yes |
+| Audio Playback | Test tone (0.3s, 20% volume) | ⚠️ May overlap |
+| Volume | Volume node, topic publishing | ✅ Yes |
+| Speech Status | Service active, lifecycle state | ✅ Yes |
+| Quick Status | All core services summary | ✅ Yes |
+| Topic Hz | Measure all topic rates | ✅ Yes |
+| ROS Nodes | List active ROS 2 nodes | ✅ Yes |
+| Recognition Log | Recent recognition events | ✅ Yes |
+| Gesture Log | Recent gesture events | ✅ Yes |
+
+### Dependencies
+
+**Required for full functionality:**
+- rosbridge must be running for live monitoring
+- ROS 2 environment must be sourced for tests
+- GPIO 17 must be exported for LED status
+
+**Graceful degradation:**
+- Page works without rosbridge (status indicators show "--")
+- Tests work without full ROS 2 environment (show appropriate errors)
+- Service grid works independently
+
+### Usage
+
+**Access:**
+```
+http://100.x.x.x:8080/diagnostics
+```
+
+**Quick Start:**
+1. Navigate from main dashboard via "🔧 Diagnostics" link
+2. Status indicators update automatically (if rosbridge running)
+3. Click any topic monitor button to subscribe
+4. Click any diagnostic test button to run
+5. Enable Control Mode only if you need to manage services
+
+**For complete service documentation, see:** [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md)
+
+---
+
 ## ROS 2 Integration
 
 ### Subscribed Topics (via rosbridge)

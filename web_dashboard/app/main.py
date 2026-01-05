@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.config import BASE_DIR, HOST, PORT
-from app.api import services, audio, training, status, system, database
+from app.api import services, audio, training, status, system, database, diagnostics
 
 # Create FastAPI app
 app = FastAPI(
@@ -20,6 +20,7 @@ app.include_router(training.router)
 app.include_router(status.router)
 app.include_router(system.router)
 app.include_router(database.router)
+app.include_router(diagnostics.router)
 
 # Serve static files
 static_dir = BASE_DIR / "app" / "static"
@@ -38,6 +39,16 @@ async def index():
         return FileResponse(str(index_file))
     else:
         return {"message": "Dashboard not found. Please create index.html"}
+
+
+@app.get("/diagnostics")
+async def diagnostics():
+    """Serve diagnostics page"""
+    diagnostics_file = templates_dir / "diagnostics.html"
+    if diagnostics_file.exists():
+        return FileResponse(str(diagnostics_file))
+    else:
+        return {"message": "Diagnostics page not found"}
 
 
 @app.get("/health")
