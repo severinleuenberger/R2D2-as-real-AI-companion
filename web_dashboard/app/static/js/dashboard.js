@@ -1,109 +1,4 @@
-// R2D2 Web Dashboard JavaScript - Redesigned with View Management
-
-// ========== VIEW MANAGEMENT ==========
-// Initialize view manager on page load
-function initViewManager() {
-    const hash = window.location.hash.slice(1) || 'camera'; // Default to camera view
-    switchView(hash);
-    
-    window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.slice(1);
-        switchView(newHash);
-    });
-    
-    restoreSidebarState();
-    restoreSectionStates();
-}
-
-// Switch active view
-function switchView(viewName) {
-    document.querySelectorAll('.view-container').forEach(view => {
-        view.classList.remove('active');
-    });
-    
-    const targetView = document.querySelector(`[data-view="${viewName}"]`);
-    if (targetView) {
-        targetView.classList.add('active');
-    }
-    
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    const activeLink = document.querySelector(`a[href="#${viewName}"]`);
-    if (activeLink) {
-        activeLink.classList.add('active');
-    }
-    
-    if (window.location.hash.slice(1) !== viewName) {
-        history.replaceState(null, null, `#${viewName}`);
-    }
-}
-
-// Toggle sidebar collapsed/expanded
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-        sidebar.classList.toggle('collapsed');
-        localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
-    }
-}
-
-// Restore sidebar state on page load
-function restoreSidebarState() {
-    const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
-    const sidebar = document.getElementById('sidebar');
-    
-    if (sidebar && isCollapsed) {
-        sidebar.classList.add('collapsed');
-    }
-}
-
-// Toggle section collapsed/expanded
-function toggleSection(sectionId) {
-    const section = document.getElementById(`nav-section-${sectionId}`);
-    const arrow = document.getElementById(`section-arrow-${sectionId}`);
-    
-    if (section) {
-        section.classList.toggle('collapsed');
-        
-        if (arrow) {
-            arrow.textContent = section.classList.contains('collapsed') ? '▶' : '▼';
-        }
-        
-        const states = {};
-        document.querySelectorAll('.nav-section').forEach(s => {
-            const id = s.id.replace('nav-section-', '');
-            states[id] = s.classList.contains('collapsed');
-        });
-        localStorage.setItem('nav-section-states', JSON.stringify(states));
-    }
-}
-
-// Restore section states on page load
-function restoreSectionStates() {
-    const saved = localStorage.getItem('nav-section-states');
-    if (!saved) return;
-    
-    try {
-        const states = JSON.parse(saved);
-        Object.entries(states).forEach(([id, isCollapsed]) => {
-            const section = document.getElementById(`nav-section-${id}`);
-            const arrow = document.getElementById(`section-arrow-${id}`);
-            
-            if (section) {
-                if (isCollapsed) {
-                    section.classList.add('collapsed');
-                    if (arrow) arrow.textContent = '▶';
-                } else {
-                    section.classList.remove('collapsed');
-                    if (arrow) arrow.textContent = '▼';
-                }
-            }
-        });
-    } catch (e) {
-        console.error('Failed to restore section states:', e);
-    }
-}
+// R2D2 Web Dashboard JavaScript - Simple Single-Page Layout
 
 // Update critical status in header
 function updateCriticalStatusHeader() {
@@ -565,17 +460,6 @@ let metricsUpdateInterval = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize view manager first
-    initViewManager();
-    
-    // Verify status stream container exists
-    const streamContainer = document.getElementById('status-stream-container');
-    if (streamContainer) {
-        console.log('Status stream container found on page load');
-    } else {
-        console.warn('Status stream container NOT found on page load');
-    }
-    
     // Initialize window instance manager
     windowInstanceManager = new WindowInstanceManager();
     
@@ -597,8 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatusDisplayBasedOnService(false);
         // Start heartbeat monitoring
         startHeartbeatMonitoring();
-        // Initialize camera stream display
-        updateCameraStreamDisplay();
+        // Camera stream display removed - no longer needed
+        // updateCameraStreamDisplay();
         // Start metrics tracking
         startMetricsTracking();
         // Start system health polling (CPU, GPU, Disk, Temp from REST API)
@@ -877,10 +761,9 @@ async function loadServices() {
 }
 
 function displayServices(services) {
-    // Services list UI removed - only tracking service status for internal logic
-    const servicesList = document.getElementById('services-list');
-    if (servicesList) {
-        servicesList.innerHTML = '';
+    const servicesGrid = document.getElementById('services-grid');
+    if (servicesGrid) {
+        servicesGrid.innerHTML = '';
     }
     
     // Check if audio service is running
@@ -903,9 +786,8 @@ function displayServices(services) {
             anyServiceRunning = true;
         }
         
-        // UI creation removed - services panel no longer displayed
-        // Only update command hints if elements exist
-        if (servicesList) {
+        // Create service cards for the services grid
+        if (servicesGrid) {
             const serviceCard = document.createElement('div');
             serviceCard.className = `service-card ${serviceInfo.status}`;
             const statusText = serviceInfo.status === 'active' ? '● Running' : '○ Stopped';
@@ -924,7 +806,7 @@ function displayServices(services) {
                     <div class="command-hint service-command-hint" data-service="${serviceName}" data-action="restart"></div>
                 </div>
             `;
-            servicesList.appendChild(serviceCard);
+            servicesGrid.appendChild(serviceCard);
             updateServiceCommandHints(serviceName);
         }
     }
@@ -932,20 +814,12 @@ function displayServices(services) {
     // Update status display based on service state
     updateStatusDisplayBasedOnService(anyServiceRunning);
     
-    // Update camera stream display if status changed
-    if (previousCameraStreamStatus !== cameraStreamServiceRunning) {
-        updateCameraStreamDisplay();
-        // Re-subscribe to topics if stream stopped (to re-enable recognition updates)
-        if (!cameraStreamServiceRunning && ros && ros.isConnected) {
-            subscribeToTopics();
-        }
-    }
-    
     // Update mode display
     updateModeDisplay();
 }
 
-// Camera Stream Functions
+// Camera Stream Functions (REMOVED - camera view not needed)
+/*
 async function toggleStream() {
     const action = cameraStreamServiceRunning ? 'stop' : 'start';
     try {
@@ -971,7 +845,9 @@ async function toggleStream() {
         alert(`Failed to ${action} stream: ${error.message || 'Network error'}`);
     }
 }
+*/
 
+/*
 async function toggleCameraStream() {
     if (cameraStreamServiceRunning) {
         await stopCameraStream();
@@ -979,7 +855,9 @@ async function toggleCameraStream() {
         await startCameraStream();
     }
 }
+*/
 
+/*
 async function startCameraStream() {
     try {
         const response = await fetch(`${API_BASE_URL}/services/stream/start`, {
@@ -1008,7 +886,9 @@ async function startCameraStream() {
         alert(`Failed to start stream: ${error.message || 'Network error'}`);
     }
 }
+*/
 
+/*
 async function stopCameraStream() {
     try {
         const response = await fetch(`${API_BASE_URL}/services/stream/stop`, {
@@ -1041,6 +921,7 @@ async function stopCameraStream() {
         alert(`Failed to stop stream: ${error.message || 'Network error'}`);
     }
 }
+*/
 
 // Recognition Mode Functions
 async function startRecognitionMode() {
@@ -1125,6 +1006,7 @@ function updateModeDisplay() {
     }
 }
 
+/*
 function updateCameraStreamDisplay() {
     const streamContainer = document.getElementById('stream-container-wrapper');
     const streamPlaceholder = document.getElementById('stream-placeholder');
@@ -1172,6 +1054,7 @@ function updateCameraStreamDisplay() {
     }
     updateModeDisplay();
 }
+*/
 
 async function controlService(serviceName, action) {
     try {
@@ -2064,4 +1947,91 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// =============================================================================
+// Topic Monitoring Functions
+// =============================================================================
+
+let activeTopicMonitor = null;
+
+function startTopicMonitor(topicName, messageType) {
+    if (activeTopicMonitor) {
+        stopTopicMonitor();
+    }
+    
+    if (!ros || !ros.isConnected) {
+        alert('rosbridge not connected. Please check ROS connection status.');
+        return;
+    }
+    
+    activeTopicMonitor = new ROSLIB.Topic({
+        ros: ros,
+        name: topicName,
+        messageType: messageType
+    });
+    
+    const output = document.getElementById('topic-output');
+    if (!output) {
+        console.error('topic-output element not found');
+        return;
+    }
+    
+    output.innerHTML = '';
+    
+    activeTopicMonitor.subscribe(function(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const msgText = typeof message.data !== 'undefined' ? message.data : JSON.stringify(message, null, 2);
+        
+        const line = document.createElement('div');
+        line.className = 'topic-line';
+        line.innerHTML = `<span class="topic-timestamp">[${timestamp}]</span> <span class="topic-data">${msgText}</span>`;
+        output.appendChild(line);
+        
+        // Auto-scroll
+        output.scrollTop = output.scrollHeight;
+        
+        // Limit to last 100 lines
+        while (output.children.length > 100) {
+            output.removeChild(output.firstChild);
+        }
+    });
+    
+    const container = document.getElementById('topic-output-container');
+    if (container) {
+        container.style.display = 'block';
+    }
+    
+    const activeTopicName = document.getElementById('active-topic-name');
+    if (activeTopicName) {
+        activeTopicName.textContent = topicName;
+    }
+    
+    // Highlight the active button
+    document.querySelectorAll('.btn-monitor').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+}
+
+function stopTopicMonitor() {
+    if (activeTopicMonitor) {
+        activeTopicMonitor.unsubscribe();
+        activeTopicMonitor = null;
+    }
+    
+    const container = document.getElementById('topic-output-container');
+    if (container) {
+        container.style.display = 'none';
+    }
+    
+    const output = document.getElementById('topic-output');
+    if (output) {
+        output.innerHTML = '';
+    }
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.btn-monitor').forEach(btn => {
+        btn.classList.remove('active');
+    });
 }

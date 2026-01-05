@@ -53,131 +53,19 @@
                     <span class="instance-id" id="instance-id">--</span>
                     <span class="instance-status" id="instance-status">--</span>
                 </div>
-            </div>
-        </header>
-
-        <!-- SIDEBAR NAVIGATION -->
-        <aside class="sidebar" id="sidebar">
-            <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
-            
-            <!-- PRIMARY NAVIGATION (Always expanded) -->
-            <nav class="nav-primary">
-                <a href="#camera" data-view="camera" class="nav-link">
-                    <span class="nav-icon">📹</span>
-                    <span class="nav-text">Camera Stream</span>
-                </a>
-                <a href="#metrics" data-view="metrics" class="nav-link">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-text">Live Metrics</span>
-                </a>
-                <a href="#volume" data-view="volume" class="nav-link">
-                    <span class="nav-icon">🔊</span>
-                    <span class="nav-text">Volume</span>
-                </a>
-                <a href="#events" data-view="events" class="nav-link">
-                    <span class="nav-icon">📜</span>
-                    <span class="nav-text">Events</span>
-                </a>
-            </nav>
-            
-            <!-- CONTROL SECTION (Expanded by default) -->
-            <div class="nav-section" id="nav-section-control">
-                <div class="nav-section-title" onclick="toggleSection('control')">
-                    <span class="section-arrow" id="section-arrow-control">▼</span>
-                    <span class="section-text">Control</span>
-                </div>
-                <nav class="nav-section-items" id="section-control">
-                    <a href="#control-services" data-view="control-services" class="nav-link">
-                        <span class="nav-icon">🎮</span>
-                        <span class="nav-text">Services</span>
-                    </a>
-                    <a href="#control-speech" data-view="control-speech" class="nav-link">
-                        <span class="nav-icon">💬</span>
-                        <span class="nav-text">Speech</span>
-                    </a>
-                    <a href="#control-gesture" data-view="control-gesture" class="nav-link">
-                        <span class="nav-icon">✋</span>
-                        <span class="nav-text">Gesture</span>
-                    </a>
-                </nav>
-            </div>
-            
-            <!-- SETUP SECTION (Collapsed by default) -->
-            <div class="nav-section collapsed" id="nav-section-setup">
-                <div class="nav-section-title" onclick="toggleSection('setup')">
-                    <span class="section-arrow" id="section-arrow-setup">▶</span>
-                    <span class="section-text">Setup</span>
-                </div>
-                <nav class="nav-section-items" id="section-setup">
-                    <a href="#setup-training" data-view="setup-training" class="nav-link">
-                        <span class="nav-icon">👤</span>
-                        <span class="nav-text">Train Person</span>
-                    </a>
-                    <a href="#setup-parameters" data-view="setup-parameters" class="nav-link">
-                        <span class="nav-icon">⚙️</span>
-                        <span class="nav-text">Parameters</span>
-                    </a>
-                </nav>
-            </div>
-            
-            <!-- ADMIN SECTION (Collapsed by default) -->
-            <div class="nav-section collapsed" id="nav-section-admin">
-                <div class="nav-section-title" onclick="toggleSection('admin')">
-                    <span class="section-arrow" id="section-arrow-admin">▶</span>
-                    <span class="section-text">Admin</span>
-                </div>
-                <nav class="nav-section-items" id="section-admin">
-                    <a href="#admin-database" data-view="admin-database" class="nav-link">
-                        <span class="nav-icon">🗄️</span>
-                        <span class="nav-text">Database</span>
-                    </a>
-                    <a href="#admin-diagnostics" data-view="admin-diagnostics" class="nav-link">
-                        <span class="nav-icon">🔧</span>
-                        <span class="nav-text">Diagnostics</span>
-                    </a>
-                    <a href="#admin-topics" data-view="admin-topics" class="nav-link">
-                        <span class="nav-icon">📡</span>
-                        <span class="nav-text">Topics</span>
-                    </a>
-                    <a href="#admin-tests" data-view="admin-tests" class="nav-link">
-                        <span class="nav-icon">🧪</span>
-                        <span class="nav-text">Tests</span>
-                    </a>
-                </nav>
-            </div>
-            
-            <!-- Exit Service Mode Button (at bottom) -->
-            <div class="sidebar-footer">
+                
+                <!-- Exit Service Mode Button -->
                 <button class="service-mode-btn" onclick="exitServiceMode()" title="Stop Web UI services and save resources">
                     Exit Service Mode
                 </button>
             </div>
-        </aside>
+        </header>
 
         <!-- MAIN CONTENT AREA -->
         <main class="main-content" id="main-content">
-            <!-- VIEW 1: Camera Stream -->
-            <div class="view-container" data-view="camera">
-                <div class="panel camera-stream-panel">
-                    <h2>Camera Stream</h2>
-                    <div class="stream-controls">
-                        <button id="stream-toggle-btn" class="btn-stream" onclick="toggleStream()">
-                            Start Stream
-                        </button>
-                        <span class="stream-status" id="stream-status">Stopped</span>
-                    </div>
-                    <div class="stream-container-wrapper" id="stream-container-wrapper" style="display: none;">
-                        <img id="camera-stream" src="" alt="Camera Stream" class="camera-stream-img" />
-                    </div>
-                    <div class="stream-placeholder" id="stream-placeholder">
-                        <p>Camera stream not active</p>
-                    </div>
-                    <div class="command-hint" id="stream-command-hint">curl http://localhost:8081/stream</div>
-                </div>
-            </div>
-
-            <!-- VIEW 2: Live Metrics Dashboard -->
-            <div class="view-container" data-view="metrics">
+            <!-- SECTION 1: Live Metrics Dashboard -->
+            <section class="view-container" id="metrics">
+                <h2 class="section-heading">📊 Live Metrics Dashboard</h2>
                 <!-- Recognition Status Panel -->
                 <div class="panel status-panel">
                     <h2>Recognition Status</h2>
@@ -284,10 +172,11 @@
                     </div>
                     <div class="command-hint" id="metrics-command-hint">ros2 topic hz /r2d2/perception/face_count</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 3: Volume Control -->
-            <div class="view-container" data-view="volume">
+            <!-- SECTION 2: Volume Control -->
+            <section class="view-container" id="volume">
+                <h2 class="section-heading">🔊 Volume Control</h2>
                 <div class="panel volume-panel">
                     <h2>Audio Volume Control</h2>
                     <div class="volume-control">
@@ -309,10 +198,11 @@
                         <div class="parameter-list" id="parameter-list">Loading...</div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 4: Recent Events -->
-            <div class="view-container" data-view="events">
+            <!-- SECTION 3: Recent Events -->
+            <section class="view-container" id="events">
+                <h2 class="section-heading">📜 Recent Events</h2>
                 <div class="panel events-panel">
                     <h2>Event Stream</h2>
                     <div class="events-controls">
@@ -325,10 +215,11 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 5: Service Control -->
-            <div class="view-container" data-view="control-services">
+            <!-- SECTION 4: Service Control -->
+            <section class="view-container" id="services">
+                <h2 class="section-heading">🎮 Service Control</h2>
                 <div class="panel services-control-panel">
                     <h2>Service Control</h2>
                     <div class="services-grid" id="services-grid">
@@ -336,10 +227,11 @@
                         <p>Loading services...</p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 6: Speech Status -->
-            <div class="view-container" data-view="control-speech">
+            <!-- SECTION 5: Speech Status -->
+            <section class="view-container" id="speech">
+                <h2 class="section-heading">💬 Speech & Conversation Status</h2>
                 <div class="panel speech-panel">
                     <h2>Speech & Conversation Status</h2>
                     <div class="speech-status">
@@ -367,10 +259,11 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 7: Gesture Status -->
-            <div class="view-container" data-view="control-gesture">
+            <!-- SECTION 6: Gesture Status -->
+            <section class="view-container" id="gesture">
+                <h2 class="section-heading">✋ Gesture Detection Status</h2>
                 <div class="panel gesture-panel">
                     <h2>Gesture Detection Status</h2>
                     <div class="gesture-status">
@@ -398,10 +291,11 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 8: Training -->
-            <div class="view-container" data-view="setup-training">
+            <!-- SECTION 7: Training -->
+            <section class="view-container" id="training">
+                <h2 class="section-heading">👤 Face Recognition Training</h2>
                 <div class="panel training-panel">
                     <h2>Face Recognition Training</h2>
                     <div class="training-menu">
@@ -437,10 +331,11 @@
                     </div>
                     <div class="people-list" id="people-list"></div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 9: Parameters -->
-            <div class="view-container" data-view="setup-parameters">
+            <!-- SECTION 8: Parameters -->
+            <section class="view-container" id="parameters">
+                <h2 class="section-heading">⚙️ System Parameters</h2>
                 <div class="panel parameters-panel">
                     <h2>System Parameters</h2>
                     <p>Advanced parameter configuration coming soon...</p>
@@ -451,10 +346,11 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 10: Database Access -->
-            <div class="view-container" data-view="admin-database">
+            <!-- SECTION 9: Database Access -->
+            <section class="view-container" id="database">
+                <h2 class="section-heading">🗄️ Database Access</h2>
                 <div class="panel database-panel">
                     <h2>🗄️ Database Access</h2>
                     <div class="database-auth">
@@ -485,10 +381,11 @@
                         </details>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 11: Diagnostics (Status Indicators) -->
-            <div class="view-container" data-view="admin-diagnostics">
+            <!-- SECTION 10: Diagnostics (Status Indicators) -->
+            <section class="view-container" id="diagnostics">
+                <h2 class="section-heading">🔧 Diagnostics & Status Indicators</h2>
                 <div class="panel diagnostics-panel">
                     <h2>System Diagnostics - Status Indicators</h2>
                     <div class="status-indicators">
@@ -549,10 +446,11 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 12: Topic Monitors -->
-            <div class="view-container" data-view="admin-topics">
+            <!-- SECTION 11: Topic Monitors -->
+            <section class="view-container" id="topics">
+                <h2 class="section-heading">📡 ROS Topic Monitors</h2>
                 <div class="panel topics-panel">
                     <h2>Topic Monitors (Click to Subscribe)</h2>
                     <div class="topic-categories">
@@ -586,10 +484,11 @@
                         <div id="topic-output" class="topic-output"></div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- VIEW 13: Diagnostic Tests -->
-            <div class="view-container" data-view="admin-tests">
+            <!-- SECTION 12: Diagnostic Tests -->
+            <section class="view-container" id="tests">
+                <h2 class="section-heading">🧪 Diagnostic Tests</h2>
                 <div class="panel tests-panel">
                     <h2>Diagnostic Tests</h2>
                     <div class="test-buttons">
@@ -609,7 +508,7 @@
                         <div id="test-output" class="test-output"></div>
                     </div>
                 </div>
-            </div>
+            </section>
         </main>
     </div>
 
