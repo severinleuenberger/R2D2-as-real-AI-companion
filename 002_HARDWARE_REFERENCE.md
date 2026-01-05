@@ -352,7 +352,7 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 - **CPU:** 12-core ARM Cortex-A78 @ 2.4 GHz
 - **GPU:** 2048-core NVIDIA Ampere (504 CUDA cores equivalent)
 - **Memory:** 64GB LPDDR5X (275 GB/s bandwidth)
-- **Storage:** Internal eMMC (~32GB usable after OS)
+- **Storage:** Internal eMMC (~32GB usable after OS) + WD Blue SN5000 500GB NVMe (M.2 2280)
 - **Power:** Variable TDP 15-100W (power mode configurable)
 - **Operating System:** Ubuntu 22.04 Jammy (L4T - Linux for Tegra)
 - **Kernel:** Linux 5.15.148-tegra
@@ -922,6 +922,7 @@ Power Distribution Board
 | Category | Components | Approximate Cost (USD) |
 |----------|------------|------------------------|
 | **Compute** | Jetson AGX Orin 64GB | $1,000 |
+| **Storage** | WD Blue SN5000 500GB NVMe SSD | ~$120 (CHF 120) |
 | **Vision** | OAK-D Lite Camera | $150 |
 | **Audio** | HyperX QuadCast S + PAM8403 + Speaker | $150 |
 | **Power** | 3× Turnigy 4S LiPo + DC-DC Converters + Harness | $150 |
@@ -940,6 +941,7 @@ Power Distribution Board
 | Component | Suggested Vendor | Part Number / Link |
 |-----------|-----------------|-------------------|
 | Jetson AGX Orin 64GB | NVIDIA, Arrow, Digi-Key | 945-13730-0050-000 |
+| WD Blue SN5000 500GB | digitec.ch | M.2 2280 NVMe PCIe 4.0 |
 | OAK-D Lite | Luxonis Shop | OAK-D-LITE-AF |
 | HyperX QuadCast S | Amazon, Best Buy | HyperX QuadCast S |
 | **Pololu G2 24v21** | **Pololu** | **[2995](https://www.pololu.com/product/2995)** |
