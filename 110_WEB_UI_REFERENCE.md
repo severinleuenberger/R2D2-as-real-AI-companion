@@ -1,10 +1,11 @@
 # R2D2 Web UI System - Reference Documentation
 ## Complete Architecture and Technical Reference
 
-**Date:** December 17, 2025  
+**Date:** January 5, 2026  
 **Status:** ✅ COMPLETE AND OPERATIONAL  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Access:** Via Tailscale VPN (http://100.x.x.x:8079)
+**Access:** Via Tailscale VPN (http://100.x.x.x:8079)  
+**Layout:** Single-page scrollable dashboard (simplified from sidebar navigation)
 
 ---
 
@@ -24,8 +25,14 @@ The system includes a comprehensive web dashboard with real-time monitoring, ser
 - Audio volume control with live parameter updates
 - Complete face recognition training interface
 - System health monitoring (CPU, GPU, temperature)
-- Live camera stream (MJPEG)
+- ROS Topic Monitors (live topic data viewing)
 - Accessible from anywhere via Tailscale VPN
+
+**UI Layout (as of January 5, 2026):**
+- Single-page scrollable design for simplicity
+- All sections visible in one continuous view
+- Prioritized information hierarchy (critical status at top)
+- No sidebar navigation - direct scrolling to sections
 
 **For installation instructions**, see: [`111_WEB_UI_INSTALLATION.md`](111_WEB_UI_INSTALLATION.md)  
 **For quick reference**, see: [`112_WEB_UI_QUICK_START.md`](112_WEB_UI_QUICK_START.md)
@@ -165,26 +172,26 @@ ROS 2 Topics
 - Volume control panel (slider + presets)
 - Training panel (7 menu options)
 - System health panel (CPU/GPU/temperature)
-- Camera stream panel (MJPEG)
+- ROS Topic Monitors (live topic viewing)
 - Event stream panel (live logs)
 
-### 4. Camera Stream Service
+**Note:** Camera stream feature was removed in January 2026 redesign (not needed for production use).
 
-**Node:** `camera_stream_node.py`
+### 4. ROS Topic Monitors
 
-**Port:** 8081 (HTTP MJPEG stream)
-
-**Purpose:** Convert ROS 2 camera topic to MJPEG stream
-
-**Subscribed Topic:** `/oak/rgb/image_raw`
+**Purpose:** Display live data from any ROS 2 topic via rosbridge WebSocket
 
 **Features:**
-- Configurable FPS (default: 15)
-- Configurable quality (default: 85)
-- Max resolution: 1280×720 (downscales if needed)
-- On-demand start/stop from dashboard
+- Pre-configured buttons for key topics:
+  - Person Status (`/r2d2/audio/person_status`)
+  - Face Count (`/r2d2/perception/face_count`)
+  - Gesture Events (`/r2d2/perception/gesture_event`)
+  - System Heartbeat (`/r2d2/heartbeat`)
+- Real-time JSON message display
+- One active monitor at a time (auto-unsubscribe on switch)
+- Stop monitoring with dedicated button
 
-**Stream URL:** `http://100.x.x.x:8081/stream`
+**Implementation:** Uses roslibjs WebSocket connection to rosbridge (port 9090)
 
 ### 5. Enhanced Heartbeat Service
 
@@ -232,11 +239,17 @@ ROS 2 Topics
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | **Structure** | HTML5 | Page structure |
-| **Styling** | CSS3 | Visual design |
+| **Styling** | CSS3 (Flexbox) | Visual design, single-column layout |
 | **Logic** | JavaScript (ES6+) | Client-side logic |
 | **ROS Client** | roslibjs | WebSocket to rosbridge |
 | **HTTP Client** | Fetch API | REST API calls |
 | **WebSocket Client** | WebSocket API | Training logs |
+
+**UI Architecture (January 2026 Redesign):**
+- **Layout:** Single-page scrollable design (simplified from sidebar navigation)
+- **Sections:** All features visible in one continuous vertical flow
+- **Navigation:** Direct scrolling to sections (no view switching)
+- **Benefits:** Simpler code, better mobile compatibility, reduced complexity
 
 ### Infrastructure
 
@@ -1021,25 +1034,28 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
    ls -la ~/dev/r2d2/data/face_recognition/
    ```
 
-### Issue: Camera Stream Not Working
+### Issue: ROS Topic Monitors Not Updating
 
-**Symptoms:** Camera stream service starts but no video
+**Symptoms:** Topic monitor shows "connecting..." or no data
 
 **Solutions:**
-1. Check if camera is publishing:
+1. Check if rosbridge is running:
    ```bash
-   ros2 topic hz /oak/rgb/image_raw
+   systemctl status r2d2-rosbridge.service
    ```
 
-2. Check camera stream service logs:
+2. Test rosbridge WebSocket connection:
    ```bash
-   sudo journalctl -u r2d2-camera-stream.service -f
+   curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Host: localhost:9090" http://localhost:9090
    ```
 
-3. Test stream URL directly:
+3. Verify topic is publishing:
    ```bash
-   curl http://localhost:8081/stream
+   ros2 topic hz /r2d2/audio/person_status
    ```
+
+4. Check browser console for WebSocket errors (F12 Developer Tools)
 
 4. Verify camera service is running:
    ```bash
@@ -1089,13 +1105,14 @@ severin ALL=(ALL) NOPASSWD: /bin/systemctl start r2d2-*, /bin/systemctl stop r2d
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** January 3, 2026  
+**Document Version:** 1.2  
+**Last Updated:** January 5, 2026  
 **Status:** Complete and operational  
 **Platform:** NVIDIA Jetson AGX Orin 64GB with ROS 2 Humble  
 **Access:** Via Tailscale VPN
 
 **Changelog:**
+- v1.2 (Jan 5, 2026): Simplified to single-page scrollable layout, removed camera stream, added ROS Topic Monitors
 - v1.1 (Jan 3, 2026): Added Database Access API with security documentation
 - v1.0 (Dec 17, 2025): Initial release
 
