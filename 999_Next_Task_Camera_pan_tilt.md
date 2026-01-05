@@ -1,9 +1,9 @@
 # R2D2 Camera Pan/Tilt Tracking System - Implementation Plan
 
 **Date:** January 3, 2026  
-**Last Updated:** January 3, 2026  
+**Last Updated:** January 5, 2026  
 **Status:** BLOCKED - Waiting for hardware components  
-**Branch:** `feature/face-tracking-tilt-servo`  
+**Branch:** Working on `main` (golden tag: golden-2026-01-05)  
 **Author:** AI Agent (Claude)
 
 ---
@@ -35,11 +35,12 @@ This document captures the complete plan for implementing face-centered camera t
 
 ## 1. Current State (Already Implemented)
 
-### 1.1 Git Branch
+### 1.1 Git Workflow
 
-- **Branch:** `feature/face-tracking-tilt-servo`
-- **Base:** Created from main branch for safe rollback
-- **Purpose:** Isolate all pan/tilt development for safe experimentation
+- **Branch:** Working on `main` branch (simplified workflow)
+- **Baseline Checkpoint:** `golden-2026-01-05` (system fully operational)
+- **On Completion:** Create `golden-pan-tilt-complete` tag
+- **Rollback:** Reset to `golden-2026-01-05` if issues arise
 
 ### 1.2 ROS 2 Package Created
 
@@ -705,6 +706,23 @@ systemctl status r2d2-tilt-tracking.service
 
 ## 9. Next Steps (Immediate Actions)
 
+### Step 0: Verify Baseline Checkpoint
+
+Before starting hardware work, verify current state is safe:
+
+```bash
+# Verify we're on the golden checkpoint
+git describe --tags --abbrev=0
+
+# Should show: golden-2026-01-05 or newer
+# This is your rollback point if anything goes wrong
+```
+
+If any issues during development, you can always return to this golden point:
+```bash
+git reset --hard golden-2026-01-05
+```
+
 ### Step 1: Order Components
 
 - [x] Select PCA9685 board (BerryBase chosen over Adafruit - same chip, lower cost)
@@ -744,26 +762,36 @@ systemctl status r2d2-tilt-tracking.service
 2. Tune PID parameters for smooth tracking
 3. Install systemd service
 4. Verify auto-start after reboot
-5. Merge branch to main (if all tests pass)
+5. Create golden tag for successful completion
 
 ---
 
 ## 10. Rollback Strategy
 
-All development is isolated on the `feature/face-tracking-tilt-servo` branch.
+All development follows the simplified main-only workflow with golden tag checkpoints.
+
+**Baseline:** `golden-2026-01-05` (system fully operational before pan/tilt work)
 
 **To rollback if issues arise:**
 
 ```bash
-# Discard all changes and return to main
-git checkout main
+# Quick rollback to last golden checkpoint
+git reset --hard golden-2026-01-05
 
-# Or, if you want to keep the branch for reference
-git checkout main
-git branch -m feature/face-tracking-tilt-servo feature/face-tracking-tilt-servo-backup
+# If you've pushed to GitHub and want to revert there too:
+git push --force origin main
 ```
 
-**Main branch remains untouched** until the feature is fully tested and approved for merge.
+**After Successful Implementation:**
+
+Create a new golden tag when everything is tested and working:
+
+```bash
+git tag -a golden-pan-tilt-complete -m "Pan/tilt tracking: servo + motor + encoder + homing"
+git push origin golden-pan-tilt-complete
+```
+
+**Main branch stays clean** with golden tags marking stable, working states.
 
 ---
 
