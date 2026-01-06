@@ -4,6 +4,8 @@
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
 
+**License:** [GPL-3.0](LICENSE) | **Copyright:** © 2025-2026 Severin Leuenberger
+
 ---
 
 ## What R2D2 Does
@@ -284,7 +286,7 @@ r2d2/
 - **Want to discuss?** → [Start a Discussion](https://github.com/severinleuenberger/R2D2-as-real-AI-companion/discussions)
 - **Building your own?** → Document it and share!
 
-**License:** [MIT](LICENSE) - Free to use, modify, and distribute
+**License:** [GPL-3.0](LICENSE) - Free to use and modify; derivative works must also be open-source
 
 **Author:** [@s_leuenberger](https://x.com/s_leuenberger) | Switzerland
 
