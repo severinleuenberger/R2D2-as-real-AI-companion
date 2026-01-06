@@ -3,6 +3,7 @@
 > An interactive mobile robot that recognizes you, talks with you, and learns alongside you—powered by NVIDIA Jetson AGX Orin 64GB and ROS 2 Humble.
 
 ![R2D2 Full Robot](docs/photos/20251107_105518.jpg)
+![R2D2 Build Phase](_PICTURES/r2d2-build_3.jpeg)
 
 **License:** [GPL-3.0](LICENSE) | **Copyright:** © 2025-2026 Severin Leuenberger
 
