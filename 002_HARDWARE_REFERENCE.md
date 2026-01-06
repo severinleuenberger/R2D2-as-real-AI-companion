@@ -346,14 +346,13 @@ EOF
 
 **Pan Motor (Dome Rotation) - Phase 3 Active:**
 
-| Pin | GPIO | Function | Device | Status |
-|-----|------|----------|--------|--------|
-| 13 | GPIO27 | PWM Output | Pan Motor Speed | ✅ Ready |
-| 29 | GPIO5 | Digital Output | Pan Motor DIR1 | ✅ Ready |
-| 31 | GPIO6 | Digital Output | Pan Motor DIR2 | ✅ Ready |
-| 16 | GPIO23 | Digital Input | Pan Encoder Channel A | ✅ Ready |
-| 18 | GPIO24 | Digital Input | Pan Encoder Channel B | ✅ Ready |
-| 23 | GPIO11 | Digital Input | Pan Home Sensor | ✅ Ready |
+| Pin | Jetson Signal | Function | Device | Status |
+|-----|---------------|----------|--------|--------|
+| 13 | GPIO32 (SPI2_SCK) | PWM Output | Pan Motor Speed | ✅ Ready |
+| 29 | CAN0_DIN (GPIO01) | Digital Output | Pan Motor DIR | ✅ Ready |
+| 16 | GPIO23 (SPI1_MISO) | Digital Input | Pan Encoder Channel A | ✅ Ready |
+| 18 | GPIO24 (SPI1_MOSI) | Digital Input | Pan Encoder Channel B | ✅ Ready |
+| 23 | GPIO11 (UART1_RTS) | Digital Input | Pan Home Sensor | ✅ Ready |
 
 **Wheel Motors (Differential Drive) - Phase 3 Future:**
 
@@ -1056,31 +1055,37 @@ sudo systemctl restart r2d2-powerbutton.service
 
 **Complete Motor System Pin Allocation:**
 
-| Function | Pins Required | Final Assignment |
-|----------|---------------|------------------|
-| **Pan motor control** | 3 (PWM, DIR1, DIR2) | Pins 13, 29, 31 |
-| **Pan motor encoder** | 2 (A, B channels) | Pins 16, 18 |
-| **Pan home sensor** | 1 (digital input) | Pin 23 |
+| Function | Pins Required | Final Assignment (Physical Pin → Jetson Signal) |
+|----------|---------------|------------------------------------------------|
+| **Pan motor control** | 2 (PWM, DIR) | Pin 13 (GPIO32), Pin 29 (CAN0_DIN) |
+| **Pan motor encoder** | 2 (A, B channels) | Pin 16 (GPIO23), Pin 18 (GPIO24) |
+| **Pan home sensor** | 1 (digital input) | Pin 23 (GPIO11) |
 | **Left wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 15, 35, 37 |
 | **Left wheel encoder** | 2 (A, B channels) | Pins 19, 21 |
 | **Right wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 11, 36, 38 |
 | **Right wheel encoder** | 2 (A, B channels) | Pins 24, 26 |
-| **Total GPIO Allocated** | **18 pins** | — |
-| **Remaining Free** | **10 pins** | Available for expansion |
+| **Total GPIO Allocated** | **17 pins** | — |
+| **Remaining Free** | **11 pins** | Available for expansion |
 
 **Pin Usage Breakdown:**
 - 3× PWM outputs (motor speed control)
-- 6× Digital outputs (motor direction)
+- 5× Digital outputs (motor direction - pan uses 1, wheels use 4)
 - 6× Digital inputs (encoder feedback)
 - 1× Digital input (home sensor)
 - 2× I2C pins (3 & 5) reserved for MCP23017 LED expansion
 
 **Conflicts Resolved:**
-- ✅ Pin 32 (GPIO32) remains with shutdown button (critical safety)
-- ✅ Right wheel PWM assigned to Pin 11 (GPIO17) - no conflict
+- ✅ Pin 32 (GPIO32_SHUTDOWN) remains with shutdown button (critical safety)
+- ✅ Pin 13 (GPIO32/SPI2_SCK) assigned to pan motor PWM - different from shutdown button
 - ✅ All encoder pins fully allocated
 - ✅ Pan home sensor allocated to Pin 23
 - ✅ Compatible with MCP23017 LED expansion board (I2C pins 3 & 5 free)
+
+**⚠️ GPIO Naming Clarification:**
+The Jetson AGX Orin uses different GPIO numbering than Raspberry Pi BCM:
+- **Pin 13** = **GPIO32** (Jetson) ≠ GPIO27 (Raspberry Pi BCM)
+- **Pin 29** = **CAN0_DIN/GPIO01** (Jetson) ≠ GPIO5 (Raspberry Pi BCM)
+- **Pin 32** = **GPIO32_SHUTDOWN** (different function, used for shutdown button)
 
 ---
 
@@ -1120,6 +1125,186 @@ sudo systemctl restart r2d2-powerbutton.service
 - **Free pins:** 7-10 pins (sufficient margin for expansion)
 
 **All conflicts resolved. Motor system implementation can proceed without blocking future features.**
+
+---
+
+### 4.5 Motor System Complete Wiring Reference
+
+#### Pan Motor Wiring (Pololu G2 High-Power Motor Driver 24v21)
+
+**⚠️ CRITICAL: Jetson AGX Orin GPIO Pin Mapping (NOT Raspberry Pi BCM!)**
+
+This section uses **physical pin numbers** with correct Jetson AGX Orin signal names from the official developer kit guide.
+
+**Pololu G2 Driver - POWER SIDE (High Current):**
+
+```
+POWER SIDE (connect to battery + motor):
+═══════════════════════════════════════
+VM ─────────────────────► Battery + (14.8V, via fuse/switch)
+GND ────────────────────► Battery GND (common with Jetson GND)
+MOTOR A ────────────────► Pan motor Red wire (+)
+MOTOR B ────────────────► Pan motor Black wire (-)
+```
+
+**Pololu G2 Driver - LOGIC/CONTROL SIDE (3.3V from Jetson):**
+
+```
+CONTROL INPUTS (connect directly to Jetson):
+═══════════════════════════════════════
+DIR ────────────────────► Jetson Pin 29 (CAN0_DIN / GPIO01)
+PWM ────────────────────► Jetson Pin 13 (GPIO32 / SPI2_SCK)
+SLP ────────────────────► Jetson Pin 1 or 17 (3.3V) - tie HIGH
+GND ────────────────────► Jetson Pin 6, 9, 14, 20, 25, 30, 34, or 39
+
+LOGIC POWER (optional, can use onboard 3.3V regulator):
+VCC ────────────────────► Jetson Pin 1 or 17 (3.3V) - if needed
+```
+
+**⚠️ IMPORTANT NOTES:**
+- **Pin 13 = GPIO32** (NOT GPIO27 as in Raspberry Pi BCM)
+- **Pin 29 = CAN0_DIN / GPIO01** (NOT GPIO5 as in Raspberry Pi BCM)
+- The Pololu G2 driver has an onboard 3.3V regulator powered from VM
+- You can leave VCC disconnected if using the onboard regulator
+- SLP (sleep) pin should be tied HIGH (3.3V) for normal operation
+
+**Pan Motor Encoder Wiring:**
+
+```
+Motor Encoder                    Jetson AGX Orin
+═══════════════                  ═════════════════════════════
+Encoder VCC (Red wire)    ───►   Pin 2 or 4 (5V)
+Encoder GND (Black wire)  ───►   Pin 6/9/14/20/25/30/34/39 (GND)
+Ch A (Yellow wire)        ───►   Pin 16 (GPIO23 / SPI1_MISO)
+Ch B (Green wire)         ───►   Pin 18 (GPIO24 / SPI1_MOSI)
+```
+
+**⚠️ ENCODER VOLTAGE LEVEL:**
+- DeAgostini encoders output 5V logic
+- **MUST use 4.7kΩ pull-down resistors** or voltage dividers to 3.3V
+- Alternatively, use a bidirectional logic level shifter
+
+**Pan Home Sensor (IR Reflective) Wiring:**
+
+```
+Home Sensor (3-pin)           Jetson AGX Orin
+═══════════════               ═════════════════════════════
++ (Red wire, VCC)      ───►   Pin 2 or 4 (5V)
+- (Black wire, GND)    ───►   Pin 6/9/14/20/25/30/34/39 (GND)
+L (Blue wire, signal)  ───►   Pin 23 (GPIO11 / UART1_RTS)
+```
+
+**Complete System Wiring Summary:**
+
+```
+═══════════════════════════════════════════════════════════════
+PAN MOTOR COMPLETE WIRING (Verified Correct Configuration)
+═══════════════════════════════════════════════════════════════
+
+BATTERY (14.8V LiPo):
+    │
+    ├──[POWER SIDE]──► Pololu G2 Driver VM (motor power input)
+    │                  Pololu G2 Driver GND (power ground)
+    │
+    └──[Common GND]──► Shared with Jetson GND (critical!)
+
+JETSON 40-PIN HEADER:
+    │
+    ├──Pin 13 (GPIO32/SPI2_SCK)──────► Pololu G2 "PWM" pin
+    ├──Pin 29 (CAN0_DIN/GPIO01)───────► Pololu G2 "DIR" pin
+    ├──Pin 1 or 17 (3.3V)─────────────► Pololu G2 "SLP" pin (tie HIGH)
+    ├──Pin 6/9/14/etc (GND)───────────► Pololu G2 "GND" pin (logic ground)
+    │
+    ├──Pin 16 (GPIO23/SPI1_MISO)──────► Encoder Ch A (via voltage divider)
+    ├──Pin 18 (GPIO24/SPI1_MOSI)──────► Encoder Ch B (via voltage divider)
+    ├──Pin 23 (GPIO11/UART1_RTS)──────► Home Sensor "L" signal
+    │
+    ├──Pin 2 or 4 (5V)────────────────► Encoder VCC + Home Sensor VCC
+    └──Pin 6/9/14/etc (GND)───────────► Encoder GND + Home Sensor GND
+
+POLOLU G2 DRIVER:
+    │
+    ├──"MOTOR A"──────────────────────► Pan Motor Red wire (+)
+    └──"MOTOR B"──────────────────────► Pan Motor Black wire (-)
+
+ENCODER (5V output → needs level shift to 3.3V):
+    ├──Ch A (Yellow)──[4.7kΩ to GND]──► Jetson Pin 16 (3.3V safe)
+    └──Ch B (Green)───[4.7kΩ to GND]──► Jetson Pin 18 (3.3V safe)
+
+═══════════════════════════════════════════════════════════════
+CRITICAL SAFETY NOTES:
+═══════════════════════════════════════════════════════════════
+✅ CONFIRMED CORRECT: User verified wiring matches this diagram
+⚠️  Battery and Jetson MUST share common ground
+⚠️  Encoder 5V signals MUST be level-shifted to 3.3V
+⚠️  SLP pin tied HIGH = driver always active (normal operation)
+⚠️  VCC on Pololu can be left disconnected (uses onboard regulator)
+═══════════════════════════════════════════════════════════════
+```
+
+#### Left Wheel Motor Wiring
+
+**Pololu Driver #1 to Jetson:**
+
+```
+Pololu G2 Driver #1      Jetson + Battery
+═══════════════════      ═════════════════════════════
+VM    ───────────────►   14.8V Battery + (via switch/fuse)
+GND   ───────────────►   Battery GND (common with Jetson GND)
+VCC   ───────────────►   Pin 1/17 (3.3V logic power)
+PWMA  ───────────────►   Pin 15 (GPIO22)
+AIN1  ───────────────►   Pin 35 (GPIO19)
+AIN2  ───────────────►   Pin 37 (GPIO26)
+OUTA  ───────────────►   Left motor terminal +
+OUTB  ───────────────►   Left motor terminal -
+```
+
+**Left Wheel Encoder:**
+
+```
+Left Encoder            Jetson
+═══════════════         ═════════════════════════════
+VCC (Pin 1, red)  ───►  Pin 2/4 (5V)
+GND (Pin 2, black)───►  Pin 6/9/14/20/25/30/34/39 (GND)
+Ch A (Pin 3)      ───►  Pin 19 (GPIO10) + 4.7kΩ pull-up to 3.3V
+Ch B (Pin 4)      ───►  Pin 21 (GPIO9) + 4.7kΩ pull-up to 3.3V
+```
+
+#### Right Wheel Motor Wiring
+
+**Pololu Driver #2 to Jetson:**
+
+```
+Pololu G2 Driver #2      Jetson + Battery
+═══════════════════      ═════════════════════════════
+VM    ───────────────►   14.8V Battery + (via switch/fuse)
+GND   ───────────────►   Battery GND (common with Jetson GND)
+VCC   ───────────────►   Pin 1/17 (3.3V logic power)
+PWMA  ───────────────►   Pin 11 (GPIO17)
+AIN1  ───────────────►   Pin 36 (GPIO16)
+AIN2  ───────────────►   Pin 38 (GPIO20)
+OUTA  ───────────────►   Right motor terminal +
+OUTB  ───────────────►   Right motor terminal -
+```
+
+**Right Wheel Encoder:**
+
+```
+Right Encoder           Jetson
+═══════════════         ═════════════════════════════
+VCC (Pin 1, red)  ───►  Pin 2/4 (5V)
+GND (Pin 2, black)───►  Pin 6/9/14/20/25/30/34/39 (GND)
+Ch A (Pin 3)      ───►  Pin 24 (GPIO8) + 4.7kΩ pull-up to 3.3V
+Ch B (Pin 4)      ───►  Pin 26 (GPIO7) + 4.7kΩ pull-up to 3.3V
+```
+
+**Critical Notes:**
+- All motor power (VM) comes from 14.8V battery (NOT from Jetson)
+- Battery GND and Jetson GND MUST be common (shared ground plane)
+- Encoder pull-up resistors (4.7kΩ to 3.3V) may be built into encoder or need external
+- Pololu drivers accept 3.3V logic directly (no level shifter needed)
+
+**For complete wheel motor specifications and differential drive kinematics, see:** [`400_WHEEL_MOTORS_SYSTEM_REFERENCE.md`](400_WHEEL_MOTORS_SYSTEM_REFERENCE.md)
 
 ---
 
