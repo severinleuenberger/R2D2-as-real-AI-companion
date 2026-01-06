@@ -342,22 +342,40 @@ EOF
 - Debouncing prevents false triggers
 - Service auto-starts on boot
 
-#### Reserved Pin Assignments (Phase 3 - Motors) **[PROPOSED]**
+#### Complete Motor System Pin Allocation (Phase 3) ✅ FINALIZED
 
-| Pin # | Physical | GPIO # | Signal | Function | Device | Status |
-|-------|----------|--------|--------|----------|--------|--------|
-| 11 | GPIO17 | GPIO 17 | PWM Output | Available for future use | — | — |
-| 13 | GPIO27 | GPIO 27 | PWM Output | Available for future use | — | — |
-| 15 | GPIO22 | GPIO 22 | PWM Output | Dome Motor PWM | Head Rotation Motor | 💡 Suggested |
-| 29 | GPIO5 | GPIO 5 | Digital Output | Dome Motor DIR | Head Rotation Motor | 💡 Suggested |
-| 31 | GPIO6 | GPIO 6 | Digital Output | Dome Motor EN | Head Rotation Motor | 💡 Suggested |
-| 33 | GPIO13 | GPIO 13 | PWM Output | Left Wheel PWM | Left Motor Driver | 💡 Suggested |
-| 35 | GPIO19 | GPIO 19 | Digital Output | Left Wheel DIR | Left Motor Driver | 💡 Suggested |
-| 37 | GPIO26 | GPIO 26 | Digital Output | Left Wheel EN | Left Motor Driver | 💡 Suggested |
-| 36 | GPIO16 | GPIO 16 | Digital Output | Right Wheel DIR | Right Motor Driver | 💡 Suggested |
-| 38 | GPIO20 | GPIO 20 | Digital Output | Right Wheel EN | Right Motor Driver | 💡 Suggested |
+**Pan Motor (Dome Rotation) - Phase 3 Active:**
 
-**Note:** Pin assignments marked as 💡 are proposed designs pending Phase 3 implementation. Encoder inputs not yet allocated (would require 6 additional GPIO pins for 3 encoders × 2 channels).
+| Pin | GPIO | Function | Device | Status |
+|-----|------|----------|--------|--------|
+| 13 | GPIO27 | PWM Output | Pan Motor Speed | ✅ Ready |
+| 29 | GPIO5 | Digital Output | Pan Motor DIR1 | ✅ Ready |
+| 31 | GPIO6 | Digital Output | Pan Motor DIR2 | ✅ Ready |
+| 16 | GPIO23 | Digital Input | Pan Encoder Channel A | ✅ Ready |
+| 18 | GPIO24 | Digital Input | Pan Encoder Channel B | ✅ Ready |
+| 23 | GPIO11 | Digital Input | Pan Home Sensor | ✅ Ready |
+
+**Wheel Motors (Differential Drive) - Phase 3 Future:**
+
+| Pin | GPIO | Function | Device | Status |
+|-----|------|----------|--------|--------|
+| 15 | GPIO22 | PWM Output | Left Wheel Speed | 💡 Planned |
+| 35 | GPIO19 | Digital Output | Left Wheel DIR1 | 💡 Planned |
+| 37 | GPIO26 | Digital Output | Left Wheel DIR2 | 💡 Planned |
+| 19 | GPIO10 | Digital Input | Left Encoder A | 💡 Planned |
+| 21 | GPIO9 | Digital Input | Left Encoder B | 💡 Planned |
+| 11 | GPIO17 | PWM Output | Right Wheel Speed | 💡 Planned |
+| 36 | GPIO16 | Digital Output | Right Wheel DIR1 | 💡 Planned |
+| 38 | GPIO20 | Digital Output | Right Wheel DIR2 | 💡 Planned |
+| 24 | GPIO8 | Digital Input | Right Encoder A | 💡 Planned |
+| 26 | GPIO7 | Digital Input | Right Encoder B | 💡 Planned |
+
+**Notes:**
+- ✅ Pin 32 (GPIO32) permanently reserved for shutdown button (critical safety)
+- ✅ All pin conflicts resolved
+- ✅ 18 GPIO pins allocated for 3 motors + 6 encoders + 1 home sensor
+- ✅ 10 GPIO pins remain free for future expansion
+- ✅ I2C pins (3 & 5) reserved for MCP23017 LED expansion board (compatible)
 
 #### Reserved Pin Assignments (Phase 4 - LED Strip) **[PROPOSED]**
 
@@ -1034,30 +1052,35 @@ sudo systemctl restart r2d2-powerbutton.service
 
 ---
 
-### 4.2 Reserved for Phase 3 (Motors & Servos) 💡
+### 4.2 Reserved for Phase 3 (Motors) ✅ FINALIZED
 
-**Estimated GPIO Requirements:**
+**Complete Motor System Pin Allocation:**
 
-| Function | Pins Required | Suggested Assignment |
-|----------|---------------|---------------------|
-| Left wheel motor control | 3 (PWM, DIR, EN) | Pins 33, 35, 37 |
-| Right wheel motor control | 3 (PWM, DIR, EN) | Pins TBD*, 36, 38 |
-| Left wheel encoder | 2 (A, B channels) | Pins TBD |
-| Right wheel encoder | 2 (A, B channels) | Pins TBD |
-| Dome motor control | 3 (PWM, DIR, EN) | Pins 15, 29, 31 |
-| Dome encoder | 2 (A, B channels) | Pins TBD |
-| **Total** | **17 pins** | — |
+| Function | Pins Required | Final Assignment |
+|----------|---------------|------------------|
+| **Pan motor control** | 3 (PWM, DIR1, DIR2) | Pins 13, 29, 31 |
+| **Pan motor encoder** | 2 (A, B channels) | Pins 16, 18 |
+| **Pan home sensor** | 1 (digital input) | Pin 23 |
+| **Left wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 15, 35, 37 |
+| **Left wheel encoder** | 2 (A, B channels) | Pins 19, 21 |
+| **Right wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 11, 36, 38 |
+| **Right wheel encoder** | 2 (A, B channels) | Pins 24, 26 |
+| **Total GPIO Allocated** | **18 pins** | — |
+| **Remaining Free** | **10 pins** | Available for expansion |
 
-**Notes:**
-- *Pin 32 conflict (currently shutdown button, needed for right wheel PWM)
-- **Pin 11/GPIO17 conflict (currently LED control, could move to software-only)
-- Encoder pins not yet assigned (need 6 additional GPIO inputs)
-- May require I2C PWM controller (PCA9685) to reduce pin count
+**Pin Usage Breakdown:**
+- 3× PWM outputs (motor speed control)
+- 6× Digital outputs (motor direction)
+- 6× Digital inputs (encoder feedback)
+- 1× Digital input (home sensor)
+- 2× I2C pins (3 & 5) reserved for MCP23017 LED expansion
 
-**Alternative Strategy:**
-- Use I2C PWM controller for servos (saves 2 GPIO pins)
-- Use dedicated motor controller with I2C/UART interface (saves many GPIO pins)
-- Move LED to RGB strip (WS2812B on single data pin)
+**Conflicts Resolved:**
+- ✅ Pin 32 (GPIO32) remains with shutdown button (critical safety)
+- ✅ Right wheel PWM assigned to Pin 11 (GPIO17) - no conflict
+- ✅ All encoder pins fully allocated
+- ✅ Pan home sensor allocated to Pin 23
+- ✅ Compatible with MCP23017 LED expansion board (I2C pins 3 & 5 free)
 
 ---
 
@@ -1072,21 +1095,31 @@ sudo systemctl restart r2d2-powerbutton.service
 
 ---
 
-### 4.4 Pin Conflict Analysis & Resolution Strategy
+### 4.4 Pin Conflict Resolution - COMPLETED ✅
 
-**Current Conflicts:**
-1. **Pin 32 (GPIO32):** Currently shutdown button, proposed for right wheel motor PWM
-2. **Pin 11 (GPIO17):** Currently LED control, proposed for pan servo
-3. **Insufficient pins:** 17 pins needed for Phase 3, limited availability after Phase 1-2
+**Original Conflicts (Now Resolved):**
 
-**Proposed Resolutions:**
-1. Keep shutdown button on Pin 32 (critical safety function)
-2. Move right wheel motor PWM to alternative pin (e.g., Pin 13/GPIO27 now available)
-3. Migrate LED control to WS2812B RGB strip (Phase 4) freeing Pin 11
-4. Use I2C PWM controller (PCA9685) for servos → saves 2 GPIO pins
-5. Consider motor controller with I2C/UART interface (e.g., RoboClaw) → saves 6+ GPIO pins
+1. ✅ **Pin 32 (GPIO32):** RESOLVED - Shutdown button stays (safety-critical), right wheel PWM moved to Pin 11
+2. ✅ **Encoder pins:** RESOLVED - All 6 encoder inputs allocated (pins 16, 18, 19, 21, 24, 26)
+3. ✅ **Home sensor:** RESOLVED - Pan home sensor allocated to Pin 23
+4. ✅ **LED expansion:** RESOLVED - MCP23017 I2C board uses pins 3 & 5 (not allocated to motors)
 
-**Final recommendation:** Will be determined during Phase 3 planning based on actual component selection and integration requirements.
+**Final Resolution Strategy:**
+- **Shutdown button:** Pin 32 (locked, non-negotiable for safety)
+- **Pan motor:** Pins 13, 29, 31 (PWM + DIR), pins 16, 18 (encoder), pin 23 (home)
+- **Left wheel:** Pins 15, 35, 37 (PWM + DIR), pins 19, 21 (encoder)
+- **Right wheel:** Pins 11, 36, 38 (PWM + DIR), pins 24, 26 (encoder)
+- **LED expansion (Phase 4):** Pins 3, 5 (I2C for MCP23017) OR Pin 12 (WS2812B)
+- **Current LED (Pin 22):** Can stay or migrate to expansion board
+
+**Pin Availability Analysis:**
+- Total usable GPIO: 28 pins
+- Allocated to motors: 18 pins (motors + encoders + sensors)
+- Reserved for LED expansion: 2-3 pins (I2C or SPI)
+- Current LED: 1 pin (Pin 22, can migrate)
+- **Free pins:** 7-10 pins (sufficient margin for expansion)
+
+**All conflicts resolved. Motor system implementation can proceed without blocking future features.**
 
 ---
 
@@ -1493,7 +1526,7 @@ With **3× Turnigy 5000mAh 4S batteries in parallel:**
 
 ## 10. Critical Hardware Notes
 
-### 9.1 Known Issues & Limitations
+### 10.1 Known Issues & Limitations
 
 | Issue | Severity | Workaround | Status |
 |-------|----------|------------|--------|
@@ -1503,7 +1536,7 @@ With **3× Turnigy 5000mAh 4S batteries in parallel:**
 | Battery discharge rate unknown | Medium | Measure C-rating before motor integration | ⏳ Pending |
 | Speaker amplifier separate power needed | Low | External power supply for PAM8403 | ✅ Resolved |
 
-### 9.2 Hardware Safety Considerations
+### 10.2 Hardware Safety Considerations
 
 **Electrical Safety:**
 - LiPo battery requires proper charging (balance charger, fire-safe bag)
@@ -1523,40 +1556,343 @@ With **3× Turnigy 5000mAh 4S batteries in parallel:**
 
 ---
 
-## 10. Cross-References & Related Documentation
+## 11. Cross-References & Related Documentation
 
-### 10.1 Hardware Setup Guides
+### 11.1 Hardware Setup Guides
 - [003_JETSON_FLASHING_AND_DISPLAY_SETUP.md](003_JETSON_FLASHING_AND_DISPLAY_SETUP.md) - Jetson flashing, display setup, SDK Manager
 - [020_POWER_BUTTON_FINAL_DOCUMENTATION.md](020_POWER_BUTTON_FINAL_DOCUMENTATION.md) - Power button wiring and testing
 - [HARDWARE_WHITE_LED_WIRING.md](HARDWARE_WHITE_LED_WIRING.md) - LED panel wiring diagram and troubleshooting
 
-### 10.2 Software Integration
+### 11.2 Software Integration
 - [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) - Software architecture, ROS 2 nodes, data flow
 - [007_SYSTEM_INTEGRATION_REFERENCE.md](007_SYSTEM_INTEGRATION_REFERENCE.md) - Complete system integration guide
 - [100_PERSON_RECOGNITION_REFERENCE.md](100_PERSON_RECOGNITION_REFERENCE.md) - Face recognition setup
 - [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) - Speech system architecture
 
-### 10.3 Component-Specific Documentation
+### 11.3 Component-Specific Documentation
 - **OAK-D Camera:** [102_CAMERA_SETUP_DOCUMENTATION.md](102_CAMERA_SETUP_DOCUMENTATION.md) (referenced from architecture docs)
 - **Audio System:** [101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md](101_SPEAKER_AUDIO_SETUP_DOCUMENTATION.md) (referenced from architecture docs)
 - **Web Dashboard:** [110_WEB_UI_REFERENCE.md](110_WEB_UI_REFERENCE.md) - Remote monitoring interface
 
-### 10.4 Project Planning
+### 11.4 Project Planning
 - [010_PROJECT_GOALS_AND_SETUP.md](010_PROJECT_GOALS_AND_SETUP.md) - Complete BOM, project phases, success criteria
 - [README.md](README.md) - Project overview, quick start, roadmap
 
 ---
 
-## 11. Revision History
+## 12. Performance Optimization and Monitoring
+
+> **Consolidated from:** Originally maintained as separate document `008_JETSON_OPTIMIZATION_GUIDE.md`, merged into hardware reference for better discoverability.
+
+This section provides condensed best practices for optimizing the NVIDIA Jetson AGX Orin 64GB for R2D2's AI workloads, including vision, speech processing, and autonomous navigation.
+
+### 12.1 Quick Optimization Checklist
+
+**Essential Settings:**
+
+- [ ] **Power Mode:** MAXN (for real-time processing)
+- [ ] **Thermal Monitoring:** Enabled with freeze monitor
+- [ ] **GPU Acceleration:** Container with `--runtime nvidia`
+- [ ] **Memory:** Monitor usage, keep <90% utilization
+- [ ] **Swap:** Enabled (8-16GB for safety)
+
+### 12.2 Power Management
+
+#### Power Modes
+
+```bash
+# Check current power mode
+sudo nvpmodel -q --verbose
+
+# Set to MAXN (maximum performance)
+sudo nvpmodel -m 0
+
+# List available modes
+sudo nvpmodel -l
+```
+
+**Recommended for R2D2:** MAXN mode (mode 0)
+- All CPU cores enabled
+- GPU at maximum frequency
+- ~25-30W continuous power
+
+#### Thermal Management
+
+**Operating Limits:**
+- **Optimal Range:** 40-75°C
+- **Warning Threshold:** 75°C (throttling begins)
+- **Danger Zone:** 80°C+ (performance degradation)
+- **Thermal Shutdown:** 95°C (hardware enforced)
+
+**Monitoring:**
+```bash
+# Real-time thermal & power monitoring
+tegrastats
+
+# Check thermal zones
+cat /sys/class/thermal/thermal_zone*/temp
+
+# Check throttling status
+cat /proc/tegra_throttle_alert
+```
+
+**R2D2 Integration:**
+- Freeze monitor active (`freeze-monitor.service`)
+- Logs thermal events to `/var/log/freeze_monitor.log`
+- See: [050_FREEZE_MONITOR_SYSTEM.md](050_FREEZE_MONITOR_SYSTEM.md)
+
+### 12.3 Memory Optimization
+
+#### Memory Architecture
+
+- **Total Memory:** 64GB LPDDR5 unified memory
+- **Shared:** CPU and GPU use same physical RAM
+- **Bandwidth:** 204.8 GB/s
+
+#### Memory Monitoring
+
+```bash
+# Check memory usage
+free -h
+
+# Detailed memory stats
+cat /proc/meminfo
+
+# Per-process memory usage
+ps aux --sort=-%mem | head -10
+```
+
+#### Best Practices
+
+✅ **Keep memory usage < 90%** (leave headroom for bursts)  
+✅ **Enable swap** (8-16GB for safety)  
+✅ **Monitor ROS 2 nodes** (some nodes can leak memory)  
+✅ **Use GPU memory** for large models (offload from system RAM)  
+
+**R2D2 Typical Usage:**
+- Base system: ~2-3GB
+- ROS 2 nodes: ~3-4GB
+- Speech processing (GPU container): ~4-6GB
+- Camera/perception: ~2-3GB
+- **Total:** ~12-16GB (comfortable margin on 64GB)
+
+### 12.4 GPU Acceleration
+
+#### CUDA Configuration
+
+```bash
+# Verify CUDA installation
+nvcc --version
+
+# Check GPU status
+tegrastats | grep GPU
+
+# Monitor GPU memory usage
+sudo jetson_stats
+```
+
+#### Container Configuration
+
+R2D2 uses official NVIDIA containers for GPU acceleration:
+
+```bash
+# Test GPU in container
+sudo docker run --rm --runtime nvidia \
+  dustynv/l4t-pytorch:r36.4.0 \
+  python3 -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
+```
+
+**For GPU acceleration details for speech processing, see:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing"
+
+### 12.5 ROS 2 Integration Best Practices
+
+#### Performance Settings
+
+**DDS Configuration (CycloneDDS):**
+```bash
+# Already configured in ~/.bashrc
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI=file:///home/severin/dev/r2d2/cyclonedds.xml
+```
+
+**ROS 2 QoS Profiles:**
+- Use `BEST_EFFORT` for high-frequency sensor data (camera, IMU)
+- Use `RELIABLE` for commands and state changes
+
+#### Node Optimization
+
+```bash
+# Monitor ROS 2 node CPU usage
+ros2 wtf
+
+# Check topic frequencies
+ros2 topic hz /oak/rgb/image_raw
+
+# Monitor node memory
+ros2 node info /camera_node
+```
+
+### 12.6 Storage & I/O
+
+#### NVMe SSD Configuration
+
+R2D2 uses NVMe SSD for fast storage:
+
+```bash
+# Check disk usage
+df -h
+
+# Monitor I/O performance
+iostat -x 5
+
+# Check SSD health
+sudo smartctl -a /dev/nvme0n1
+```
+
+#### Best Practices
+
+✅ **Keep root filesystem < 80% full**  
+✅ **Use separate partition for logs** (or log rotation)  
+✅ **Enable TRIM** for SSD longevity  
+✅ **Regular backups** (see [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md))  
+
+### 12.7 Network Optimization
+
+#### Tailscale VPN
+
+```bash
+# Check Tailscale status
+tailscale status
+
+# Verify connection quality
+tailscale ping <device-name>
+
+# Monitor Tailscale logs
+journalctl -u tailscaled -f
+```
+
+**See:** [012_VPN_SETUP_AND_REMOTE_ACCESS.md](012_VPN_SETUP_AND_REMOTE_ACCESS.md)
+
+#### ROS 2 Network
+
+- CycloneDDS configured for low latency
+- No network discovery needed (single machine)
+- Tailscale for remote monitoring only
+
+### 12.8 Monitoring Tools
+
+#### Essential Commands
+
+```bash
+# Comprehensive system stats (thermal, power, CPU, GPU, memory)
+tegrastats
+
+# Interactive system monitor (highly recommended)
+sudo jtop
+
+# GPU-specific monitoring
+nvidia-smi  # (limited on Jetson, use tegrastats instead)
+
+# ROS 2 system health
+ros2 doctor --report
+
+# Check all systemd services
+systemctl status r2d2-*.service
+```
+
+#### R2D2 Monitoring Script
+
+```bash
+# Minimalistic one-line monitor
+cd /home/severin/dev/r2d2/tools
+python3 minimal_monitor.py
+```
+
+**See:** [006_SYSTEM_STATUS_AND_MONITORING.md](006_SYSTEM_STATUS_AND_MONITORING.md)
+
+### 12.9 Common Issues & Solutions
+
+#### High Temperature
+
+**Symptoms:** Throttling, performance degradation
+
+**Solutions:**
+1. Check fan is running: `grep -i fan /var/log/syslog`
+2. Improve airflow (ensure 2cm clearance)
+3. Reduce power mode: `sudo nvpmodel -m 1` (15W mode)
+4. Check thermal paste on heatsink
+
+#### Memory Pressure
+
+**Symptoms:** Slow performance, OOM killer
+
+**Solutions:**
+1. Enable swap: `sudo swapon -a`
+2. Restart memory-hungry nodes
+3. Check for memory leaks: `watch -n 1 free -h`
+
+#### GPU Not Accessible
+
+**Symptoms:** `CUDA: False` in container
+
+**Solutions:**
+1. Ensure `--runtime nvidia` flag: `docker run --runtime nvidia ...`
+2. Verify NVIDIA runtime: `docker info | grep -i nvidia`
+3. Restart Docker daemon: `sudo systemctl restart docker`
+
+**See:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing - Troubleshooting"
+
+### 12.10 Regular Maintenance Schedule
+
+**Daily:**
+- Monitor thermal status (freeze monitor does this automatically)
+- Check ROS 2 service status
+
+**Weekly:**
+- Review freeze monitor logs
+- Check disk space
+- Verify Tailscale connectivity
+
+**Monthly:**
+- System updates: `sudo apt update && sudo apt upgrade`
+- Check SSD health: `sudo smartctl -a /dev/nvme0n1`
+- Review ROS 2 log sizes: `du -sh ~/.ros/log`
+- Backup system: See [004_BACKUP_AND_RESTORE.md](004_BACKUP_AND_RESTORE.md)
+
+### 12.11 Performance Expectations
+
+**R2D2 Benchmarks:**
+
+| Component | Performance | Notes |
+|-----------|-------------|-------|
+| **Camera (OAK-D)** | 30 FPS @ 1920×1080 | RGB stream |
+| **Face Detection** | 13 Hz | Haar Cascade |
+| **Face Recognition** | 6.5 Hz | LBPH |
+| **Speech STT (GPU)** | 1-2s per 10s audio | faster-whisper |
+| **Speech TTS (GPU)** | 0.5-1s per response | piper-tts |
+| **System CPU Usage** | 10-15% idle | With all services |
+| **Temperature** | 55-65°C | MAXN mode, ambient 20°C |
+
+**Optimization Targets:**
+
+✅ **CPU usage:** < 60% average (leave headroom)  
+✅ **Memory usage:** < 50% average (~32GB used)  
+✅ **Temperature:** < 75°C continuous  
+✅ **Response latency:** < 3s total (speech to speech)  
+
+---
+
+## 13. Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-20 | Severin Leuenberger | Initial hardware reference document created |
+| 1.1 | 2026-01-06 | Documentation consolidation | Added Section 12 "Performance Optimization and Monitoring" (merged from 008_JETSON_OPTIMIZATION_GUIDE.md) |
 
 ---
 
 **Document Status:** ✅ Complete for Phase 1-2, 💡 Proposed designs for Phase 3-4  
-**Last Updated:** December 20, 2025  
+**Last Updated:** January 6, 2026  
 **Maintainer:** Severin Leuenberger
 
 ---
