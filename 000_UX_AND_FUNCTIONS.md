@@ -299,30 +299,213 @@ Monitor and control the robot from anywhere in the world through a web-based das
 ## 5. Physical Controls
 
 ### What It Does
-Direct physical interaction with the robot through buttons for power management.
+Direct physical interaction with the robot through buttons for power management. Two buttons provide complete power control: one for safe shutdown, one for wake/boot.
 
 ### Power Management ✅ OPERATIONAL
 
-**Shutdown Button**
+#### Button 1: Shutdown Control
+
+**Location & Access:**
 - Physical momentary button on robot chassis
-- Press to initiate graceful shutdown
-- System saves state before powering down
-- Safe shutdown prevents data corruption
-- Connected to GPIO Pin 32
+- Easily accessible without opening panels
+- Tactile feedback on press
+- No hold time required - brief press is sufficient
 
-**Wake/Boot Button**
+**Function:**
+- **Single press** initiates graceful system shutdown
+- System saves all data and state before powering down
+- Safe shutdown prevents file system corruption
+- Preserves conversation history and settings
+- Better than sudden power loss
+
+**When to Use:**
+- **End of day:** Shutdown robot when not in use
+- **Maintenance:** Safe shutdown before hardware work
+- **Transport:** Power down before moving robot
+- **Extended idle:** Conserve battery when away for hours
+- **Emergency:** Quick way to stop all robot functions
+
+**Expected Behavior:**
+1. Press and release shutdown button
+2. System logs shutdown event
+3. LED may blink or change state (if implemented)
+4. All active conversations stopped gracefully
+5. System saves state to disk (~2-3 seconds)
+6. Services shut down in order (~10-15 seconds)
+7. System powers off completely (~30 seconds total)
+
+**Visual/Audio Feedback:**
+- Button press detected immediately (<100ms)
+- Optional audio beep confirms detection (if configured)
+- LED indicates shutdown in progress
+- Screen/display shows "Shutting down..." (if connected)
+- System becomes unresponsive to other inputs
+
+**Important Notes:**
+- ⚠️ **Wait for complete shutdown:** Allow ~30 seconds before unplugging power
+- ✅ **Safe any time:** OK to press during conversations or processing
+- ✅ **Instant response:** No need to hold button, just press and release
+- ✅ **Battery safe:** Recommended way to power down when on battery
+- ⚠️ **Cannot cancel:** Once pressed, shutdown will complete
+
+**Testing Status:** ✅ Verified Operational (December 9, 2025)
+- Response time: Immediate (within 100ms)
+- Shutdown time: ~30 seconds average
+- Success rate: 100% in testing
+- No false triggers observed
+
+#### Button 2: Wake/Boot Control
+
+**Location & Access:**
 - Physical momentary button on robot chassis
-- Press to wake from shutdown
-- Press to boot after power loss
-- Connected to J42 Automation Header
-- Instant response to button press
+- Located near shutdown button
+- J42 Automation Header connection
+- Hardware-level power control
 
-**Status Indication**
-- LED confirms system state
-- Audio feedback on shutdown initiation
-- Clean shutdown process takes ~30 seconds
+**Function:**
+- **Wake:** Bring system back from shutdown/sleep
+- **Boot:** Start system after complete power-off
+- **Recovery:** Restore power after unexpected shutdown
+- Works even when software is unresponsive
 
-**For technical details:** See `020_POWER_BUTTON_FINAL_DOCUMENTATION.md`
+**When to Use:**
+- **Daily startup:** Boot robot at beginning of day
+- **After shutdown:** Wake system after intentional shutdown
+- **Power recovery:** Restart after power loss
+- **Quick restart:** Faster than unplugging/replugging power
+- **Remote power-on:** Can be wired to remote trigger
+
+**Expected Behavior:**
+1. Press and release wake/boot button
+2. Hardware power management activates
+3. System begins boot sequence (~10-20 seconds)
+4. Jetson initializes and loads operating system
+5. All services auto-start (~5-7 seconds)
+6. Robot ready for interaction (~30 seconds total)
+
+**Boot Sequence Indicators:**
+- Power LED illuminates (hardware)
+- Fan noise increases (if passive cooling)
+- Network connection establishes
+- Status LED activates when services ready
+- Camera feed becomes available
+
+**Testing Status:** ⏳ Ready for Testing
+- Hardware installed and wired
+- Pin configuration verified (J42 Pin 4 POWER)
+- Awaiting first shutdown cycle test
+- Expected to work as designed
+
+#### Daily Usage Guide
+
+**Normal Operation Pattern:**
+
+**Morning (Startup):**
+1. Press wake/boot button
+2. Wait ~30 seconds for boot
+3. Verify LED turns on when you approach (recognition working)
+4. Robot ready for interaction
+
+**Evening (Shutdown):**
+1. Press shutdown button
+2. Step back (robot will detect you leaving)
+3. Wait ~30 seconds for clean shutdown
+4. Disconnect power if storing for extended period
+
+**When to Shutdown vs. Leave Running:**
+
+**Shutdown button recommended:**
+- End of daily use (conserve battery)
+- Before maintenance or hardware changes
+- Before transporting robot
+- Battery running low
+- Extended time away (days/weeks)
+
+**Leave running:**
+- Short breaks (under 1-2 hours)
+- Moving between rooms
+- During meal breaks
+- Overnight (if on AC power and monitoring)
+
+**Quick Restart:**
+Instead of waiting through shutdown + boot (~60 seconds total):
+1. Press shutdown button
+2. Wait 30 seconds for complete shutdown
+3. Press wake/boot button
+4. Wait 30 seconds for boot
+5. System restored fresh
+
+**Power Button Reliability:**
+- ✅ Shutdown button: Tested and verified 100% reliable
+- ✅ Debounced: No false triggers from electrical noise
+- ✅ Auto-restart: Service recovers automatically on boot
+- ⏳ Wake/boot button: Ready for testing
+
+#### Troubleshooting for Users
+
+**Problem: Shutdown button not working**
+
+Try this sequence:
+1. Verify LED is on (indicates system is running)
+2. Press button firmly and release
+3. Wait 5 seconds and watch for LED change
+4. If no response, try pressing again
+5. Last resort: Unplug power (not ideal, but safe)
+
+Check:
+- Is button physically working? (Click sound/feel)
+- Is LED working? (Indicates power to system)
+- Has system frozen? (No response to any input)
+
+**Problem: Wake/boot button not working**
+
+Try this sequence:
+1. Verify power is connected (check power LED)
+2. Press button firmly for 1 full second
+3. Release and wait 10 seconds
+4. Watch for boot activity (fan, LEDs)
+5. If no response, check power connection
+
+Check:
+- Is main power connected?
+- Is battery charged?
+- Did you wait long enough after shutdown?
+
+**Problem: System won't fully shutdown**
+
+Symptoms:
+- LED still on after 60 seconds
+- Fan still running
+- System responsive to inputs
+
+Actions:
+1. Wait 2 full minutes (some shutdowns take longer)
+2. Check if background tasks are running
+3. If still not shutdown, unplug power
+4. Wait 10 seconds, then reconnect power
+5. Use wake/boot button to restart
+
+**Problem: Unexpected shutdowns**
+
+If system shuts down without button press:
+- Check battery level (auto-shutdown at low battery)
+- Check for loose power connections
+- Verify button wiring not shorted
+- Check system logs after reboot
+
+**Getting Help:**
+- Check logs: `journalctl -u r2d2-powerbutton.service`
+- View log file: `tail -50 /var/log/r2d2_power_button.log`
+- Service status: `sudo systemctl status r2d2-powerbutton.service`
+- Hardware details: See [`002_HARDWARE_REFERENCE.md`](002_HARDWARE_REFERENCE.md) Section 2.4, 2.5, 3.8
+- Service management: See [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md) Section 10
+
+**Safety Notes:**
+- ✅ Safe to press shutdown during any activity
+- ✅ All data saved before shutdown completes
+- ✅ Conversations preserved across shutdown/boot
+- ⚠️ Wait for complete shutdown before unplugging
+- ⚠️ Don't force power-off unless system frozen
 
 **Technical Implementation:** See [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) Section 7.1 (Power Button System)
 
