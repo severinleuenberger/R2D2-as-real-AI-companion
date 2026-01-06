@@ -1051,40 +1051,42 @@ sudo systemctl restart r2d2-powerbutton.service
 
 ---
 
-### 4.2 Reserved for Phase 3 (Motors) ✅ FINALIZED
+### 4.2 Reserved for Phase 3 (Motors) ⚠️ BLOCKED - GPIO Limitation Discovered
 
-**Complete Motor System Pin Allocation:**
+**⚠️ CRITICAL UPDATE (January 6, 2026):**
 
-| Function | Pins Required | Final Assignment (Physical Pin → Jetson Signal) |
-|----------|---------------|------------------------------------------------|
-| **Pan motor control** | 2 (PWM, DIR) | Pin 13 (GPIO32), Pin 29 (CAN0_DIN) |
-| **Pan motor encoder** | 2 (A, B channels) | Pin 16 (GPIO23), Pin 18 (GPIO24) |
-| **Pan home sensor** | 1 (digital input) | Pin 23 (GPIO11) |
-| **Left wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 15, 35, 37 |
-| **Left wheel encoder** | 2 (A, B channels) | Pins 19, 21 |
-| **Right wheel motor control** | 3 (PWM, DIR1, DIR2) | Pins 11, 36, 38 |
-| **Right wheel encoder** | 2 (A, B channels) | Pins 24, 26 |
-| **Total GPIO Allocated** | **17 pins** | — |
-| **Remaining Free** | **11 pins** | Available for expansion |
+During hardware testing, we discovered that **most Jetson AGX Orin GPIO pins cannot output voltage** due to pinmux configuration in JetPack R36.4.7. Only Pin 13 (PWM01) reliably outputs voltage. Direct GPIO motor control is **NOT VIABLE**.
 
-**Pin Usage Breakdown:**
-- 3× PWM outputs (motor speed control)
-- 5× Digital outputs (motor direction - pan uses 1, wheels use 4)
-- 6× Digital inputs (encoder feedback)
-- 1× Digital input (home sensor)
-- 2× I2C pins (3 & 5) reserved for MCP23017 LED expansion
+**Solution:** Use **PCA9685 I2C PWM Controller** (already ordered from BerryBase) to provide motor control signals via I2C bus.
 
-**Conflicts Resolved:**
-- ✅ Pin 32 (GPIO32_SHUTDOWN) remains with shutdown button (critical safety)
-- ✅ Pin 13 (GPIO32/SPI2_SCK) assigned to pan motor PWM - different from shutdown button
-- ✅ All encoder pins fully allocated
-- ✅ Pan home sensor allocated to Pin 23
-- ✅ Compatible with MCP23017 LED expansion board (I2C pins 3 & 5 free)
+**New Motor Control Approach (PCA9685-based):**
+
+| Function | I2C Channels | Final Assignment |
+|----------|--------------|------------------|
+| **Pan motor control** | CH0 (PWM), CH1 (DIR) | PCA9685 via I2C (Pins 3, 5) |
+| **Pan motor encoder** | N/A (GPIO inputs work) | Pin 16 (GPIO23), Pin 18 (GPIO24) |
+| **Pan home sensor** | N/A (GPIO inputs work) | Pin 23 (GPIO11) |
+| **Tilt servo** | CH2 (PWM) | PCA9685 via I2C (Pins 3, 5) |
+| **Left wheel motor control** | CH3 (PWM), CH4 (DIR) | PCA9685 via I2C - Phase 3 Future |
+| **Right wheel motor control** | CH5 (PWM), CH6 (DIR) | PCA9685 via I2C - Phase 3 Future |
+| **Total I2C pins used** | **2 pins** | Pins 3 (SDA), 5 (SCL) |
+| **Total GPIO inputs** | **8 pins** | Encoders + home sensor |
+| **Remaining PCA9685 channels** | **10 channels** | Available for expansion |
+
+**Advantages of PCA9685 Approach:**
+- ✅ **Only uses 2 pins:** I2C bus (SDA, SCL) instead of 17 GPIO pins
+- ✅ **No pinmux issues:** I2C pins are dedicated, always functional
+- ✅ **16 PWM channels:** Enough for 3 motors + tilt servo + 9 spare
+- ✅ **5V logic output:** Required for tilt servo, compatible with Pololu drivers
+- ✅ **Industry standard:** Well-supported libraries, proven reliability
+- ✅ **Scalable:** Can chain up to 62 PCA9685 boards on one I2C bus
+
+**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete GPIO limitation analysis and PCA9685 implementation plan.
 
 **⚠️ GPIO Naming Clarification:**
 The Jetson AGX Orin uses different GPIO numbering than Raspberry Pi BCM:
 - **Pin 13** = **GPIO32** (Jetson) ≠ GPIO27 (Raspberry Pi BCM)
-- **Pin 29** = **CAN0_DIN/GPIO01** (Jetson) ≠ GPIO5 (Raspberry Pi BCM)
+- **Pin 29** = **CAN0_DIN** (special function, NOT usable as GPIO output)
 - **Pin 32** = **GPIO32_SHUTDOWN** (different function, used for shutdown button)
 
 ---
@@ -1100,41 +1102,70 @@ The Jetson AGX Orin uses different GPIO numbering than Raspberry Pi BCM:
 
 ---
 
-### 4.4 Pin Conflict Resolution - COMPLETED ✅
+### 4.4 Pin Conflict Resolution - SUPERSEDED BY PCA9685 Solution
 
-**Original Conflicts (Now Resolved):**
+**⚠️ CRITICAL UPDATE (January 6, 2026):**
 
-1. ✅ **Pin 32 (GPIO32):** RESOLVED - Shutdown button stays (safety-critical), right wheel PWM moved to Pin 11
-2. ✅ **Encoder pins:** RESOLVED - All 6 encoder inputs allocated (pins 16, 18, 19, 21, 24, 26)
-3. ✅ **Home sensor:** RESOLVED - Pan home sensor allocated to Pin 23
-4. ✅ **LED expansion:** RESOLVED - MCP23017 I2C board uses pins 3 & 5 (not allocated to motors)
+Original GPIO-based approach is **NOT VIABLE** due to hardware limitations. See Section 4.6 for details.
 
-**Final Resolution Strategy:**
-- **Shutdown button:** Pin 32 (locked, non-negotiable for safety)
-- **Pan motor:** Pins 13, 29, 31 (PWM + DIR), pins 16, 18 (encoder), pin 23 (home)
-- **Left wheel:** Pins 15, 35, 37 (PWM + DIR), pins 19, 21 (encoder)
-- **Right wheel:** Pins 11, 36, 38 (PWM + DIR), pins 24, 26 (encoder)
-- **LED expansion (Phase 4):** Pins 3, 5 (I2C for MCP23017) OR Pin 12 (WS2812B)
-- **Current LED (Pin 22):** Can stay or migrate to expansion board
+**New Resolution Strategy (I2C-based):**
 
-**Pin Availability Analysis:**
-- Total usable GPIO: 28 pins
-- Allocated to motors: 18 pins (motors + encoders + sensors)
-- Reserved for LED expansion: 2-3 pins (I2C or SPI)
-- Current LED: 1 pin (Pin 22, can migrate)
-- **Free pins:** 7-10 pins (sufficient margin for expansion)
+**What Works:**
+- ✅ **I2C bus (Pins 3, 5):** Fully functional, no pinmux issues
+- ✅ **GPIO inputs (Pins 16, 18, 19, 21, 23, 24, 26):** Encoders and sensors work
+- ✅ **Pin 13 (PWM01):** Works for PWM output (only confirmed working GPIO output)
+- ✅ **Shutdown button (Pin 32):** Unchanged, remains functional
 
-**All conflicts resolved. Motor system implementation can proceed without blocking future features.**
+**What Doesn't Work:**
+- ❌ **Most GPIO digital outputs:** Pinmux configuration prevents voltage output
+- ❌ **Direct motor direction control:** Requires GPIO outputs that don't work
+- ❌ **Original 17-pin GPIO approach:** Not feasible with current JetPack configuration
+
+**I2C Expansion Strategy:**
+- **Motors:** PCA9685 I2C PWM controller (already ordered)
+- **LEDs:** MCP23017 I2C GPIO expander (planned, compatible)
+- **Future expansion:** Additional I2C devices as needed
+
+**Benefits:**
+- Only 2 GPIO pins used (I2C SDA/SCL)
+- No pinmux conflicts
+- Industry-standard approach
+- Easier to debug and maintain
+- More reliable than direct GPIO
+
+**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete implementation plan with PCA9685.
 
 ---
 
 ### 4.5 Motor System Complete Wiring Reference
 
-#### Pan Motor Wiring (Pololu G2 High-Power Motor Driver 24v21)
+#### ⚠️ CRITICAL WARNING: GPIO Digital Output Limitation
 
-**⚠️ CRITICAL: Jetson AGX Orin GPIO Pin Mapping (NOT Raspberry Pi BCM!)**
+**❌ DIRECT GPIO MOTOR CONTROL IS NOT FUNCTIONAL**
 
-This section uses **physical pin numbers** with correct Jetson AGX Orin signal names from the official developer kit guide.
+During testing (January 6, 2026), we discovered that most Jetson AGX Orin GPIO pins **cannot output voltage** due to pinmux configuration in JetPack R36.4.7. The wiring diagrams in this section showing direct GPIO connections to Pololu drivers **DO NOT WORK**.
+
+**What Works:**
+- ✅ Pin 13 (PWM) - Outputs voltage (configured as PWM01 in device tree)
+- ✅ GPIO inputs (encoders, sensors) - All functional
+
+**What Does NOT Work:**
+- ❌ Pin 29 (CAN0_DIN) - Special function pin, not GPIO capable
+- ❌ Pin 15, 16, 18 (GPIO outputs) - Pinmux tristate/input-only mode
+- ❌ Any GPIO digital output except Pin 13
+
+**Recommended Solution:**
+Use **PCA9685 I2C PWM Controller** for all motor control signals. See Section 4.5.2 below for PCA9685-based wiring.
+
+**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete analysis and solution.
+
+---
+
+#### 4.5.1 Pan Motor Wiring (DEPRECATED - Use PCA9685 Instead)
+
+**⚠️ THIS SECTION IS FOR REFERENCE ONLY - DIRECT GPIO CONTROL DOES NOT WORK**
+
+The wiring shown below was tested and **FAILS** due to GPIO output limitations:
 
 **Pololu G2 Driver - POWER SIDE (High Current):**
 
@@ -1147,26 +1178,116 @@ MOTOR A ────────────────► Pan motor Red wire (
 MOTOR B ────────────────► Pan motor Black wire (-)
 ```
 
-**Pololu G2 Driver - LOGIC/CONTROL SIDE (3.3V from Jetson):**
+**Pololu G2 Driver - LOGIC/CONTROL SIDE (DOES NOT WORK):**
 
 ```
-CONTROL INPUTS (connect directly to Jetson):
+❌ CONTROL INPUTS (DO NOT USE - GPIO OUTPUT FAILS):
 ═══════════════════════════════════════
-DIR ────────────────────► Jetson Pin 29 (CAN0_DIN / GPIO01)
-PWM ────────────────────► Jetson Pin 13 (GPIO32 / SPI2_SCK)
+DIR ────────────────────► ❌ Pin 29 (DOES NOT OUTPUT VOLTAGE)
+PWM ────────────────────► ✅ Pin 13 (WORKS - PWM01)
 SLP ────────────────────► Jetson Pin 1 or 17 (3.3V) - tie HIGH
 GND ────────────────────► Jetson Pin 6, 9, 14, 20, 25, 30, 34, or 39
-
-LOGIC POWER (optional, can use onboard 3.3V regulator):
-VCC ────────────────────► Jetson Pin 1 or 17 (3.3V) - if needed
 ```
 
-**⚠️ IMPORTANT NOTES:**
-- **Pin 13 = GPIO32** (NOT GPIO27 as in Raspberry Pi BCM)
-- **Pin 29 = CAN0_DIN / GPIO01** (NOT GPIO5 as in Raspberry Pi BCM)
-- The Pololu G2 driver has an onboard 3.3V regulator powered from VM
-- You can leave VCC disconnected if using the onboard regulator
-- SLP (sleep) pin should be tied HIGH (3.3V) for normal operation
+**Why This Fails:**
+- Pin 29 (CAN0_DIN) is a special function pin, cannot be used as GPIO
+- Software reports success, but multimeter shows **0V on the pin**
+- Tested alternative pins (15, 16, 18, 31) - all failed
+- Only Pin 13 outputs voltage (configured as PWM in device tree)
+
+**Use PCA9685 instead (see Section 4.5.2 below).**
+
+---
+
+#### 4.5.2 Pan Motor Wiring (RECOMMENDED - PCA9685 I2C Approach)
+
+**✅ THIS IS THE WORKING SOLUTION**
+
+**Hardware:** PCA9685 16-Channel I2C PWM Controller (ordered from BerryBase)
+
+**PCA9685 to Jetson Connection:**
+
+```
+PCA9685 Board             Jetson AGX Orin 40-Pin Header
+═══════════════           ═══════════════════════════════
+VCC  ─────────────────►   Pin 1 or 17 (3.3V logic power)
+GND  ─────────────────►   Pin 6, 9, 14, 20, 25, 30, 34, or 39 (GND)
+SDA  ─────────────────►   Pin 3 (I2C5_DAT) ✅ I2C works!
+SCL  ─────────────────►   Pin 5 (I2C5_CLK) ✅ I2C works!
+V+   ─────────────────►   External 5V BEC (servo/motor power rail)
+
+Important:
+- VCC is logic power (3.3V from Jetson)
+- V+ is servo/motor power (5V from external BEC)
+- V+ and VCC are separate power rails
+- GND must be common between Jetson, PCA9685, and 5V BEC
+```
+
+**PCA9685 to Pololu G2 Driver:**
+
+```
+PCA9685 Channels          Pololu G2 Driver
+═══════════════           ═══════════════════════
+CH0 (PWM signal)  ─────►  PWM pin (motor speed)
+CH1 (PWM signal)  ─────►  DIR pin (motor direction)
+
+Notes:
+- CH0: Variable duty cycle (0-100%) for speed control
+- CH1: Digital output (0% = LOW/reverse, 100% = HIGH/forward)
+- PCA9685 outputs 5V logic (compatible with Pololu 3.3V or 5V input)
+```
+
+**Complete System (PCA9685 + Pololu + Motor):**
+
+```
+═══════════════════════════════════════════════════════════════
+COMPLETE PAN MOTOR WIRING WITH PCA9685
+═══════════════════════════════════════════════════════════════
+
+JETSON 40-PIN HEADER:
+    │
+    ├──Pin 3 (I2C5_DAT)───────────────► PCA9685 "SDA"
+    ├──Pin 5 (I2C5_CLK)───────────────► PCA9685 "SCL"
+    ├──Pin 1 or 17 (3.3V)─────────────► PCA9685 "VCC" (logic power)
+    └──Pin 6/9/14/etc (GND)───────────► PCA9685 "GND"
+
+EXTERNAL 5V BEC:
+    │
+    ├──5V OUT ────────────────────────► PCA9685 "V+" (motor power rail)
+    └──GND ───────────────────────────► PCA9685 "GND" (common ground)
+
+PCA9685 BOARD:
+    │
+    ├──CH0 (Pan Motor PWM)────────────► Pololu G2 "PWM" pin
+    └──CH1 (Pan Motor DIR)────────────► Pololu G2 "DIR" pin
+
+POLOLU G2 DRIVER:
+    │
+    ├──VM ────────────────────────────► Battery +14.8V (via fuse/switch)
+    ├──GND ───────────────────────────► Battery GND (common with Jetson GND)
+    ├──PWM ───────────────────────────► PCA9685 CH0 (from above)
+    ├──DIR ───────────────────────────► PCA9685 CH1 (from above)
+    ├──SLP ───────────────────────────► Jetson Pin 1 or 17 (3.3V) - tie HIGH
+    │
+    ├──MOTOR A ───────────────────────► Pan Motor Red wire (+)
+    └──MOTOR B ───────────────────────► Pan Motor Black wire (-)
+
+═══════════════════════════════════════════════════════════════
+CRITICAL NOTES:
+═══════════════════════════════════════════════════════════════
+✅ I2C bus is functional (no pinmux issues)
+✅ PCA9685 provides 5V logic output
+✅ Battery and Jetson MUST share common ground
+⚠️  Test I2C communication first (i2cdetect -y 1 or -y 8)
+⚠️  PCA9685 default address: 0x40
+═══════════════════════════════════════════════════════════════
+```
+
+---
+
+#### 4.5.3 Encoder and Home Sensor Wiring (GPIO Inputs - These Work!)
+
+**✅ GPIO inputs are functional - these connections work!**
 
 **Pan Motor Encoder Wiring:**
 
@@ -1175,14 +1296,15 @@ Motor Encoder                    Jetson AGX Orin
 ═══════════════                  ═════════════════════════════
 Encoder VCC (Red wire)    ───►   Pin 2 or 4 (5V)
 Encoder GND (Black wire)  ───►   Pin 6/9/14/20/25/30/34/39 (GND)
-Ch A (Yellow wire)        ───►   Pin 16 (GPIO23 / SPI1_MISO)
-Ch B (Green wire)         ───►   Pin 18 (GPIO24 / SPI1_MOSI)
+Ch A (Yellow wire)        ───►   Pin 16 (GPIO23 / SPI1_MISO) ✅ INPUT OK
+Ch B (Green wire)         ───►   Pin 18 (GPIO24 / SPI1_MOSI) ✅ INPUT OK
 ```
 
 **⚠️ ENCODER VOLTAGE LEVEL:**
 - DeAgostini encoders output 5V logic
 - **MUST use 4.7kΩ pull-down resistors** or voltage dividers to 3.3V
 - Alternatively, use a bidirectional logic level shifter
+- GPIO inputs are functional, but voltage level must be correct
 
 **Pan Home Sensor (IR Reflective) Wiring:**
 
@@ -1191,15 +1313,21 @@ Home Sensor (3-pin)           Jetson AGX Orin
 ═══════════════               ═════════════════════════════
 + (Red wire, VCC)      ───►   Pin 2 or 4 (5V)
 - (Black wire, GND)    ───►   Pin 6/9/14/20/25/30/34/39 (GND)
-L (Blue wire, signal)  ───►   Pin 23 (GPIO11 / UART1_RTS)
+L (Blue wire, signal)  ───►   Pin 23 (GPIO11 / UART1_RTS) ✅ INPUT OK
 ```
 
-**Complete System Wiring Summary:**
+**Note:** GPIO inputs work correctly - the pinmux limitation only affects GPIO **outputs**.
+
+**OLD Complete System Wiring Summary (DEPRECATED - FOR REFERENCE ONLY):**
 
 ```
 ═══════════════════════════════════════════════════════════════
-PAN MOTOR COMPLETE WIRING (Verified Correct Configuration)
+❌ PAN MOTOR WIRING (DOES NOT WORK - GPIO OUTPUT LIMITATION)
 ═══════════════════════════════════════════════════════════════
+
+This wiring was tested on January 6, 2026 and FAILS due to GPIO output
+limitation. Motor speed control (Pin 13) works, but direction control
+(Pin 29) does not output voltage.
 
 BATTERY (14.8V LiPo):
     │
@@ -1210,14 +1338,14 @@ BATTERY (14.8V LiPo):
 
 JETSON 40-PIN HEADER:
     │
-    ├──Pin 13 (GPIO32/SPI2_SCK)──────► Pololu G2 "PWM" pin
-    ├──Pin 29 (CAN0_DIN/GPIO01)───────► Pololu G2 "DIR" pin
+    ├──Pin 13 (GPIO32/SPI2_SCK)──────► ✅ Pololu G2 "PWM" pin (WORKS)
+    ├──Pin 29 (CAN0_DIN/GPIO01)───────► ❌ Pololu G2 "DIR" pin (FAILS - 0V output)
     ├──Pin 1 or 17 (3.3V)─────────────► Pololu G2 "SLP" pin (tie HIGH)
     ├──Pin 6/9/14/etc (GND)───────────► Pololu G2 "GND" pin (logic ground)
     │
-    ├──Pin 16 (GPIO23/SPI1_MISO)──────► Encoder Ch A (via voltage divider)
-    ├──Pin 18 (GPIO24/SPI1_MOSI)──────► Encoder Ch B (via voltage divider)
-    ├──Pin 23 (GPIO11/UART1_RTS)──────► Home Sensor "L" signal
+    ├──Pin 16 (GPIO23/SPI1_MISO)──────► ✅ Encoder Ch A (INPUT WORKS)
+    ├──Pin 18 (GPIO24/SPI1_MOSI)──────► ✅ Encoder Ch B (INPUT WORKS)
+    ├──Pin 23 (GPIO11/UART1_RTS)──────► ✅ Home Sensor "L" signal (INPUT WORKS)
     │
     ├──Pin 2 or 4 (5V)────────────────► Encoder VCC + Home Sensor VCC
     └──Pin 6/9/14/etc (GND)───────────► Encoder GND + Home Sensor GND
@@ -1228,23 +1356,114 @@ POLOLU G2 DRIVER:
     └──"MOTOR B"──────────────────────► Pan Motor Black wire (-)
 
 ENCODER (5V output → needs level shift to 3.3V):
-    ├──Ch A (Yellow)──[4.7kΩ to GND]──► Jetson Pin 16 (3.3V safe)
-    └──Ch B (Green)───[4.7kΩ to GND]──► Jetson Pin 18 (3.3V safe)
+    ├──Ch A (Yellow)──[4.7kΩ to GND]──► Jetson Pin 16 (3.3V safe) ✅
+    └──Ch B (Green)───[4.7kΩ to GND]──► Jetson Pin 18 (3.3V safe) ✅
 
 ═══════════════════════════════════════════════════════════════
-CRITICAL SAFETY NOTES:
+WHY THIS FAILS:
 ═══════════════════════════════════════════════════════════════
-✅ CONFIRMED CORRECT: User verified wiring matches this diagram
-⚠️  Battery and Jetson MUST share common ground
-⚠️  Encoder 5V signals MUST be level-shifted to 3.3V
-⚠️  SLP pin tied HIGH = driver always active (normal operation)
-⚠️  VCC on Pololu can be left disconnected (uses onboard regulator)
+❌ Pin 29 (CAN0_DIN) cannot be used as GPIO output
+❌ Pinmux configuration prevents voltage output on most GPIO pins
+❌ Only Pin 13 (PWM01) outputs voltage (special PWM configuration)
+✅ GPIO inputs (encoders, sensors) work correctly
+✅ Solution: Use PCA9685 I2C PWM controller (see Section 4.5.2)
 ═══════════════════════════════════════════════════════════════
 ```
 
-#### Left Wheel Motor Wiring
+---
 
-**Pololu Driver #1 to Jetson:**
+### 4.6 GPIO Limitations on Jetson AGX Orin (JetPack R36.4.7)
+
+**⚠️ CRITICAL HARDWARE LIMITATION DISCOVERED (January 6, 2026)**
+
+During pan motor implementation testing, we discovered that **most Jetson AGX Orin GPIO pins cannot output voltage** despite software reporting success. This is a **hardware/firmware-level issue**, not a software bug.
+
+#### 4.6.1 What Works vs What Doesn't
+
+**Confirmed Working Pins:**
+
+| Pin | Function | Evidence |
+|-----|----------|----------|
+| **Pin 13** | PWM Output (GPIO32/PWM01) | ✅ Motor spins at variable speeds (20-80%) |
+| **Pin 22** | LED Control (GPIO17) | ✅ Status LED toggles on/off (RPi.GPIO BCM mode) |
+| **Pin 16, 18, 23** | GPIO Inputs (encoders, sensors) | ✅ Can read encoder and sensor states |
+| **Pins 3, 5** | I2C (SDA, SCL) | ✅ I2C bus functional (no pinmux issues) |
+
+**Confirmed Non-Working Pins (GPIO Output):**
+
+| Pin | Attempted Use | Result | Measured Voltage |
+|-----|---------------|--------|------------------|
+| **Pin 29** | Motor DIR (CAN0_DIN) | ❌ FAILS | 0V (always) |
+| **Pin 31** | Motor DIR (CAN0_DOUT) | ❌ FAILS | 3.3V (stuck HIGH) |
+| **Pin 15** | Motor DIR (GPIO27) | ❌ FAILS | 0V (no toggle) |
+| **Pin 16** | Motor DIR (GPIO08) | ❌ FAILS | 0V initially worked, then stopped |
+| **Pin 18** | Motor DIR (GPIO35) | ❌ FAILS | 0V (no toggle) |
+
+**Key Observation:** Software commands (`GPIO.output(pin, HIGH)`) reported success and `GPIO.input(pin)` read back as HIGH, but multimeter measured **0V on the physical pin**. This indicates a pinmux/pad configuration issue at the hardware level.
+
+#### 4.6.2 Root Cause: Pinmux Configuration
+
+**Technical Analysis:**
+
+JetPack R36.4.7 uses character device GPIO (`/dev/gpiochip*`) instead of legacy sysfs (`/sys/class/gpio/`). Pin functionality is determined by device tree configuration:
+
+```
+Pin Muxing Configuration (from NVIDIA jetson-io):
+┌────────────────────────────────────────────────┐
+│ sfio | input_en | tristate | pin mode          │
+├────────────────────────────────────────────────┤
+│    0 |      0/1 |      0/1 | disable           │
+│    1 |      0/1 |        0 | enable (output)   │
+│    1 |        1 |        1 | enable (input)    │
+│    1 |        0 |        1 | disable           │
+└────────────────────────────────────────────────┘
+
+Pin 13 (PWM01):  sfio=1, tristate=0 → OUTPUT ENABLED ✅
+Pin 16 (GPIO08): sfio=1, tristate=1 → OUTPUT DISABLED ❌
+Pin 18 (GPIO35): sfio=1, tristate=1 → OUTPUT DISABLED ❌
+```
+
+**Why Pin 13 Works:**
+- Configured as `PWM01` (hardware PWM) in device tree
+- Output buffer enabled by default for PWM functionality
+- Physical output path active even when used as GPIO
+
+**Why Other Pins Don't Work:**
+- Not configured for output in device tree
+- Physical output buffer in tristate or input-only mode
+- Software can set internal state, but no voltage on physical pin
+- Requires device tree modification or `jetson-io` reconfiguration (complex, risky)
+
+#### 4.6.3 Attempted Fixes (All Failed)
+
+1. ❌ **Tested multiple pins:** 29, 31, 15, 16, 18 - none output voltage
+2. ❌ **Different GPIO modes:** BCM vs BOARD - no difference
+3. ❌ **Library switching:** `Jetson.GPIO` vs `RPi.GPIO` - no difference
+4. ❌ **Pin cleanup/re-init:** No effect on output
+5. ⚠️ **NVIDIA jetson-io tool:** Could reconfigure, but risky (may break other functions)
+
+#### 4.6.4 Recommended Solution: I2C Expanders
+
+**Why I2C is Better:**
+- ✅ **I2C pins (3, 5) are dedicated** - No pinmux conflicts
+- ✅ **Industry standard approach** - Proven reliability
+- ✅ **Scalable** - One I2C bus can support 127 devices
+- ✅ **Fewer wires** - 2 wires (SDA, SCL) instead of many GPIO
+- ✅ **Well-supported libraries** - Adafruit, ROS 2 compatible
+
+**Recommended I2C Expanders:**
+1. **PCA9685 (16-channel PWM)** - For motors and servos (already ordered)
+2. **MCP23017 (16-channel GPIO)** - For LEDs (already planned)
+
+**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete PCA9685 implementation plan.
+
+---
+
+#### Left Wheel Motor Wiring (Phase 3 - Future)
+
+**⚠️ NOTE:** Will use PCA9685 I2C approach, not direct GPIO
+
+**Pololu Driver #1 to Jetson (via PCA9685):**
 
 ```
 Pololu G2 Driver #1      Jetson + Battery
