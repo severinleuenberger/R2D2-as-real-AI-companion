@@ -33,5 +33,10 @@ NoNewPrivileges=true
 ProtectHome=no
 ReadWritePaths=/home/severin/dev/r2d2
 
+# Resource limits for fault isolation
+CPUQuota=30%
+MemoryLimit=500M
+TasksMax=50
+
 [Install]
 WantedBy=multi-user.target

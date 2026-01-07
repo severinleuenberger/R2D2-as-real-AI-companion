@@ -402,6 +402,11 @@ ros2 lifecycle get /rest_speech_node
 
 **Working Directory:** `/home/severin/dev/r2d2`
 
+**Resource Limits (fault isolation):**
+- CPUQuota: 30% (prevents runaway CPU usage)
+- MemoryLimit: 500M (prevents memory leaks)
+- TasksMax: 50 (prevents fork bombs)
+
 **Dependencies:**
 - After: `network.target`
 
