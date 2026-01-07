@@ -12,16 +12,16 @@ logger = logging.getLogger(__name__)
 class ROS2TranscriptHandler:
     """Wrapper around TranscriptHandler that publishes to ROS2 topics"""
     
-    def __init__(self, original_handler, ros2_node):
+    def __init__(self, original_handler, ros2_node, topic_prefix='/r2d2/speech'):
         self.handler = original_handler
         self.node = ros2_node
         
         self.user_pub = ros2_node.create_publisher(
-            String, '/r2d2/speech/user_transcript', 10)
+            String, f'{topic_prefix}/user_transcript', 10)
         self.assistant_pub = ros2_node.create_publisher(
-            String, '/r2d2/speech/assistant_transcript', 10)
+            String, f'{topic_prefix}/assistant_transcript', 10)
         
-        logger.info("ROS2TranscriptHandler initialized")
+        logger.info(f"ROS2TranscriptHandler initialized (topic_prefix={topic_prefix})")
     
     async def handle_user_transcript(self, event: Dict[str, Any]) -> None:
         await self.handler.handle_user_transcript(event)
@@ -54,11 +54,11 @@ class ROS2TranscriptHandler:
 class ROS2StatusPublisher:
     """Publishes session status updates to ROS2"""
     
-    def __init__(self, ros2_node):
+    def __init__(self, ros2_node, topic_prefix='/r2d2/speech'):
         self.node = ros2_node
         self.status_pub = ros2_node.create_publisher(
-            String, '/r2d2/speech/session_status', 10)
-        logger.info("ROS2StatusPublisher initialized")
+            String, f'{topic_prefix}/session_status', 10)
+        logger.info(f"ROS2StatusPublisher initialized (topic_prefix={topic_prefix})")
     
     def publish_status(self, status: str, session_id: Optional[str] = None, 
                       details: Optional[Dict[str, Any]] = None) -> None:
@@ -80,12 +80,12 @@ class ROS2StatusPublisher:
 class ROS2VADPublisher:
     """Publishes Voice Activity Detection events to ROS2"""
     
-    def __init__(self, ros2_node):
+    def __init__(self, ros2_node, topic_prefix='/r2d2/speech'):
         self.node = ros2_node
         self.vad_pub = ros2_node.create_publisher(
-            String, '/r2d2/speech/voice_activity', 10)
+            String, f'{topic_prefix}/voice_activity', 10)
         self.current_state = "silent"  # Track current state to avoid duplicate publishes
-        logger.info("ROS2VADPublisher initialized")
+        logger.info(f"ROS2VADPublisher initialized (topic_prefix={topic_prefix})")
     
     def publish_speech_started(self) -> None:
         """Publish when user starts speaking"""

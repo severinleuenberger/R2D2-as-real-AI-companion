@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'speech_node = r2d2_speech_ros.speech_node:main',
+            'intelligent_speech_node = r2d2_speech_ros.intelligent_speech_node:main',
             'rest_speech_node = r2d2_speech_ros.rest_speech_node:main',
         ],
     },

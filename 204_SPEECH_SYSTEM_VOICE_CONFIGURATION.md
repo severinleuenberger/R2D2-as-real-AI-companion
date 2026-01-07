@@ -12,8 +12,10 @@ This guide explains how to customize the voice and personality of R2D2's speech 
 
 | Mode | Gesture | API | Latency | Best For |
 |------|---------|-----|---------|----------|
-| **Fast Mode** | Index Finger (☝️) | OpenAI Realtime API | 700-1200ms | Quick commands, casual chat |
-| **R2-D2 Mode** | Open Hand (🖐️) | OpenAI REST APIs (gpt-4o) | 2000-3500ms | Terse, mission-oriented R2-D2 personality |
+| **Fast Mode** | Index Finger (☝️) | OpenAI Realtime API | 700-1200ms | Quick commands, casual chat, R2-D2 personality |
+| **Intelligent Mode** | Open Hand (🖐️) | OpenAI Realtime API | 700-1200ms | General AI assistant, professional help, thoughtful responses |
+
+**Note:** The REST API-based "R2-D2 Mode" (rest_speech_node) is available but currently disabled. It can be reactivated if needed. See "rest_speech_node Availability" section below.
 
 Both modes support full personality customization through instructions, voice selection, and various parameters.
 
@@ -49,7 +51,7 @@ Edit the **source** configuration file:
 
 | Parameter | Type | Range | Default | Impact on Personality |
 |-----------|------|-------|---------|----------------------|
-| `instructions` | string | Any | (astromech droid) | **Primary personality driver** - Defines character, tone, style |
+| `instructions` | string | Any | (R2-D2 astromech) | **Primary personality driver** - Defines character, tone, style |
 | `realtime_voice` | enum | alloy, echo, fable, onyx, nova, shimmer, sage | sage | Voice timbre and character |
 | `temperature` | float | 0.0-1.0 | 0.8 | Response creativity (higher = more varied) |
 | `turn_detection.threshold` | float | 0.0-1.0 | 0.3 | VAD sensitivity (0.3 = sensitive/chatty, 0.5 = patient) |
@@ -61,27 +63,23 @@ Edit the **source** configuration file:
 - Must balance latency vs thoughtfulness
 - Streaming means shorter, punchier responses work better
 
-### R2-D2 Mode (REST API - Open Hand)
+### Intelligent Mode (Realtime API - Open Hand)
 
 | Parameter | Type | Range | Default | Impact on Personality |
 |-----------|------|-------|---------|----------------------|
-| `intelligent_instructions` | string | Any | (terse R2-D2) | **Primary personality driver** - Defines R2-D2 character |
-| `intelligent_model` | enum | gpt-4o, o1-preview, o1-mini | gpt-4o | Response model (gpt-4o = fast, o1-preview = deep reasoning) |
-| `tts_voice` | enum | alloy, echo, fable, onyx, nova, shimmer | echo | Voice timbre (echo = robotic character) |
-| `tts_model` | enum | tts-1, tts-1-hd | tts-1 | Voice quality |
-| `tts_speed` | float | 0.25-4.0 | 1.0 | Speaking speed |
-| `silence_threshold` | float | 0.0-1.0 | 0.5 | When to stop recording |
+| `intelligent_instructions` | string | Any | (AI assistant) | **Primary personality driver** - Defines assistant character |
+| `intelligent_realtime_voice` | enum | alloy, echo, fable, onyx, nova, shimmer, sage | nova | Voice timbre (nova = bright, clear assistant) |
+| `temperature` | float | 0.0-1.0 | 0.8 | Response creativity (higher = more varied) |
+| `turn_detection.threshold` | float | 0.0-1.0 | 0.3 | VAD sensitivity |
+| `turn_detection.silence_duration_ms` | int | 200-2000 | 700 | Response eagerness |
+| `turn_detection.prefix_padding_ms` | int | 100-500 | 300 | Audio context before speech starts |
 
-**R2-D2 Character Design:**
-- Terse, mission-oriented responses
-- Uses [beeps], [chirps], [whistles] as parenthetical flavor
-- Ultra-short, punchy sentences - never verbose
-- Emotionally expressive through word choice, not sounds
-- Occasionally sarcastic, always loyal
-
-**Model Selection:**
-- `gpt-4o`: Fast responses (~2-3s), good for quick interactions
-- `o1-preview`: Deep reasoning (~5-10s), for complex questions (higher cost)
+**Intelligent Mode Character Design:**
+- Professional, helpful AI assistant
+- Clear and thoughtful communication
+- Adapts to user needs and context
+- Patient and supportive
+- Balances conciseness with thoroughness
 
 ---
 
@@ -622,6 +620,30 @@ If no output, syntax is valid. If error, fix the YAML.
 - [202_SPEECH_SYSTEM_QUICK_START.md](202_SPEECH_SYSTEM_QUICK_START.md) - Quick start guide
 - [203_SPEECH_SYSTEM_TROUBLESHOOTING.md](203_SPEECH_SYSTEM_TROUBLESHOOTING.md) - Troubleshooting
 - [300_GESTURE_SYSTEM_OVERVIEW.md](300_GESTURE_SYSTEM_OVERVIEW.md) - Gesture recognition system
+
+---
+
+## rest_speech_node Availability
+
+The `rest_speech_node` (REST API-based speech service) remains in the codebase but is currently disabled. It was previously used for open-hand gesture with a terse R2-D2 personality but has been replaced by `intelligent_speech_node` (Realtime API with intelligent AI assistant).
+
+**The REST API implementation can be reactivated if needed by:**
+
+1. Re-enabling the r2d2-rest-speech-node systemd service
+2. Updating gesture_intent_node to route open-hand gesture to REST API services
+3. Disabling intelligent_speech_node service
+
+**REST API Mode characteristics:**
+- Uses OpenAI REST APIs (Whisper STT → gpt-4o/o1-preview → TTS)
+- Turn-based conversation (record → process → respond)
+- Higher latency (2000-3500ms) vs Realtime API (700-1200ms)
+- Can use o1-preview model for deep reasoning
+- Terse R2-D2 astromech personality by default
+
+**Files:**
+- Node: `ros2_ws/src/r2d2_speech/r2d2_speech_ros/rest_speech_node.py`
+- Launch: `ros2_ws/src/r2d2_speech/launch/rest_speech_node.launch.py`
+- Service: `/etc/systemd/system/r2d2-rest-speech-node.service` (if installed)
 
 ---
 

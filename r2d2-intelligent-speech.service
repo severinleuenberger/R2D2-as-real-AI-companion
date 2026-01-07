@@ -1,0 +1,30 @@
+[Unit]
+Description=R2D2 Intelligent Speech Node Service (Open Hand Gesture)
+After=network.target
+Documentation=file:///home/severin/dev/r2d2/200_SPEECH_SYSTEM_REFERENCE.md
+
+[Service]
+Type=simple
+User=severin
+WorkingDirectory=/home/severin/dev/r2d2/ros2_ws
+Environment="PATH=/home/severin/depthai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+Environment="OPENBLAS_CORETYPE=ARMV8"
+
+# Source ROS 2 setup and launch intelligent speech node
+ExecStart=/bin/bash -c "source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 launch r2d2_speech intelligent_speech_node.launch.py"
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitInterval=60s
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=r2d2-intelligent-speech
+
+[Install]
+WantedBy=multi-user.target
+

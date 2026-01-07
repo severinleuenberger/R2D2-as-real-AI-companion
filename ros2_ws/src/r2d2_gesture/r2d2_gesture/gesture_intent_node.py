@@ -139,6 +139,22 @@ class GestureIntentNode(Node):
             10
         )
         
+        # Subscribe to intelligent mode session status
+        self.intelligent_session_status_sub = self.create_subscription(
+            String,
+            '/r2d2/speech/intelligent/session_status',
+            self.intelligent_session_status_callback,
+            10
+        )
+        
+        # Subscribe to intelligent mode VAD
+        self.intelligent_vad_sub = self.create_subscription(
+            String,
+            '/r2d2/speech/intelligent/voice_activity',
+            self.intelligent_vad_callback,
+            10
+        )
+        
         # Create subscription to master volume from volume_control_node
         self.master_volume_sub = self.create_subscription(
             Float32,
@@ -161,15 +177,10 @@ class GestureIntentNode(Node):
             '/r2d2/speech/stop_session'
         )
         
-        # Create service clients for Intelligent Mode (REST APIs)
+        # Create service clients for Intelligent Mode (Realtime API)
         self.start_intelligent_client = self.create_client(
             Trigger,
             '/r2d2/speech/intelligent/start_session'
-        )
-        
-        self.process_intelligent_turn_client = self.create_client(
-            Trigger,
-            '/r2d2/speech/intelligent/process_turn'
         )
         
         self.stop_intelligent_client = self.create_client(
@@ -177,15 +188,14 @@ class GestureIntentNode(Node):
             '/r2d2/speech/intelligent/stop_session'
         )
         
-        # Intelligent mode state
-        self.intelligent_mode_active = False
-        self.intelligent_mode_processing = False
+        # Intelligent mode state (simplified for Realtime API)
+        self.intelligent_session_active = False
         self.intelligent_speaking_state = "idle"  # "idle" or "speaking"
         self.intelligent_speaking_start_time = None
-        self.intelligent_last_activity_time = None  # Time of last successful turn
         
-        # Intelligent mode conversation loop timer
-        self.intelligent_loop_timer = None
+        # VAD-based activity tracking for intelligent mode (same as Fast Mode)
+        self.intelligent_vad_state = "silent"  # "speaking" or "silent" from OpenAI VAD
+        self.intelligent_last_vad_activity_time = None  # Last time user was speaking (from VAD)
         
         # Create watchdog timer (checks every 10 seconds)
         if self.auto_shutdown_enabled:
@@ -318,6 +328,66 @@ class GestureIntentNode(Node):
         except json.JSONDecodeError as e:
             self.get_logger().warn(f'Failed to parse VAD data: {e}')
     
+    def intelligent_session_status_callback(self, msg):
+        """
+        Handle intelligent mode speech session status updates.
+        
+        Args:
+            msg: String message containing JSON session status
+        """
+        try:
+            status_data = json.loads(msg.data)
+            status_str = status_data.get('status', '')
+            old_active = self.intelligent_session_active
+            self.intelligent_session_active = (status_str == 'connected')
+            
+            self.get_logger().info(f'📡 Intelligent session status: {status_str} (active={self.intelligent_session_active}, was={old_active})')
+            
+            # Play audio feedback on status changes
+            if old_active != self.intelligent_session_active:
+                if self.intelligent_session_active:
+                    self.get_logger().info(f'🔊 Intelligent session started (status={status_str})')
+                    self._play_audio_feedback(self.start_beep_sound)
+                    self.stop_beep_already_played = False
+                else:
+                    self.get_logger().info(f'🔊 Intelligent session stopped (status={status_str})')
+                    if not self.stop_beep_already_played:
+                        self._play_audio_feedback(self.stop_beep_sound)
+                    else:
+                        self.get_logger().debug('Stop beep already played by fist gesture confirmation')
+                    # Reset speaking state when session disconnects externally
+                    if self.intelligent_speaking_state == "speaking":
+                        self.intelligent_speaking_state = "idle"
+                        self.intelligent_speaking_start_time = None
+                        self.intelligent_last_vad_activity_time = None
+                        self.intelligent_vad_state = "silent"
+                        self.get_logger().info('🔇 Exited INTELLIGENT SPEAKING state (reason: session_disconnected)')
+        except json.JSONDecodeError as e:
+            self.get_logger().warn(f'Failed to parse intelligent session status: {e}')
+    
+    def intelligent_vad_callback(self, msg):
+        """
+        Handle Voice Activity Detection updates from intelligent speech system.
+        
+        Args:
+            msg: String message containing JSON VAD data
+        """
+        try:
+            vad_data = json.loads(msg.data)
+            old_state = self.intelligent_vad_state
+            self.intelligent_vad_state = vad_data.get('state', 'silent')
+            
+            if self.intelligent_vad_state == "speaking":
+                self.intelligent_last_vad_activity_time = None
+                if old_state != "speaking":
+                    self.get_logger().info('🎤 Intelligent VAD: User speaking (silence timer paused)')
+            else:
+                if old_state == "speaking":
+                    self.intelligent_last_vad_activity_time = self.get_clock().now()
+                    self.get_logger().info('🔇 Intelligent VAD: User silent (30s silence timer started)')
+        except json.JSONDecodeError as e:
+            self.get_logger().warn(f'Failed to parse intelligent VAD data: {e}')
+    
     def master_volume_callback(self, msg: Float32):
         """
         Handle master volume updates from volume_control_node (physical knob).
@@ -384,8 +454,8 @@ class GestureIntentNode(Node):
             # Stage 1: 1.5s sustained → warning beep (chance to cancel)
             # Stage 2: continue holding 1.5s → actual stop + confirmation beep
             
-            # Must have an active session or intelligent speaking state
-            if not self.session_active and self.intelligent_speaking_state != "speaking":
+            # Must have an active session (Fast Mode or Intelligent Mode)
+            if not self.session_active and not self.intelligent_session_active:
                 self.get_logger().debug('Fist detected but no active session')
                 return
             
@@ -398,12 +468,12 @@ class GestureIntentNode(Node):
                     )
                     return
             
-            # Check speaking start grace period for R2-D2 Mode
+            # Check speaking start grace period for Intelligent Mode
             if self.intelligent_speaking_state == "speaking" and self.intelligent_speaking_start_time:
                 time_since_start = (self.get_clock().now() - self.intelligent_speaking_start_time).nanoseconds / 1e9
                 if time_since_start < self.speaking_start_grace:
                     self.get_logger().info(
-                        f'✊ Fist ignored: R2-D2 speaking grace period ({time_since_start:.1f}s < {self.speaking_start_grace}s)'
+                        f'✊ Fist ignored: intelligent speaking grace period ({time_since_start:.1f}s < {self.speaking_start_grace}s)'
                     )
                     return
             
@@ -464,7 +534,7 @@ class GestureIntentNode(Node):
                         self.get_logger().info('✊ Fist confirmed → Stopping Fast Mode conversation')
                         self._exit_speaking_state(reason="user_fist_gesture_confirmed")
                     elif self.intelligent_speaking_state == "speaking":
-                        self.get_logger().info('✊ Fist confirmed → Stopping R2-D2 Mode conversation')
+                        self.get_logger().info('✊ Fist confirmed → Stopping Intelligent Mode conversation')
                         self._exit_intelligent_speaking_state(reason="user_fist_gesture_confirmed")
                     
                     # Reset state machine
@@ -481,15 +551,14 @@ class GestureIntentNode(Node):
                     )
         
         elif gesture_name == "open_hand":
-            # Open hand gesture: trigger R2-D2 Mode (REST APIs with intelligent model)
-            # This ENTERS a speaking state with continuous turn loop (like Fast Mode)
+            # Open hand gesture: trigger Intelligent Mode (Realtime API with intelligent AI assistant)
             
             if self.session_active:
                 self.get_logger().warn('❌ Open hand ignored: fast mode session active (use fist to stop first)')
                 return
             
-            if self.intelligent_speaking_state == "speaking":
-                self.get_logger().warn('❌ Open hand ignored: already in R2-D2 mode speaking state')
+            if self.intelligent_session_active:
+                self.get_logger().warn('❌ Open hand ignored: already in intelligent mode speaking state')
                 return
             
             if time_since_last < self.cooldown_start:
@@ -498,8 +567,8 @@ class GestureIntentNode(Node):
                 )
                 return
             
-            # Trigger R2-D2 mode conversation
-            self.get_logger().info('🖐️  Open hand detected → Starting R2-D2 Mode conversation')
+            # Trigger Intelligent mode conversation
+            self.get_logger().info('🖐️  Open hand detected → Starting Intelligent Mode conversation')
             
             # Play immediate acknowledgment beep
             self._play_audio_feedback(self.gesture_ack_sound)
@@ -595,8 +664,8 @@ class GestureIntentNode(Node):
         Watchdog timer callback: Check timeouts and auto-stop speech if needed.
         
         Option 2: VAD-Only Approach
-        - SPEAKING state (Fast Mode): Uses VAD silence timeout (60s default)
-        - R2-D2 SPEAKING state: Uses activity-based timeout (60s since last turn)
+        - SPEAKING state (Fast Mode): Uses VAD silence timeout (30s default)
+        - INTELLIGENT SPEAKING state: Uses VAD silence timeout (30s default, same as Fast Mode)
         - IDLE state: Idle failsafe for forgotten sessions (35s default)
         """
         if not self.auto_shutdown_enabled:
@@ -604,28 +673,33 @@ class GestureIntentNode(Node):
         
         current_time = self.get_clock().now()
         
-        # ===== R2-D2 SPEAKING STATE: ACTIVITY-BASED TIMEOUT =====
+        # ===== INTELLIGENT SPEAKING STATE: VAD-BASED TIMEOUT (same as Fast Mode) =====
         if self.intelligent_speaking_state == "speaking":
-            if self.intelligent_last_activity_time:
-                time_since_activity = (current_time - self.intelligent_last_activity_time).nanoseconds / 1e9
+            # If user is currently speaking, do nothing - no timeout while talking
+            if self.intelligent_vad_state == "speaking":
+                return  # User is talking, don't count any time
+            
+            # User is silent - check if timeout exceeded
+            if self.intelligent_last_vad_activity_time is not None:
+                time_silent = (current_time - self.intelligent_last_vad_activity_time).nanoseconds / 1e9
                 
                 # Log progress every 15 seconds
-                if int(time_since_activity) % 15 == 0 and int(time_since_activity) > 0:
-                    remaining = self.vad_silence_timeout - time_since_activity
+                if int(time_silent) % 15 == 0 and int(time_silent) > 0:
+                    remaining = self.vad_silence_timeout - time_silent
                     if remaining > 0:
                         self.get_logger().info(
-                            f'R2-D2: Idle for {int(time_since_activity)}s / {int(self.vad_silence_timeout)}s '
-                            f'(auto-stop in {int(remaining)}s if no activity)'
+                            f'Intelligent VAD: Silent for {int(time_silent)}s / {int(self.vad_silence_timeout)}s '
+                            f'(auto-stop in {int(remaining)}s if no speech detected)'
                         )
                 
-                # Check if timeout exceeded
-                if time_since_activity > self.vad_silence_timeout:
+                # Check if VAD silence timeout exceeded
+                if time_silent > self.vad_silence_timeout:
                     self.get_logger().warn(
-                        f'R2-D2: No activity for {time_since_activity:.0f}s '
+                        f'Intelligent VAD: No speech detected for {time_silent:.0f}s '
                         f'(threshold: {self.vad_silence_timeout}s). Stopping conversation.'
                     )
-                    self._exit_intelligent_speaking_state(reason="inactivity_timeout")
-            return  # Don't check other timeouts while in R2-D2 speaking state
+                    self._exit_intelligent_speaking_state(reason="vad_silence_timeout")
+            return  # Don't check other timeouts while in INTELLIGENT SPEAKING state
         
         # ===== SPEAKING STATE: VAD-BASED PROTECTION =====
         # Only count silence when VAD says user is actually silent
@@ -749,142 +823,43 @@ class GestureIntentNode(Node):
         self._call_service(self.stop_session_client, 'stop_session')
     
     def _enter_intelligent_speaking_state(self):
-        """Enter R2-D2 speaking state - continuous conversation until fist gesture."""
+        """Enter INTELLIGENT SPEAKING state when conversation starts (Option 2: VAD-only)."""
         self.intelligent_speaking_state = "speaking"
         self.intelligent_speaking_start_time = self.get_clock().now()
-        self.intelligent_last_activity_time = self.get_clock().now()
-        self.intelligent_mode_active = True
+        # FIX: Start silence timer immediately so session auto-stops if user never speaks
+        self.intelligent_last_vad_activity_time = self.get_clock().now()  # Start timer now
+        self.intelligent_vad_state = "silent"  # User hasn't spoken yet
         
         self.get_logger().info(
-            f'🤖 Entered R2-D2 SPEAKING state (use fist gesture to stop)'
+            f'🗣️  Entered INTELLIGENT SPEAKING state (VAD-only: {self.vad_silence_timeout}s silence timeout)'
         )
-        
-        # Start first turn immediately
-        self._process_intelligent_turn()
+        self._start_intelligent_session()
     
     def _exit_intelligent_speaking_state(self, reason: str):
-        """Exit R2-D2 speaking state and stop the conversation loop."""
+        """Exit INTELLIGENT SPEAKING state when conversation ends (Option 2: VAD-only)."""
         self.intelligent_speaking_state = "idle"
         self.intelligent_speaking_start_time = None
-        self.intelligent_last_activity_time = None
-        self.intelligent_mode_active = False
-        self.intelligent_mode_processing = False
+        self.intelligent_last_vad_activity_time = None
+        self.intelligent_vad_state = "silent"
         
-        # Cancel conversation loop timer
-        if self.intelligent_loop_timer:
-            self.intelligent_loop_timer.cancel()
-            self.destroy_timer(self.intelligent_loop_timer)
-            self.intelligent_loop_timer = None
-        
-        self.get_logger().info(f'🔇 Exited R2-D2 SPEAKING state (reason: {reason})')
-        
-        # Stop the REST session
+        self.get_logger().info(f'🔇 Exited INTELLIGENT SPEAKING state (reason: {reason})')
+        self._stop_intelligent_session()
+    
+    def _start_intelligent_session(self):
+        """
+        Helper method to start intelligent speech session.
+        Used by gesture trigger.
+        Audio feedback is handled by intelligent_session_status_callback.
+        """
+        self._call_service(self.start_intelligent_client, 'start_intelligent_session')
+    
+    def _stop_intelligent_session(self):
+        """
+        Helper method to stop intelligent speech session.
+        Used by gesture triggers and auto-shutdown watchdog.
+        Audio feedback is handled by intelligent_session_status_callback.
+        """
         self._call_service(self.stop_intelligent_client, 'stop_intelligent_session')
-        
-        # Play stop beep (unless already played by fist gesture confirmation)
-        if not self.stop_beep_already_played:
-            self._play_audio_feedback(self.stop_beep_sound)
-        else:
-            self.get_logger().debug('Stop beep already played by fist gesture confirmation')
-    
-    def _process_intelligent_turn(self):
-        """
-        Process one turn in R2-D2 Mode.
-        
-        This triggers a complete conversation turn:
-        Record → Whisper STT → LLM → TTS → Playback
-        
-        After completion, schedules the next turn if still in speaking state.
-        """
-        if self.intelligent_speaking_state != "speaking":
-            self.get_logger().debug('R2-D2 turn skipped: not in speaking state')
-            return
-        
-        if self.intelligent_mode_processing:
-            self.get_logger().debug('R2-D2 turn skipped: already processing')
-            return
-        
-        self.intelligent_mode_processing = True
-        
-        # Process turn (includes recording, STT, LLM, TTS, playback)
-        if not self.process_intelligent_turn_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('R2-D2 mode process_turn service not available')
-            self.intelligent_mode_processing = False
-            self._exit_intelligent_speaking_state(reason="service_unavailable")
-            return
-        
-        request = Trigger.Request()
-        future = self.process_intelligent_turn_client.call_async(request)
-        
-        # Add callback to handle completion and schedule next turn
-        future.add_done_callback(self._intelligent_turn_callback)
-    
-    def _intelligent_turn_callback(self, future):
-        """
-        Handle R2-D2 mode turn completion.
-        
-        On success, schedules the next turn to continue conversation.
-        On failure, exits speaking state.
-        """
-        self.intelligent_mode_processing = False
-        
-        try:
-            response = future.result()
-            if response.success:
-                self.get_logger().info(f'✅ R2-D2 turn complete: {response.message}')
-                self.intelligent_last_activity_time = self.get_clock().now()
-                
-                # Check if still in speaking state
-                if self.intelligent_speaking_state == "speaking":
-                    # Schedule next turn after a short pause (1 second)
-                    # This gives user time to react or make fist gesture
-                    self.get_logger().info('🔄 R2-D2: Ready for next turn (listening...)')
-                    
-                    # Use a one-shot timer to schedule the next turn
-                    if self.intelligent_loop_timer:
-                        self.intelligent_loop_timer.cancel()
-                        self.destroy_timer(self.intelligent_loop_timer)
-                    
-                    self.intelligent_loop_timer = self.create_timer(
-                        0.5,  # 0.5 second pause before next recording
-                        self._intelligent_loop_callback
-                    )
-                else:
-                    self.get_logger().info('R2-D2: Speaking state ended, not scheduling next turn')
-            else:
-                self.get_logger().warn(f'⚠️  R2-D2 turn failed: {response.message}')
-                # Check for empty recording (user didn't speak)
-                if "Empty" in response.message or "no speech" in response.message.lower():
-                    self.get_logger().info('🔇 R2-D2: No speech detected, waiting for user...')
-                    # Still try again if in speaking state
-                    if self.intelligent_speaking_state == "speaking":
-                        if self.intelligent_loop_timer:
-                            self.intelligent_loop_timer.cancel()
-                            self.destroy_timer(self.intelligent_loop_timer)
-                        self.intelligent_loop_timer = self.create_timer(
-                            1.0,  # 1 second pause before retry
-                            self._intelligent_loop_callback
-                        )
-                else:
-                    # Real error - exit speaking state
-                    self._exit_intelligent_speaking_state(reason=f"turn_failed: {response.message}")
-        except Exception as e:
-            self.get_logger().error(f'❌ R2-D2 turn error: {e}')
-            self._exit_intelligent_speaking_state(reason=f"turn_error: {e}")
-    
-    def _intelligent_loop_callback(self):
-        """Timer callback to process the next turn in the R2-D2 conversation loop."""
-        # Cancel the timer (one-shot behavior)
-        if self.intelligent_loop_timer:
-            self.intelligent_loop_timer.cancel()
-            self.destroy_timer(self.intelligent_loop_timer)
-            self.intelligent_loop_timer = None
-        
-        # Only continue if still in speaking state
-        if self.intelligent_speaking_state == "speaking":
-            self._process_intelligent_turn()
-        else:
-            self.get_logger().debug('R2-D2 loop: Speaking state ended, stopping loop')
 
 
 def main(args=None):

@@ -10,15 +10,25 @@
 
 ## Executive Summary
 
-The R2D2 speech system provides real-time speech-to-speech conversations using OpenAI's Realtime API. The system captures audio from a USB microphone, streams it to OpenAI for transcription and processing, receives AI-generated responses, and plays them through local speakers. All conversations are persisted to a SQLite database, and the system is fully integrated as a ROS2 lifecycle node.
+The R2D2 speech system provides real-time speech-to-speech conversations using OpenAI's Realtime API. The system supports two distinct interaction modes, each triggered by a different gesture and offering unique personalities. Audio is captured from a USB microphone, streamed to OpenAI for transcription and processing, and AI-generated responses are played through local speakers. All conversations are persisted to a SQLite database, and the system is fully integrated as ROS2 lifecycle nodes.
+
+**Two Interaction Modes:**
+- **Fast Mode** (Index Finger ☝️): R2-D2 astromech personality, "sage" voice, instant low-latency responses
+- **Intelligent Mode** (Open Hand 🖐️): Professional AI assistant, "nova" voice, helpful and clear responses
 
 **Key Capabilities:**
 - Real-time speech-to-speech conversations (700-1200ms latency)
 - High-quality transcription (OpenAI Whisper-1)
-- Intelligent responses (GPT-4o)
+- Intelligent responses (GPT-4o Realtime)
+- Dual personalities with separate configurations
 - Persistent conversation history (SQLite)
 - Full ROS2 lifecycle integration
 - Auto-detection of HyperX QuadCast S USB microphone
+
+**Nodes:**
+- `speech_node`: Fast Mode (R2-D2 personality)
+- `intelligent_speech_node`: Intelligent Mode (AI assistant)
+- `rest_speech_node`: REST API mode (available but disabled - can be reactivated)
 
 **Historical Note:** Original planning documents (200-206, archived) specified a ReSpeaker 2-Mic HAT with local Whisper+Grok+Piper architecture. The actual implementation uses HyperX QuadCast S USB microphone with OpenAI Realtime API for superior quality and lower latency.
 
@@ -26,7 +36,25 @@ The R2D2 speech system provides real-time speech-to-speech conversations using O
 
 ## Architecture Overview
 
-### System Diagram
+### Dual-Mode System
+
+The speech system operates in two distinct modes, each with its own ROS2 node, service endpoints, and personality:
+
+| Aspect | Fast Mode | Intelligent Mode |
+|--------|-----------|------------------|
+| **Node** | `speech_node` | `intelligent_speech_node` |
+| **Gesture** | Index Finger ☝️ | Open Hand 🖐️ |
+| **Personality** | R2-D2 astromech (chatty) | AI assistant (professional) |
+| **Voice** | sage (robotic) | nova (bright, clear) |
+| **API** | OpenAI Realtime | OpenAI Realtime |
+| **Latency** | 700-1200ms | 700-1200ms |
+| **Services** | `/r2d2/speech/start_session`<br>`/r2d2/speech/stop_session` | `/r2d2/speech/intelligent/start_session`<br>`/r2d2/speech/intelligent/stop_session` |
+| **Topics** | `/r2d2/speech/*` | `/r2d2/speech/intelligent/*` |
+| **Config** | `instructions`, `realtime_voice` | `intelligent_instructions`, `intelligent_realtime_voice` |
+
+Both modes share the same underlying architecture (RealtimeClient, AudioStreamManager, EventRouter) but operate independently with separate WebSocket connections and configurations.
+
+### System Diagram (Fast Mode)
 
 ```
 User Speech

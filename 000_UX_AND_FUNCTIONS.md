@@ -89,23 +89,33 @@ Engage in spoken conversations with the robot using natural language. Conversati
 
 ### Speech-to-Speech Conversations ✅ OPERATIONAL
 
-**Starting a Conversation**
+**Starting a Conversation - Two Modes:**
+
+**Fast Mode (R2-D2 personality):**
 - Show index finger pointing up (☝️) when robot recognizes you (LED ON)
 - Robot responds with acknowledgment beep (~350ms)
 - Ready confirmation beep follows (~750ms)
-- Speak naturally - robot listens and processes in real-time
+- R2-D2 astromech personality - chatty, efficient, friendly
+- Voice: "sage" (slightly synthetic, robotic)
 
-**During Conversation**
+**Intelligent Mode (AI assistant):**
+- Show open hand (🖐️) when robot recognizes you (LED ON)
+- Robot responds with acknowledgment beep (~350ms)
+- Ready confirmation beep follows (~750ms)
+- Intelligent AI assistant personality - helpful, professional, clear
+- Voice: "nova" (bright, clear)
+
+**During Conversation (Both Modes):**
 - Robot transcribes your speech to text (Whisper-1)
 - Processes meaning and generates intelligent response (GPT-4o)
 - Speaks response back to you with natural voice
 - Multi-turn conversations supported - no need to re-trigger
 - Robot maintains conversation context across multiple exchanges
 
-**Ending a Conversation**
+**Ending a Conversation (Both Modes)**
 - Show closed fist (✊) - Two-stage confirmation stop (see below)
 - Walk away for 35 seconds - Automatic timeout (watchdog)
-- Stay silent for 60 seconds - Voice Activity Detection timeout
+- Stay silent for 30 seconds - Voice Activity Detection timeout
 - Robot confirms end with closing beep
 
 **Conversation Protection**
@@ -519,7 +529,8 @@ Control robot functions using hand gestures detected by the camera.
 ### Gesture Control ✅ OPERATIONAL
 
 **Supported Gestures**
-- ☝️ **Index Finger Up:** Start conversation (instant trigger)
+- ☝️ **Index Finger Up:** Start Fast Mode conversation (R2-D2 personality, instant trigger)
+- 🖐️ **Open Hand:** Start Intelligent Mode conversation (AI assistant personality)
 - ✊ **Fist:** Stop conversation (two-stage confirmation)
   - Stage 1: Hold fist ~1.5s → Warning beep (chance to cancel)
   - Stage 2: Continue holding ~1.5s → Stop beep + session ends
