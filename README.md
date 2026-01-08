@@ -223,7 +223,7 @@ The iconic 1:2 DeAgostini R2-D2 rebuilt with modern robotics hardware.
 
 | Document | Purpose |
 |----------|---------|
-| [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System architecture |
+| [001_ARCHITECTURE_OVERVIEW.md](001_ARCHITECTURE_OVERVIEW.md) | System architecture & AI models |
 | [002_HARDWARE_REFERENCE.md](002_HARDWARE_REFERENCE.md) | Hardware specifications |
 | [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) | Service management |
 | [100_PERCEPTION_STATUS_REFERENCE.md](100_PERCEPTION_STATUS_REFERENCE.md) | Recognition system |
