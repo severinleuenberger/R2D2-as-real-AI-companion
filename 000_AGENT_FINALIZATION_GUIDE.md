@@ -135,6 +135,7 @@ ls -la ~/dev/r2d2/*.md
 - [ ] Auto-start behavior documented (which services auto-start, which are manual)
 - [ ] Troubleshooting section updated if needed
 - [ ] Update `000_INTERNAL_AGENT_NOTES.md` if new patterns emerged
+- [ ] **Date Metadata:** If document contains 'Last Updated', 'update-Date', or 'create date', ensure it is updated to the current date
 
 **What to include in documentation:**
 - Configuration parameters explained (what they do, valid ranges, defaults)
@@ -288,5 +289,5 @@ systemctl list-units --failed
 
 **This document is for final deployment steps only. For development and testing, refer to `000_INTERNAL_AGENT_NOTES.md`.**
 
-**Last Updated:** January 5, 2026 - Condensed for token efficiency (removed duplicate examples and security details now in Core Rules)
+**Last Updated:** January 8, 2026 - Added date metadata verification checklist item
 
