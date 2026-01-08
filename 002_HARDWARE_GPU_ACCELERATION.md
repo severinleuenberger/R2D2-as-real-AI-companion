@@ -271,7 +271,7 @@ sudo systemctl enable docker
 
 ### Documentation
 
-- **[200_SPEECH_SYSTEM_REFERENCE.md](../../200_SPEECH_SYSTEM_REFERENCE.md)** - Speech system reference with GPU acceleration section
+- **[200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md)** - Speech system reference with GPU acceleration section
 - This file - Complete setup and usage guide
 
 ---
@@ -293,4 +293,5 @@ sudo systemctl enable docker
 **Status:** ✅ WORKING  
 **GPU Memory Available:** 61.37 GB  
 **Speed Improvement:** 20-50x  
+
 

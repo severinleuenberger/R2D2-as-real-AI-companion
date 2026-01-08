@@ -135,7 +135,7 @@ The Jetson AGX Orin has a 2048-core Ampere GPU (504 CUDA cores) delivering 20-50
 - Large matrix operations
 - Signal processing
 
-**For implementation details:** See [`docs/setup/gpu_acceleration.md`](docs/setup/gpu_acceleration.md)
+**For implementation details:** See [`002_HARDWARE_GPU_ACCELERATION.md`](002_HARDWARE_GPU_ACCELERATION.md)
 
 **Quick test:** `sudo /home/severin/r2d2-gpu-run.sh test`
 
@@ -163,7 +163,7 @@ The Jetson AGX Orin has a 2048-core Ampere GPU (504 CUDA cores) delivering 20-50
 | **UX Specification** | [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) |
 | **System Architecture** | [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) |
 | **Hardware Reference** | [`002_HARDWARE_REFERENCE.md`](002_HARDWARE_REFERENCE.md) |
-| **GPU Acceleration** | [`docs/setup/gpu_acceleration.md`](docs/setup/gpu_acceleration.md) |
+| **GPU Acceleration** | [`002_HARDWARE_GPU_ACCELERATION.md`](002_HARDWARE_GPU_ACCELERATION.md) |
 | **Systemd Services** | [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md) |
 | **Monitoring** | [`006_SYSTEM_STATUS_AND_MONITORING.md`](006_SYSTEM_STATUS_AND_MONITORING.md) |
 | **Perception System** | [`100_PERCEPTION_STATUS_REFERENCE.md`](100_PERCEPTION_STATUS_REFERENCE.md) |

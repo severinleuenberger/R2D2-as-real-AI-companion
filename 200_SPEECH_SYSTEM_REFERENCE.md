@@ -543,6 +543,10 @@ Original planning documents specified a ReSpeaker 2-Mic HAT with GPIO/I2S connec
 
 > **Consolidated from:** Originally maintained as separate document `007_GPU_ACCELERATION_REFERENCE.md`, merged into speech system reference for better discoverability.
 
+> **For comprehensive GPU setup, architecture, and hardware details, see:** [002_HARDWARE_GPU_ACCELERATION.md](002_HARDWARE_GPU_ACCELERATION.md)
+> 
+> This section focuses on speech-specific GPU usage patterns and integration.
+
 R2D2 uses NVIDIA Jetson AGX Orin GPU for speech processing acceleration, providing 20-50x faster performance compared to CPU-only operation.
 
 ### Quick Start

@@ -2106,7 +2106,9 @@ sudo docker run --rm --runtime nvidia \
   python3 -c "import torch; print(f'CUDA: {torch.cuda.is_available()}')"
 ```
 
-**For GPU acceleration details for speech processing, see:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing"
+**For comprehensive GPU acceleration guide (setup, usage, troubleshooting), see:** [002_HARDWARE_GPU_ACCELERATION.md](002_HARDWARE_GPU_ACCELERATION.md)
+
+**For speech-specific GPU usage patterns, see:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing"
 
 ### 12.5 ROS 2 Integration Best Practices
 
@@ -2244,7 +2246,7 @@ python3 minimal_monitor.py
 2. Verify NVIDIA runtime: `docker info | grep -i nvidia`
 3. Restart Docker daemon: `sudo systemctl restart docker`
 
-**See:** [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing - Troubleshooting"
+**See:** [002_HARDWARE_GPU_ACCELERATION.md](002_HARDWARE_GPU_ACCELERATION.md) for detailed troubleshooting, or [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) Section "GPU Acceleration for Speech Processing - Troubleshooting"
 
 ### 12.10 Regular Maintenance Schedule
 
