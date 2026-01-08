@@ -239,7 +239,9 @@ Total Boot Time: ~5-7 seconds to full operational state
   - CPU: 12-core ARM Cortex-A78 @ 2.4 GHz
   - GPU: 504-core NVIDIA (can accelerate deep learning)
   - RAM: 64 GB LPDDR5X
-  - Storage: Internal eMMC (~32GB usable after JetPack)
+  - Storage (Primary): Internal eMMC (~57GB total, ~32GB usable after JetPack)
+  - Storage (Expansion): WD Blue SN5000 500GB NVMe SSD (PCIe 4.0, mounted at /data)
+  - Total Storage: 557GB (eMMC + NVMe)
   - Thermal: Passive/active cooling (can sustain 100W)
 
 ### 1.2 Hardware Fixed Constants Reference
@@ -268,12 +270,62 @@ Total Boot Time: ~5-7 seconds to full operational state
 | **Face Recognition Models** | `~/dev/r2d2/data/face_recognition/models/{person}_lbph.xml` | File system | Per-person face models (auto-resolved) |
 | **Gesture Recognition Models** | `~/dev/r2d2/data/gesture_recognition/models/{person}_gesture_classifier.pkl` | File system | Per-person gesture models (auto-resolved) |
 | **Audio Assets Path** | `ros2_ws/src/r2d2_audio/r2d2_audio/assets/audio/` | File system | MP3 audio files location |
+| **NVMe Mount Point** | `/data` | File system | NVMe SSD primary storage (500GB) |
+| **Python Venvs Path** | `/data/venvs/` | File system | All virtual environments (symlinked from original paths) |
+| **ML Models Path** | `/data/models/` | File system | Large model storage |
+| **Cache Path** | `/data/cache/` | File system | pip, HuggingFace, Torch caches |
+| **Project Data Path** | `/data/projects/` | File system | Project-specific data |
 
 **Critical Environment Variables:**
 - `OPENBLAS_CORETYPE=ARMV8` - **MUST** be set before ROS 2 commands (prevents crashes on ARM64)
 - `ROS_DOMAIN_ID` - Optional, for ROS 2 network isolation
+- `PIP_CACHE_DIR=/data/cache/pip` - Python package cache redirected to NVMe
+- `HF_HOME=/data/cache/huggingface` - HuggingFace models cache on NVMe
+- `TRANSFORMERS_CACHE=/data/cache/huggingface/transformers` - Transformers cache on NVMe
+- `TORCH_HOME=/data/cache/torch` - PyTorch cache on NVMe
+- `XDG_CACHE_HOME=/data/cache` - User cache directory on NVMe
 
 **For detailed hardware setup and troubleshooting, see:** [`000_INTERNAL_AGENT_NOTES.md`](000_INTERNAL_AGENT_NOTES.md)
+
+---
+
+### 1.2.5 Storage Architecture
+
+**Implementation Date:** January 8, 2026
+
+The R2D2 system uses a two-tier storage architecture optimized for performance and capacity:
+
+**eMMC (Boot Drive - 57GB total, ~32GB usable):**
+- Boot partition and OS installation
+- System files and core packages
+- Small configuration files
+- Source code and documentation (version controlled)
+- Preserved for system stability
+- Current usage: 87% (47GB used, 7.3GB free)
+
+**NVMe SSD (/data - 500GB):**
+- Model: WD Blue SN5000 (M.2 2280, PCIe 4.0 x4)
+- Mount point: `/data`
+- UUID: `8079f0fb-06d5-478b-a6d9-05ebc23a1841`
+- Label: `r2d2-data`
+- Python virtual environments (symlinked from original paths)
+- ML model files and weights
+- Cache directories (pip, HuggingFace, Torch)
+- Project data and datasets
+- Conversation logs and databases
+- Current usage: 1% (3.4GB used, 431GB available)
+
+**Symlink Strategy:**
+- Original paths preserved via symbolic links
+- Applications work transparently without code changes
+- Examples:
+  - `~/depthai_env` → `/data/venvs/depthai_env`
+  - `~/dev/r2d2/r2d2_speech_env` → `/data/venvs/r2d2_speech_env`
+  - `~/.cache` → `/data/cache/user_cache`
+- Easy rollback via USB backup
+- Mount option: `nofail` (system boots even if NVMe fails or removed)
+
+**Total System Storage:** 557GB (57GB eMMC + 500GB NVMe)
 
 ---
 

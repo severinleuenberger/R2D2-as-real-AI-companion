@@ -15,7 +15,7 @@ This document provides a comprehensive hardware reference for the R2D2 project, 
 - Complete System (with DeAgostini chassis): ~$3,600
 
 **Current Status:** Phase 1-2 Complete (Perception + Speech)  
-**Integration Level:** 11 components operational, 6 components pending Phase 3-4
+**Integration Level:** 12 components operational, 6 components pending Phase 3-4
 
 ---
 
@@ -36,6 +36,7 @@ This document provides a comprehensive hardware reference for the R2D2 project, 
 | 9 | **Main Battery** | Turnigy 4S LiPo (3× batteries) | Power Distribution Board | XT60 connector | XT60 power cable + parallel harness | ✅ Charged & Ready | 1 |
 | 10 | **Power Connection (Direct)** | 10A Fuse + Barrel Jack | Between battery and Jetson | Input: XT60 from battery, Output: 5.5mm×2.5mm barrel jack (center +) | 18 AWG wire + inline fuse | ✅ Simple & Efficient | 1 |
 | 11 | **Chassis** | DeAgostini R2-D2 1:2 Kit | — | Physical mounting | — | ✅ Complete | 1 |
+| 11a | **NVMe SSD Storage** | WD Blue SN5000 500GB NVMe | M.2 Key-M slot on carrier board | Internal M.2 slot (PCIe 4.0 x4) | Internal connection | ✅ Operational | 1 |
 
 ### 1.2 Future Connections (Phase 3 - Motors & Navigation)
 
@@ -495,7 +496,9 @@ Press button → Pins 1 & 4 shorted → Wake/boot triggered
 - **CPU:** 12-core ARM Cortex-A78 @ 2.4 GHz
 - **GPU:** 2048-core NVIDIA Ampere (504 CUDA cores equivalent)
 - **Memory:** 64GB LPDDR5X (275 GB/s bandwidth)
-- **Storage:** Internal eMMC (~32GB usable after OS)
+- **Storage (Primary):** Internal eMMC (~57GB total, ~32GB usable after OS)
+- **Storage (Expansion):** WD Blue SN5000 500GB NVMe SSD (see Section 3.1.5)
+- **Total Storage:** 557GB (eMMC + NVMe)
 - **Power:** Variable TDP 15-100W (power mode configurable)
 - **Operating System:** Ubuntu 22.04 Jammy (L4T - Linux for Tegra)
 - **Kernel:** Linux 5.15.148-tegra
@@ -512,6 +515,83 @@ Press button → Pins 1 & 4 shorted → Wake/boot triggered
 - J42 automation header
 - Gigabit Ethernet
 - USB-C device port (for USB networking @ 192.168.x.1)
+
+---
+
+### 3.1.5 Storage Expansion - NVMe SSD
+
+**Hardware:** WD Blue SN5000 500GB NVMe M.2 2280 SSD
+
+**Specifications:**
+- **Model:** WD Blue SN5000
+- **Capacity:** 500GB (465.8GB usable)
+- **Form Factor:** M.2 2280 (22mm wide, 80mm long)
+- **Interface:** PCIe 4.0 x4 NVMe
+- **Installation Date:** January 8, 2026
+- **Mount Point:** `/data`
+- **Filesystem:** ext4
+- **Label:** `r2d2-data`
+- **UUID:** `8079f0fb-06d5-478b-a6d9-05ebc23a1841`
+- **Status:** ✅ Operational
+
+**Installation Details:**
+- **Slot:** M.2 Key-M slot on Jetson carrier board
+- **Physical Installation:** Inserted at 30° angle, secured with retention screw
+- **Partition:** GPT partition table, single ext4 partition (100%)
+- **Mount Options:** `defaults,noatime,nofail`
+- **Boot Safety:** `nofail` option ensures system boots even if NVMe missing or failed
+
+**Directory Structure:**
+```
+/data/
+├── venvs/               # Python virtual environments
+│   ├── depthai_env      # (symlinked from ~/depthai_env)
+│   └── r2d2_speech_env  # (symlinked from ~/dev/r2d2/r2d2_speech_env)
+├── cache/               # Cache directories
+│   ├── pip/             # Python package cache
+│   ├── huggingface/     # HuggingFace models
+│   ├── torch/           # PyTorch cache
+│   └── user_cache/      # (symlinked from ~/.cache)
+├── models/              # ML models storage
+├── projects/            # Project data
+└── [future directories]
+```
+
+**Performance:**
+- **Sequential Read:** ~5000 MB/s (PCIe 4.0)
+- **Sequential Write:** ~4000 MB/s (PCIe 4.0)
+- **Random Read:** ~450K IOPS (4K blocks)
+- **Random Write:** ~600K IOPS (4K blocks)
+- **Latency:** <100µs (typical NVMe)
+
+**Migration Details:**
+- **Migrated from eMMC:** ~3.4GB (2× venvs + cache)
+- **eMMC space freed:** ~4GB
+- **Total capacity added:** 500GB
+- **Migration method:** move + symlink (preserves original paths)
+- **Migration date:** January 8, 2026
+
+**Rollback Procedure:**
+- **USB backup created:** `/media/severin/R2D2_BACKUP/nvme_migration_backup_20260108/`
+- **Backup contents:** depthai_env.tar.gz, r2d2_speech_env.tar.gz, dot_cache.tar.gz, bashrc.backup, fstab.backup
+- **Backup size:** ~963MB
+- **Restore method:** tar extraction + fstab restore + reboot
+- **Full rollback time:** ~10 minutes
+
+**Testing Status:**
+- [✅] Physical installation verified (lsblk shows nvme0n1)
+- [✅] Partition and format successful (ext4 with r2d2-data label)
+- [✅] Mount at boot working (fstab UUID entry functional)
+- [✅] Symlinks functional (all paths work transparently)
+- [✅] Virtual environments operational (depthai and r2d2_speech_env tested)
+- [✅] Environment variables active (PIP_CACHE_DIR, HF_HOME, etc.)
+- [✅] Post-reboot verification complete (survived reboot, auto-mounted correctly)
+
+**Current Usage (as of January 8, 2026):**
+- Used: 3.4GB (1%)
+- Available: 431GB (94%)
+- Mount status: Mounted at `/data`
+- System status: Fully operational
 
 ---
 

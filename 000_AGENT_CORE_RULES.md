@@ -139,6 +139,104 @@ The Jetson AGX Orin has a 2048-core Ampere GPU (504 CUDA cores) delivering 20-50
 
 **Quick test:** `sudo /home/severin/r2d2-gpu-run.sh test`
 
+### 7. Storage Usage Guidelines 💾
+
+**CRITICAL RULE: Always use NVMe SSD (/data) for new development, NOT eMMC**
+
+**Implementation Date:** January 8, 2026
+
+The R2D2 system uses a two-tier storage architecture:
+- **eMMC (57GB):** Boot, OS, source code, small configs
+- **NVMe (/data - 500GB):** Virtual environments, models, caches, project data
+
+#### Storage Decision Matrix
+
+| Data Type | Location | Reasoning |
+|-----------|----------|-----------|
+| **Python virtual environments** | `/data/venvs/` | Large (100MB-2GB each), frequently updated |
+| **ML model files** | `/data/models/` | Very large (100MB-10GB), infrequently changed |
+| **Cache directories** | `/data/cache/` | Grows over time, safe to delete |
+| **Project data/datasets** | `/data/projects/` | Large data files, project-specific |
+| **Conversation logs/databases** | `/data/projects/r2d2/` | Grows over time, important for memory |
+| **Source code** | `~/dev/r2d2/` (eMMC) | Small, needs backup, version controlled |
+| **Config files** | `~/dev/r2d2/config/` (eMMC) | Small, critical, needs backup |
+| **Documentation** | `~/dev/r2d2/` (eMMC) | Small, version controlled |
+| **ROS 2 workspace** | `~/dev/r2d2/ros2_ws/` (eMMC) | Small source, build artifacts can use /data |
+
+#### Default Paths for New Development
+
+**When creating new Python virtual environments:**
+```bash
+python3 -m venv /data/venvs/my_new_project
+ln -s /data/venvs/my_new_project ~/dev/my_project/venv  # Optional convenience link
+```
+
+**When downloading ML models:**
+```bash
+# Models auto-download to /data/cache/ via environment variables:
+# - HF_HOME=/data/cache/huggingface
+# - TRANSFORMERS_CACHE=/data/cache/huggingface/transformers
+# - TORCH_HOME=/data/cache/torch
+
+# For manual placement:
+cp large_model.bin /data/models/
+```
+
+**When creating project data directories:**
+```bash
+mkdir -p /data/projects/my_project/datasets
+mkdir -p /data/projects/my_project/output
+```
+
+**When building ROS 2 packages:**
+```bash
+# Source code stays on eMMC (already there)
+cd ~/dev/r2d2/ros2_ws
+colcon build  # Build artifacts stay on eMMC (manageable size)
+```
+
+#### Environment Variables (Already Configured)
+
+These are set in `~/.bashrc`:
+```bash
+export PIP_CACHE_DIR=/data/cache/pip
+export HF_HOME=/data/cache/huggingface
+export TRANSFORMERS_CACHE=/data/cache/huggingface/transformers
+export TORCH_HOME=/data/cache/torch
+export XDG_CACHE_HOME=/data/cache
+```
+
+#### What NOT to Store on NVMe
+
+- Boot files (stay on eMMC)
+- System packages (stay on eMMC)
+- Small config files (stay on eMMC for easy backup)
+- Git repositories (stay on eMMC, version controlled)
+
+#### Monitoring Storage Usage
+
+```bash
+# Check eMMC usage
+df -h /
+
+# Check NVMe usage
+df -h /data
+
+# Check specific directories
+du -sh /data/venvs/*
+du -sh /data/cache/*
+du -sh /data/models/*
+```
+
+#### Agent Instructions
+
+When proposing new code or features:
+1. **Default to NVMe** for any data that will grow >100MB
+2. **Use eMMC** only for small source code and configs
+3. **Create symlinks** if original path expectations exist
+4. **Document paths** in code comments
+5. **Verify disk space** before large operations
+
 ---
 
 ## Task-Specific Guides (Load When Needed)
