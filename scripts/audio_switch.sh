@@ -3,7 +3,7 @@
 # Usage: audio_switch.sh [bluetooth|pam8403|status]
 
 BLUETOOTH_SINK="bluez_sink.28_54_71_BB_C6_53.a2dp_sink"
-PAM8403_SINK="alsa_output.platform-sound.stereo-fallback"
+PAM8403_SINK="alsa_output.platform-sound.analog-stereo"
 CONFIG_FILE="$HOME/.r2d2_audio_output"
 
 case "$1" in

@@ -1,103 +1,129 @@
 # Bluetooth Audio - Open Points & Next Steps
 
-**Date:** December 29, 2025  
-**Status:** Bluetooth audio working, PAM8403 speaker confirmed non-functional
+**Date:** January 8, 2026  
+**Status:** Both Bluetooth and PAM8403 speaker working, physical switch pending
 
 ---
 
 ## Current Status
 
 ✅ **Working:**
-- Bluetooth audio output via PulseAudio
-- Speech TTS plays through Bluetooth
-- Audio notification beeps work on Bluetooth
-- Gesture feedback sounds work on Bluetooth
+- Bluetooth audio output via PulseAudio (A2DP mode, 44.1kHz stereo)
+- PAM8403 speaker hardware operational (new board installed Jan 8, 2026)
+- Speech TTS plays through both Bluetooth and PAM8403
+- Audio notification beeps work on both outputs
+- Gesture feedback sounds work on both outputs
 - Services configured with PulseAudio environment variables
-- Default sink set to Bluetooth device
+- Software audio switcher functional (`audio_switch.sh`)
+- ALSA mixer routing auto-configured on boot
 
-❌ **Known Issues:**
-- PAM8403 speaker hardware is non-functional (likely damaged from soldering)
-- Bluetooth device only connects in HFP (handsfree) mode, not A2DP (high-quality stereo)
-  - Current: `bluez_sink.CC_FF_90_45_1A_3D.handsfree_head_unit` (16kHz mono)
-  - Desired: `bluez_sink.CC_FF_90_45_1A_3D.a2dp_sink` (44.1kHz/48kHz stereo)
+⏳ **In Progress:**
+- Physical GPIO switch for hardware-based output selection (pending installation)
 
 ---
 
-## Open Points
+## Resolved Issues
 
-### 1. A2DP Profile Not Available
+### ✅ PAM8403 Speaker Hardware (RESOLVED - January 8, 2026)
 
-**Issue:** Huawei FreeBuds 5i only connects in HFP (handsfree) mode, not A2DP (high-quality stereo).
+**Previous Issue:** PAM8403 speaker module non-functional (old board damaged)
+
+**Resolution:**
+- New PAM8403 board installed and connected to J511 audio header
+- Connected J511 Pin 9 (HPO_L) → PAM8403 RIN input
+- Connected J511 Pin 2 (AGND) → PAM8403 GND
+- ALSA mixer routing configured: ADMAIF1 → I2S6 → J511 output
+- Auto-configuration service deployed: `r2d2-audio-routing.service`
+- PulseAudio sink: `alsa_output.platform-sound.analog-stereo`
+
+**Testing Results:**
+- ✅ Clear audio playback through 8Ω speaker
+- ✅ R2D2 beeps and TTS working perfectly
+- ✅ Configuration persists after reboot
+- ✅ No distortion or hardware issues
+
+**Key Learning:**
+- Jetson AGX Orin uses complex ALSA mixer routing (different from Nano)
+- J511 header provides analog headphone output (not direct I2S)
+- Mixer controls (numid=1218, 310, 1331) must be configured on boot
+
+---
+
+### ✅ Bluetooth A2DP Profile (WORKING)
+
+**Previous Issue:** Only HFP profile available, not A2DP
 
 **Current State:**
-- Device connects successfully
-- Only `handsfree_head_unit` profile available
-- Audio quality: 16kHz mono (telephone quality)
-- Works but not optimal for speech playback
+- FreeBuds 4i (MAC: `28:54:71:BB:C6:53`) connects in A2DP mode
+- PulseAudio sink: `bluez_sink.28_54_71_BB_C6_53.a2dp_sink`
+- Audio quality: 44.1kHz stereo (high quality)
+- Works reliably for speech and audio notifications
 
-**Possible Causes:**
-- Bluetooth codec negotiation issue
-- PulseAudio module configuration
-- Device firmware limitation
-- Missing A2DP profile support in PulseAudio
-
-**Investigation Steps:**
-```bash
-# Check available profiles
-pactl list cards | grep -A 30 "bluez_card"
-
-# Check PulseAudio Bluetooth module
-pactl list modules short | grep bluez
-
-# Check device capabilities
-bluetoothctl info CC:FF:90:45:1A:3D
-
-# Try forcing A2DP
-pactl set-card-profile bluez_card.CC_FF_90_45_1A_3D a2dp_sink
-```
-
-**Next Steps:**
-- Research PulseAudio A2DP profile activation
-- Test with different Bluetooth device to isolate issue
-- Check if `pulseaudio-module-bluetooth` needs reconfiguration
-- Consider alternative Bluetooth stack (PipeWire?)
+**Status:** No longer an open issue
 
 ---
 
-### 2. PAM8403 Speaker Hardware Repair
+## Remaining Open Points
 
-**Issue:** PAM8403 speaker module produces no audio output despite:
-- ALSA device opens successfully (`hw:APE,0`)
-- Audio data sent without errors
-- Mixer controls show unmuted, reasonable volume levels
-- Only right channel wired (left channel not connected)
+### 1. Physical GPIO Audio Switch (In Progress)
 
-**Diagnosis:**
-- Software layer: ✅ Working (ALSA, mixer, audio stream)
-- Hardware layer: ❌ Likely damaged (soldering work mentioned)
+**Current State:** Software switching works, but manual command required
 
-**Possible Hardware Issues:**
-- PAM8403 chip damaged from heat during soldering
-- Cold solder joint on audio input
-- Broken trace on PCB
-- Short circuit
-- Speaker connection issue
+**Goal:** Hardware toggle switch for instant audio output selection
 
-**Next Steps:**
-- Visual inspection of solder joints with magnifier
-- Multimeter continuity test on audio path
-- Test with known-good PAM8403 module (if available)
-- Consider replacement module if repair not feasible
+**Implementation Plan:**
+- Install SPST toggle switch with 10kΩ pull-up on GPIO 17
+- Deploy `r2d2-audio-switch.service` for automatic monitoring
+- Switch UP → Bluetooth, Switch DOWN → PAM8403
+- No software intervention needed during use
 
-**Workaround:**
-- Bluetooth audio works as alternative
-- No immediate need for PAM8403 if Bluetooth is acceptable
+**Status:** Hardware components available, ready for installation
+
+**See:** [`280_PAM8403_AUDIO_SWITCH_TEST_PLAN.md`](280_PAM8403_AUDIO_SWITCH_TEST_PLAN.md) for detailed installation procedure
 
 ---
 
-### 3. Audio Output Selection Automation
+## Next Steps (Priority Order)
 
-**Current State:** Manual configuration required to switch between Bluetooth and PAM8403.
+### High Priority
+
+1. **Install Physical GPIO Switch**
+   - Wire toggle switch to GPIO 17 with pull-up resistor
+   - Test switch detection with `test_gpio_switch.py`
+   - Deploy `r2d2-audio-switch.service`
+   - Verify automatic switching works reliably
+
+### Medium Priority
+
+2. **Audio Quality Testing**
+   - Compare Bluetooth vs PAM8403 audio quality
+   - Measure latency differences
+   - Document trade-offs for each output
+
+3. **Long-term Stability Testing**
+   - Monitor both audio outputs for 24+ hours
+   - Test rapid switching scenarios
+   - Verify no audio glitches or dropouts
+
+### Low Priority
+
+4. **Bluetooth Device Management**
+   - Auto-reconnect on disconnect
+   - Status monitoring script
+   - Handle multiple paired devices
+
+---
+
+## Related Documentation
+
+- [`280_PAM8403_AUDIO_SWITCH_TEST_PLAN.md`](280_PAM8403_AUDIO_SWITCH_TEST_PLAN.md) - Complete test plan and installation guide
+- [`261_BLUETOOTH_AUDIO_REFERENCE.md`](261_BLUETOOTH_AUDIO_REFERENCE.md) - Bluetooth setup and configuration
+- [`200_SPEECH_SYSTEM_REFERENCE.md`](200_SPEECH_SYSTEM_REFERENCE.md) - Speech system architecture
+- [`002_HARDWARE_REFERENCE.md`](002_HARDWARE_REFERENCE.md) - Hardware connections
+
+---
+
+**Last Updated:** January 8, 2026
 
 **Desired:** Automatic detection and selection of available audio output.
 

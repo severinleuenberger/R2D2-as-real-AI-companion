@@ -1,0 +1,14 @@
+[Unit]
+Description=Configure Jetson AGX Orin Audio Routing for PAM8403
+After=sound.target alsa-restore.service
+Wants=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/severin/dev/r2d2/scripts/configure_audio_routing.sh
+RemainAfterExit=yes
+User=root
+
+[Install]
+WantedBy=multi-user.target
+

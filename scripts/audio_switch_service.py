@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 SWITCH_PIN = 17
 BLUETOOTH_SINK = "bluez_sink.28_54_71_BB_C6_53.a2dp_sink"
-PAM8403_SINK = "alsa_output.platform-sound.stereo-fallback"
+PAM8403_SINK = "alsa_output.platform-sound.analog-stereo"
 
 def setup_gpio():
     GPIO.setmode(GPIO.BCM)

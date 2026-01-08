@@ -1,8 +1,8 @@
 # PAM8403 Audio Switch Test Plan
 
 > **Purpose**: Testing procedure for physical GPIO audio switch between PAM8403 onboard speaker and Bluetooth output  
-> **Status**: Hardware disconnected - use this plan when PAM8403 is repaired/reconnected  
-> **Last Updated**: January 2, 2026
+> **Status**: PAM8403 hardware WORKING ✅ | Physical switch pending installation  
+> **Last Updated**: January 8, 2026
 
 ---
 
@@ -516,53 +516,78 @@ sudo systemctl status r2d2-audio-switch.service
 
 ---
 
-## Current Status (January 2, 2026)
+## Current Status (January 8, 2026)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | **FreeBuds 4i Bluetooth** | ✅ Working | A2DP profile active, paired and connected |
-| **Software Switcher** | ✅ Ready | Manual script created and tested |
-| **GPIO Test Script** | ✅ Created | Ready for hardware testing |
-| **Audio Switch Service** | ✅ Created | Ready for deployment |
-| **PAM8403 Speaker** | ❌ Disconnected | Hardware repair needed before testing |
-| **Physical Switch** | ⏳ Pending | Install after PAM8403 repair |
+| **Software Switcher** | ✅ Working | Script updated with correct sink names |
+| **GPIO Test Script** | ✅ Ready | Ready for hardware testing |
+| **Audio Switch Service** | ✅ Ready | Ready for deployment with physical switch |
+| **PAM8403 Speaker** | ✅ Working | New board installed Jan 8, 2026 - fully operational |
+| **Audio Routing Service** | ✅ Deployed | Auto-configures ALSA mixer on boot |
+| **Physical Switch** | ⏳ Pending | Next phase - install GPIO switch hardware |
+
+---
+
+## Installation Summary (Completed January 8, 2026)
+
+### Hardware Installed
+- **PAM8403 Board**: New board soldered and connected to J511 audio header
+- **Connection**: J511 Pin 9 (HPO_L) → PAM8403 RIN input
+- **Connection**: J511 Pin 2 (AGND) → PAM8403 GND
+- **Speaker**: 8Ω speaker connected to PAM8403 right channel output
+
+### Software Configuration
+- **ALSA Routing**: Configured to route ADMAIF1 → I2S6 → J511 headphone output
+- **Service**: `r2d2-audio-routing.service` runs on boot to configure mixer
+- **Script**: `/home/severin/dev/r2d2/scripts/configure_audio_routing.sh`
+- **PulseAudio Sink**: `alsa_output.platform-sound.analog-stereo`
+- **Software Switcher**: Updated to use correct sink name
+
+### Testing Results
+- ✅ ALSA direct playback works (`speaker-test`)
+- ✅ PulseAudio playback works (system sounds)
+- ✅ R2D2 beeps play through speaker
+- ✅ Speech TTS plays through speaker
+- ✅ Configuration persists after reboot
 
 ---
 
 ## Next Steps
 
-1. **Repair PAM8403 Hardware**
-   - Inspect solder joints
-   - Test with multimeter
-   - Verify ALSA device appears
-   - Test audio playback
+1. **Install Physical GPIO Switch** (Phase 1-2 from test plan)
+   - Wire toggle switch with 10kΩ pull-up resistor to GPIO 17
+   - Run GPIO test script to verify switch detection
+   - Test switch positions read correctly
 
-2. **Install Physical Switch**
-   - Wire according to diagram
-   - Run GPIO test script
-   - Verify readings
+2. **Deploy Audio Switch Service** (Phase 4 from test plan)
+   - Enable r2d2-audio-switch.service
+   - Test automatic switching between Bluetooth and PAM8403
+   - Verify smooth transitions during audio playback
 
-3. **Deploy Audio Switch Service**
-   - Enable systemd service
-   - Test both positions
-   - Verify automatic switching
-
-4. **Integration Testing**
-   - Test with all R2D2 audio sources
-   - Verify gesture/speech systems
+3. **Integration Testing** (Phase 5 from test plan)
+   - Test with all R2D2 audio sources (beeps, TTS, notifications)
+   - Verify gesture/speech systems work with switch
    - Long-term stability testing
+
+4. **Documentation**
+   - Update hardware reference with AGX Orin specific details
+   - Document J511 header pinout and connection details
+   - Add troubleshooting for ALSA mixer routing
 
 ---
 
 ## Related Documentation
 
 - [`261_BLUETOOTH_AUDIO_REFERENCE.md`](261_BLUETOOTH_AUDIO_REFERENCE.md) - Bluetooth audio setup
-- [`262_BLUETOOTH_AUDIO_OPEN_POINTS.md`](262_BLUETOOTH_AUDIO_OPEN_POINTS.md) - PAM8403 hardware issues
+- [`262_BLUETOOTH_AUDIO_OPEN_POINTS.md`](262_BLUETOOTH_AUDIO_OPEN_POINTS.md) - PAM8403 hardware issues (now resolved)
 - [`200_SPEECH_SYSTEM_REFERENCE.md`](200_SPEECH_SYSTEM_REFERENCE.md) - Speech system architecture
 - [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) - System overview
+- [`002_HARDWARE_REFERENCE.md`](002_HARDWARE_REFERENCE.md) - Hardware connections reference
 
 ---
 
-**Last Updated:** January 2, 2026  
-**Next Review:** After PAM8403 hardware repair
+**Last Updated:** January 8, 2026  
+**Next Review:** After physical GPIO switch installation
 
