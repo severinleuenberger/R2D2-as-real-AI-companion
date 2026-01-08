@@ -123,6 +123,22 @@ export OPENBLAS_CORETYPE=ARMV8
 
 **Troubleshooting ARM issues:** See [`103_PERCEPTION_STATUS_TROUBLESHOOTING.md`](103_PERCEPTION_STATUS_TROUBLESHOOTING.md)
 
+### 6. GPU-First Development 🚀
+
+**Leverage the AI hardware: Use GPU for compute-intensive workloads**
+
+The Jetson AGX Orin has a 2048-core Ampere GPU (504 CUDA cores) delivering 20-50x performance improvements for the right workloads.
+
+**GPU-Acceleratable Workloads:**
+- Machine learning inference (STT, TTS, vision models)
+- Image/video processing
+- Large matrix operations
+- Signal processing
+
+**For implementation details:** See [`docs/setup/gpu_acceleration.md`](docs/setup/gpu_acceleration.md)
+
+**Quick test:** `sudo /home/severin/r2d2-gpu-run.sh test`
+
 ---
 
 ## Task-Specific Guides (Load When Needed)
@@ -147,6 +163,7 @@ export OPENBLAS_CORETYPE=ARMV8
 | **UX Specification** | [`000_UX_AND_FUNCTIONS.md`](000_UX_AND_FUNCTIONS.md) |
 | **System Architecture** | [`001_ARCHITECTURE_OVERVIEW.md`](001_ARCHITECTURE_OVERVIEW.md) |
 | **Hardware Reference** | [`002_HARDWARE_REFERENCE.md`](002_HARDWARE_REFERENCE.md) |
+| **GPU Acceleration** | [`docs/setup/gpu_acceleration.md`](docs/setup/gpu_acceleration.md) |
 | **Systemd Services** | [`005_SYSTEMD_SERVICES_REFERENCE.md`](005_SYSTEMD_SERVICES_REFERENCE.md) |
 | **Monitoring** | [`006_SYSTEM_STATUS_AND_MONITORING.md`](006_SYSTEM_STATUS_AND_MONITORING.md) |
 | **Perception System** | [`100_PERCEPTION_STATUS_REFERENCE.md`](100_PERCEPTION_STATUS_REFERENCE.md) |
@@ -196,6 +213,15 @@ sudo systemctl restart r2d2-<service>.service
 
 # View logs
 journalctl -u r2d2-<service>.service -f
+```
+
+### GPU Acceleration
+```bash
+# Test GPU availability
+sudo /home/severin/r2d2-gpu-run.sh test
+
+# Run with GPU (interactive)
+sudo /home/severin/r2d2-gpu-run.sh interactive
 ```
 
 **For detailed commands:** See task-specific guides above
