@@ -527,7 +527,7 @@ pactl get-default-sink
 paplay /usr/share/sounds/alsa/Front_Center.wav
 ```
 
-**For complete Bluetooth setup, see:** [261_BLUETOOTH_AUDIO_REFERENCE.md](261_BLUETOOTH_AUDIO_REFERENCE.md)
+**For complete audio system setup, see:** [260_AUDIO_SYSTEM_REFERENCE.md](260_AUDIO_SYSTEM_REFERENCE.md)
 
 ### Historical Note: ReSpeaker HAT
 

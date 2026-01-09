@@ -32,6 +32,7 @@ This document provides a comprehensive hardware reference for the R2D2 project, 
 | 5 | **Speaker** | 8Ω Speaker | PAM8403 Output | Screw terminals on amplifier | 2-wire speaker cable | ✅ Operational | 1 |
 | 6 | **Status LED** | White LED Panel (16 SMD LEDs) | 40-pin GPIO Header | Pin 22 (GPIO17), Pin 1/17 (3.3V), Pin 6 (GND) | 3-wire: Red (3.3V), Blue (GPIO17), Black (GND) | ✅ Operational | 1 |
 | 7 | **Shutdown Button** | Momentary Push Button | 40-pin GPIO Header | Pin 32 (GPIO32) + GND | 2-wire button cable | ✅ Operational | 1 |
+| 7a | **Audio Output Switch** | SPST Toggle Switch | 40-pin GPIO Header | Pin 22 (GPIO17), Pin 1 (3.3V via 2.2kΩ), Pin 9 (GND) | 3-wire: resistor, switch terminals | ✅ Operational | 1 |
 | 8 | **Boot/Wake Button** | Momentary Push Button | J42 Automation Header | Pin 4 (POWER) + Pin 1 (GND) | 2-wire button cable | ⏳ Ready, not tested | 1 |
 | 9 | **Main Battery** | Turnigy 4S LiPo (3× batteries) | Power Distribution Board | XT60 connector | XT60 power cable + parallel harness | ✅ Charged & Ready | 1 |
 | 10 | **Power Connection (Direct)** | 10A Fuse + Barrel Jack | Between battery and Jetson | Input: XT60 from battery, Output: 5.5mm×2.5mm barrel jack (center +) | 18 AWG wire + inline fuse | ✅ Simple & Efficient | 1 |
@@ -247,17 +248,22 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 | 9 | HPO_L | I2S Left Channel | Currently connected to PAM8403 RIN ✅ |
 
 **Configuration:**
-- **ALSA Device:** `hw:1,0`
-- **Sample Rate:** Variable (typically 44.1kHz or 48kHz)
-- **Amplifier Power:** 3W stereo (using left channel only currently)
+- **ALSA Device:** `hw:APE,0` (Card 1, Device 0)
+- **PulseAudio Sink:** `alsa_output.platform-sound.analog-stereo`
+- **Sample Rate:** 48kHz (configurable)
+- **Amplifier Power:** 3W stereo (using right channel)
 - **Speaker Impedance:** 8Ω
-- **Status:** ✅ Operational
+- **ALSA Mixer Routing:** ADMAIF1 → I2S6 → J511 output (AGX Orin specific)
+- **Auto-Configuration:** `r2d2-audio-routing.service` (runs on boot)
+- **Status:** ✅ Operational (New board installed January 8, 2026)
 - **Phase:** 1 (Audio feedback), 2 (Speech output)
 
 **Wiring:**
-- J511 Pin 9 → PAM8403 Left Input
-- PAM8403 Left Output → Speaker (+)
-- PAM8403 GND → Speaker (-)
+- J511 Pin 2 (AGND) → PAM8403 GND
+- J511 Pin 9 (HPO_L) → PAM8403 RIN
+- PAM8403 R+ / R- → 8Ω Speaker
+
+**For complete audio system setup, see:** [`260_AUDIO_SYSTEM_REFERENCE.md`](260_AUDIO_SYSTEM_REFERENCE.md)
 
 ---
 
@@ -267,9 +273,10 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 
 | Pin # | Physical | GPIO # | Signal | Function | Wire Color | Connected To | Current (mA) | Status |
 |-------|----------|--------|--------|----------|------------|--------------|--------------|--------|
-| 1 | 3.3V | — | Power | LED Power | Red | White LED Panel (+) | 20-50 | ✅ |
+| 1 | 3.3V | — | Power | LED Power + Audio Switch Pull-up | Red | LED Panel (+) + 2.2kΩ Resistor | 20-50 | ✅ |
 | 6 | GND | — | Ground | LED Ground | Black | White LED Panel (-) | — | ✅ |
-| 22 | GPIO17 | GPIO 17 | Output | LED Control (ON/OFF) | Blue | White LED Panel (Control) | <1 | ✅ |
+| 9 | GND | — | Ground | Audio Switch Ground | — | Toggle Switch Terminal 2 | — | ✅ |
+| 22 | GPIO17 | GPIO 17 | Output/Input | LED Control + Audio Switch Input | Blue | LED Panel (Control) + Switch + Resistor | <1 | ✅ |
 | 32 | GPIO12 | GPIO 32 | Input | Shutdown Button | — | Momentary Button | — | ✅ |
 
 **White LED Panel Wiring:**
@@ -284,6 +291,59 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 - **Function:** Visual feedback for person recognition state
   - LED ON = Recognized (RED status)
   - LED OFF = Lost/Unknown (BLUE/GREEN status)
+
+**Audio Output Switch (Detailed Specifications):**
+
+**Switch Hardware:**
+- **Type:** SPST toggle switch (on-off)
+- **Location:** 40-pin GPIO expansion header
+- **Function:** Select between PAM8403 speaker and Bluetooth audio output
+- **Contacts:** Single pole, single throw (2-position switch)
+- **Installation Date:** January 9, 2026
+
+**Electrical Connection:**
+- **Signal Pin:** Pin 22 (GPIO17) - Switch common terminal + resistor
+- **Ground Pin:** Pin 9 (GND) - Switch second terminal
+- **Pull-up Resistor:** 2.2kΩ metal film (Color: Red-Red-Red-Gold)
+  - Connected between Pin 1 (3.3V) and Pin 22 (GPIO17)
+- **Wiring:** 3 connections total
+  - 2.2kΩ resistor: Pin 1 to Pin 22
+  - Switch terminal 1 → Pin 22 (shares with resistor)
+  - Switch terminal 2 → Pin 9 (GND)
+- **Logic Levels:**
+  - Switch UP (open): GPIO reads HIGH (3.3V via pull-up) → Bluetooth
+  - Switch DOWN (closed to GND): GPIO reads LOW (0V) → PAM8403
+
+**Function & Behavior:**
+- **Action:** Flip switch to instantly change audio output
+- **Switch UP:** Routes all audio to Bluetooth (FreeBuds 4i)
+- **Switch DOWN:** Routes all audio to PAM8403 onboard speaker
+- **Response Time:** <0.5 seconds (automatic PulseAudio sink switching)
+- **Monitoring:** `r2d2-audio-switch.service` polls GPIO every 0.5s
+
+**Software Implementation:**
+- **Service:** `r2d2-audio-switch.service` (systemd, auto-start on boot)
+- **Script:** `/home/severin/dev/r2d2/scripts/audio_switch_service.py`
+- **Test Script:** `/home/severin/dev/r2d2/scripts/test_gpio_switch.py`
+- **GPIO Mode:** `GPIO.BOARD` (physical pin numbering) - Required on AGX Orin
+- **Polling Rate:** 0.5 seconds (2 Hz detection loop)
+
+**Testing & Verification:**
+```bash
+# Test GPIO switch hardware
+python3 ~/dev/r2d2/scripts/test_gpio_switch.py
+
+# Monitor automatic switching
+journalctl -u r2d2-audio-switch.service -f
+```
+
+**Status:** ✅ Tested and operational (January 9, 2026)
+- Switch detects both UP and DOWN positions correctly
+- Audio routing changes automatically when switch flipped
+- Service auto-starts on boot
+- Works with all R2D2 audio sources (speech, beeps, notifications)
+
+**For complete audio system documentation, see:** [`260_AUDIO_SYSTEM_REFERENCE.md`](260_AUDIO_SYSTEM_REFERENCE.md)
 
 **Shutdown Button (Detailed Specifications):**
 

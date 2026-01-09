@@ -406,6 +406,47 @@ Direct physical interaction with the robot through buttons for power management.
 - Awaiting first shutdown cycle test
 - Expected to work as designed
 
+#### Switch 3: Audio Output Selector
+
+**Location & Access:**
+- Physical toggle switch on robot chassis
+- Two positions: UP (Bluetooth) and DOWN (Speaker)
+- Instant audio output switching
+- No software interaction needed
+
+**Function:**
+- **Switch UP** → All audio plays through Bluetooth earbuds (FreeBuds 4i)
+- **Switch DOWN** → All audio plays through onboard speaker (PAM8403)
+- Affects all audio: speech responses, beeps, notifications
+- Automatic switching within 0.5 seconds
+
+**When to Use:**
+- **Bluetooth (UP):** Private conversations, quiet environment, personal use
+- **Speaker (DOWN):** Shared environment, demonstrations, louder output
+- Switch positions work regardless of conversation state
+- Can flip during audio playback for instant switching
+
+**Expected Behavior:**
+1. Flip switch to desired position (UP or DOWN)
+2. System detects change within 0.5 seconds
+3. Audio routing updates automatically
+4. All subsequent audio plays through selected output
+5. No interruption to conversations or services
+
+**Technical Notes:**
+- GPIO-based hardware switch (Pin 22)
+- Monitored by `r2d2-audio-switch.service`
+- Works even during active conversations
+- Bluetooth must be connected for UP position to work
+
+**Testing Status:** ✅ Verified Operational (January 9, 2026)
+- Switch detects both positions reliably
+- Audio routing automatic and smooth
+- No glitches during transitions
+- Service auto-starts on boot
+
+**For technical details, see:** [`260_AUDIO_SYSTEM_REFERENCE.md`](260_AUDIO_SYSTEM_REFERENCE.md)
+
 #### Daily Usage Guide
 
 **Normal Operation Pattern:**

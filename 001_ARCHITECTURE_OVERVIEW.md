@@ -2790,17 +2790,34 @@ Running State (Ready)
 
 ### 8.2 Audio Hardware
 
-**Audio Output:**
-- **Amplifier:** PAM8403 (3W stereo)
-- **Speaker:** 8Ω speaker
-- **Interface:** I2S via Jetson J511 Pin 9 (HPO_L)
-- **ALSA Device:** `hw:1,0`
-- **Status:** ✅ Operational
+**Audio Output (Dual Mode with Hardware Switch):**
+- **Mode 1 - PAM8403 Speaker:**
+  - Amplifier: PAM8403 (3W stereo, using right channel)
+  - Speaker: 8Ω speaker
+  - Interface: J511 Audio Header Pin 9 (HPO_L analog output)
+  - ALSA Device: `hw:APE,0` (Card 1, Device 0)
+  - PulseAudio Sink: `alsa_output.platform-sound.analog-stereo`
+  - Status: ✅ Operational (New board installed January 8, 2026)
+
+- **Mode 2 - Bluetooth Audio:**
+  - Device: HUAWEI FreeBuds 4i
+  - Profile: A2DP (44.1kHz stereo)
+  - PulseAudio Sink: `bluez_sink.28_54_71_BB_C6_53.a2dp_sink`
+  - Status: ✅ Operational
+
+- **Output Selection Switch:**
+  - Hardware: SPST toggle switch on GPIO Pin 22
+  - Pull-up: 2.2kΩ resistor to 3.3V
+  - Service: `r2d2-audio-switch.service` (automatic switching)
+  - Status: ✅ Operational (Installed January 9, 2026)
+  - Switch UP → Bluetooth, Switch DOWN → PAM8403
 
 **Audio Input (Phase 2):**
-- **Hardware:** ReSpeaker 2-Mic HAT
-- **Status:** ⏳ Ordered, pending integration
-- **For setup documentation, see:** [`050_AUDIO_SETUP_AND_CONFIGURATION.md`](050_AUDIO_SETUP_AND_CONFIGURATION.md)
+- **Hardware:** HyperX QuadCast S USB
+- **Status:** ✅ Operational
+- **Sample Rate:** 48kHz native, resampled to 24kHz for OpenAI Realtime API
+
+**For complete audio system documentation, see:** [`260_AUDIO_SYSTEM_REFERENCE.md`](260_AUDIO_SYSTEM_REFERENCE.md)
 
 ### 8.3 Status LED Hardware
 

@@ -6,15 +6,15 @@ Run this BEFORE integrating with audio system
 import Jetson.GPIO as GPIO
 import time
 
-SWITCH_PIN = 17  # Physical Pin 11 (BCM numbering)
+SWITCH_PIN = 22  # Physical Pin 22 (BOARD numbering)
 
 def setup():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(SWITCH_PIN, GPIO.IN)
     print("="*50)
     print("GPIO SWITCH TEST")
     print("="*50)
-    print(f"Pin: GPIO {SWITCH_PIN} (Physical Pin 11)")
+    print(f"Pin: Physical Pin {SWITCH_PIN} (GPIO17)")
     print("Expected behavior:")
     print("  - Switch UP (open):   Should read HIGH (1)")
     print("  - Switch DOWN (closed): Should read LOW (0)")

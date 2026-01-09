@@ -163,7 +163,9 @@ The iconic 1:2 DeAgostini R2-D2 rebuilt with modern robotics hardware.
 | **Compute** | NVIDIA Jetson AGX Orin 64GB | ✅ Running |
 | **Camera** | Luxonis OAK-D Lite Auto Focus | ✅ Integrated |
 | **Audio Input** | HyperX QuadCast S USB | ✅ Working |
-| **Audio Output** | PAM8403 Amplifier + Speaker | ✅ Working |
+| **Audio Output** | PAM8403 Amplifier + Speaker | ✅ Working (Jan 8, 2026) |
+| **Audio Output (Alt)** | Bluetooth FreeBuds 4i (A2DP) | ✅ Working |
+| **Audio Switch** | GPIO Toggle Switch (Pin 22) | ✅ Working (Jan 9, 2026) |
 | **Drive Motors** | DeAgostini DC Motors (2×) with encoders | ⏳ Pending |
 | **Motor Control** | Pololu MC33926 (2×) | ✅ Assembled |
 | **Power** | 4S LiPo 5000 mAh (14.8V) | ✅ Ready |
@@ -228,6 +230,7 @@ The iconic 1:2 DeAgostini R2-D2 rebuilt with modern robotics hardware.
 | [005_SYSTEMD_SERVICES_REFERENCE.md](005_SYSTEMD_SERVICES_REFERENCE.md) | Service management |
 | [100_PERCEPTION_STATUS_REFERENCE.md](100_PERCEPTION_STATUS_REFERENCE.md) | Recognition system |
 | [200_SPEECH_SYSTEM_REFERENCE.md](200_SPEECH_SYSTEM_REFERENCE.md) | Speech system |
+| [260_AUDIO_SYSTEM_REFERENCE.md](260_AUDIO_SYSTEM_REFERENCE.md) | Audio system (speaker, Bluetooth, GPIO switch) |
 | [300_AI_TUTOR.md](300_AI_TUTOR.md) | Tutor system |
 | [110_WEB_UI_REFERENCE.md](110_WEB_UI_REFERENCE.md) | Web dashboard |
 

@@ -378,7 +378,7 @@ journalctl -u r2d2-speech-node --since "5 minutes ago" | grep -i "pulse"
    bluetoothctl connect XX:XX:XX:XX:XX:XX
    ```
 
-**For complete Bluetooth setup, see:** [261_BLUETOOTH_AUDIO_REFERENCE.md](261_BLUETOOTH_AUDIO_REFERENCE.md)
+**For complete audio system setup, see:** [260_AUDIO_SYSTEM_REFERENCE.md](260_AUDIO_SYSTEM_REFERENCE.md)
 
 ---
 

@@ -11,13 +11,13 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-SWITCH_PIN = 17
+SWITCH_PIN = 22  # Physical Pin 22 (BOARD numbering)
 BLUETOOTH_SINK = "bluez_sink.28_54_71_BB_C6_53.a2dp_sink"
 PAM8403_SINK = "alsa_output.platform-sound.analog-stereo"
 
 def setup_gpio():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(SWITCH_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(SWITCH_PIN, GPIO.IN)
 
 def get_output_mode():
     """Returns 'bluetooth' or 'pam8403' based on switch"""
@@ -34,7 +34,10 @@ def set_audio_sink(mode):
         logger.info(f"Audio output: {mode.upper()} ({sink})")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to set sink: {e}")
+        if mode == 'bluetooth':
+            logger.warning(f"Bluetooth not available (device not connected)")
+        else:
+            logger.error(f"Failed to set sink: {e}")
         return False
 
 def main():
