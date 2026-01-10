@@ -51,19 +51,14 @@ def generate_launch_description():
             description='Enable database logger'
         ),
         DeclareLaunchArgument(
-            'simulate_gpio',
+            'gesture_flash_duration_ms',
+            default_value='500',
+            description='Yellow LED flash duration for gestures (milliseconds)'
+        ),
+        DeclareLaunchArgument(
+            'simulate_led',
             default_value='false',
-            description='Simulate GPIO if no hardware available'
-        ),
-        DeclareLaunchArgument(
-            'led_mode',
-            default_value='white',
-            description='LED mode: white (single LED on/off) or rgb (separate color control)'
-        ),
-        DeclareLaunchArgument(
-            'led_pin_white',
-            default_value='17',
-            description='GPIO pin for white LED (default: 17 = Physical Pin 22)'
+            description='Simulate GPIO LEDs if no hardware available'
         ),
         
         # Core Audio Notification Node
@@ -86,23 +81,17 @@ def generate_launch_description():
             ],
         ),
         
-        # Status LED Controller
+        # GPIO Status LED Controller (using transistors on Pins 7, 11, 13)
         Node(
             package='r2d2_audio',
-            executable='status_led_node',
-            name='status_led_controller',
+            executable='gpio_status_led_node',
+            name='gpio_status_led_node',
             output='screen',
             parameters=[
                 {
-                    'led_mode': LaunchConfiguration('led_mode'),
-                    'led_pin_white': LaunchConfiguration('led_pin_white'),
-                    'led_pin_red': 17,      # Backward compatibility for RGB mode
-                    'led_pin_green': 27,    # Backward compatibility for RGB mode
-                    'led_pin_blue': 22,     # Backward compatibility for RGB mode
-                    'brightness': 1.0,
-                    'update_rate_hz': 10,
+                    'gesture_flash_duration_ms': LaunchConfiguration('gesture_flash_duration_ms'),
                     'enabled': LaunchConfiguration('enable_led'),
-                    'simulate_gpio': LaunchConfiguration('simulate_gpio'),
+                    'simulate': LaunchConfiguration('simulate_led'),
                 }
             ],
         ),

@@ -1,8 +1,20 @@
-# R2D2 LED Expansion System - Installation Guide
+# ⚠️ ARCHIVED DOCUMENT - OUTDATED
+
+> **This document has been superseded by the new LED implementation.**  
+> **See current documentation:** [../270_LED_INSTALLATION.md](../270_LED_INSTALLATION.md)
+>
+> **Archived Date:** January 9, 2026  
+> **Reason:** Replaced with actual hardware implementation (pre-assembled LED boards + specific R2D2 status integration)
+>
+> This document is kept for historical reference only.
+
+---
+
+# R2D2 LED Expansion System - Installation Guide (ARCHIVED)
 ## Step-by-Step Setup for Multiple LEDs using Waveshare MCP23017 Board
 
 **Date:** December 31, 2025  
-**Status:** Complete Installation Guide  
+**Status:** ~~Complete Installation Guide~~ ARCHIVED  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
 **Estimated Time:** 90-120 minutes  
 **Product:** Waveshare MCP23017 I/O Expansion Board (berrybase.ch)

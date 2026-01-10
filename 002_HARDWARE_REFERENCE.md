@@ -30,7 +30,7 @@ This document provides a comprehensive hardware reference for the R2D2 project, 
 | 3 | **Microphone** | HyperX QuadCast S USB | USB | USB Type-A port | USB cable | ✅ Operational | 2 |
 | 4 | **Speaker Amplifier** | PAM8403 3W Stereo | J511 Audio Header | Pin 9 (HPO_L - I2S Left Channel) | 2-wire audio cable | ✅ Operational | 1 |
 | 5 | **Speaker** | 8Ω Speaker | PAM8403 Output | Screw terminals on amplifier | 2-wire speaker cable | ✅ Operational | 1 |
-| 6 | **Status LED** | White LED Panel (16 SMD LEDs) | 40-pin GPIO Header | Pin 22 (GPIO17), Pin 1/17 (3.3V), Pin 6 (GND) | 3-wire: Red (3.3V), Blue (GPIO17), Black (GND) | ✅ Operational | 1 |
+| 6 | **Status LEDs** | MCP23017 I2C + 4 LEDs (Red/Blue/Green/Yellow) | I2C Bus (Pins 3, 5) | MCP23017 at 0x20, PA0-PA3 outputs | I2C wires + LED board connections | ✅ Operational | 1 |
 | 7 | **Shutdown Button** | Momentary Push Button | 40-pin GPIO Header | Pin 32 (GPIO32) + GND | 2-wire button cable | ✅ Operational | 1 |
 | 7a | **Audio Output Switch** | SPST Toggle Switch | 40-pin GPIO Header | Pin 22 (GPIO17), Pin 1 (3.3V via 2.2kΩ), Pin 9 (GND) | 3-wire: resistor, switch terminals | ✅ Operational | 1 |
 | 8 | **Boot/Wake Button** | Momentary Push Button | J42 Automation Header | Pin 4 (POWER) + Pin 1 (GND) | 2-wire button cable | ⏳ Ready, not tested | 1 |
@@ -273,24 +273,22 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 
 | Pin # | Physical | GPIO # | Signal | Function | Wire Color | Connected To | Current (mA) | Status |
 |-------|----------|--------|--------|----------|------------|--------------|--------------|--------|
-| 1 | 3.3V | — | Power | LED Power + Audio Switch Pull-up | Red | LED Panel (+) + 2.2kΩ Resistor | 20-50 | ✅ |
-| 6 | GND | — | Ground | LED Ground | Black | White LED Panel (-) | — | ✅ |
+| 1 | 3.3V | — | Power | Audio Switch Pull-up + MCP23017 Power | Red | 2.2kΩ Resistor + MCP23017 VCC | <50 | ✅ |
+| 3 | I2C5_DAT | — | SDA | I2C Data (MCP23017) | Yellow/White | MCP23017 SDA | — | ✅ |
+| 5 | I2C5_CLK | — | SCL | I2C Clock (MCP23017) | Blue/Green | MCP23017 SCL | — | ✅ |
+| 6 | GND | — | Ground | MCP23017 + Audio Switch Ground | Black | MCP23017 GND + Switch | — | ✅ |
 | 9 | GND | — | Ground | Audio Switch Ground | — | Toggle Switch Terminal 2 | — | ✅ |
-| 22 | GPIO17 | GPIO 17 | Output/Input | LED Control + Audio Switch Input | Blue | LED Panel (Control) + Switch + Resistor | <1 | ✅ |
+| 22 | GPIO17 | GPIO 17 | Input | Audio Switch Input Only | — | Switch + 2.2kΩ Resistor | <1 | ✅ |
 | 32 | GPIO12 | GPIO 32 | Input | Shutdown Button | — | Momentary Button | — | ✅ |
 
-**White LED Panel Wiring:**
-- **Type:** Non-addressable white LED array (16 SMD LEDs)
-- **Voltage:** 3V DC (powered from 3.3V pin with small voltage drop)
-- **Current:** 20-50mA total (within safe limits for 3.3V pin)
-- **Control:** Simple ON/OFF via GPIO 17
-- **Wiring:**
-  - Red wire → Pin 1 or 17 (3.3V)
-  - Blue wire → Pin 22 (GPIO 17)
-  - Black wire → Pin 6 (GND)
-- **Function:** Visual feedback for person recognition state
-  - LED ON = Recognized (RED status)
-  - LED OFF = Lost/Unknown (BLUE/GREEN status)
+**Status LED System (MCP23017):**
+- **Type:** 4-LED I2C controlled status display
+- **Interface:** MCP23017 GPIO expander at I2C address 0x20
+- **Connection:** I2C bus (Pins 3 SDA, 5 SCL, 1 VCC, 6 GND)
+- **LEDs:** Red (status), Blue (status), Green (status), Yellow (gesture flash)
+- **Current:** ~6mA per LED (via current-limiting resistors)
+- **Status:** Only ONE status LED on at time (mutually exclusive)
+- **For complete wiring and configuration, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
 **Audio Output Switch (Detailed Specifications):**
 
@@ -976,28 +974,27 @@ Power Distribution Board
 
 ### 3.7 Status Indicators
 
-#### Current: White LED Panel
-- **Type:** Non-addressable white LED array
-- **LEDs:** 16 SMD LEDs (surface-mount)
-- **Voltage:** 3V DC nominal (powered from Jetson 3.3V with small drop)
-- **Current:** 20-50mA total (all LEDs in parallel/series configuration)
-- **Control:** Simple ON/OFF via GPIO 17 (Pin 22)
-- **Connector:** 3-wire cable
-  - Red wire → Pin 1 or 17 (3.3V power)
-  - Blue wire → Pin 22 (GPIO 17 control signal)
-  - Black wire → Pin 6 (GND)
-- **Function:** Visual feedback for person recognition status
-  - LED ON = Recognized person present (RED status)
-  - LED OFF = Person lost or unknown (BLUE/GREEN status)
+#### MCP23017 4-LED Status Display
+- **Type:** 4 individual LEDs (red, blue, green, yellow)
+- **Interface:** I2C via MCP23017 GPIO expander
+- **I2C Connection:**
+  - Pin 3 (SDA) → MCP23017 SDA
+  - Pin 5 (SCL) → MCP23017 SCL
+  - Pin 1 (3.3V) → MCP23017 VCC
+  - Pin 6 (GND) → MCP23017 GND
+- **LED Outputs:**
+  - PA0 → Red LED (person recognized)
+  - PA1 → Blue LED (no person)
+  - PA2 → Green LED (unknown person)
+  - PA3 → Yellow LED (gesture flash)
+- **Current:** ~6mA per LED (safe for MCP23017)
+- **I2C Address:** 0x20 (default)
 - **Status:** ✅ Operational
 - **Phase:** 1 (Status feedback)
 
-**Technical Notes:**
-- Current draw within safe limits for Jetson 3.3V pin (max 50mA)
-- No current-limiting resistor needed (built into LED panel)
-- GPIO 17 can safely sink/source the control signal current
+**For complete LED system documentation, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
-#### Future: WS2812B RGB LED Strip (Phase 4) 💡
+#### Future Expansion (12 More LEDs Available)
 - **Type:** Addressable RGB LED strip
 - **Model:** WS2812B (or compatible: SK6812, WS2813)
 - **LEDs:** ~24-30 individual addressable LEDs
@@ -1676,7 +1673,7 @@ Ch B (Pin 4)      ───►  Pin 26 (GPIO7) + 4.7kΩ pull-up to 3.3V
 | Jetson AGX Orin | 12V | 2-4A (24-48W) | 8.3A (100W) | 24-100W | 12V DC-DC |
 | OAK-D Camera | 5V | 500mA | 500mA | 2.5W | USB (Jetson) |
 | HyperX Microphone | 5V | 100mA | 200mA | 0.5-1W | USB (Jetson) |
-| White LED Panel | 3.3V | 20-50mA | 50mA | 0.07-0.17W | Jetson GPIO |
+| MCP23017 + 4 LEDs | 3.3V | ~25mA | 40mA | 0.08-0.13W | I2C Bus |
 | PAM8403 Amplifier | 5V | 50-200mA | 500mA | 0.25-2.5W | External |
 | **Total (typical)** | — | — | — | **~27-52W** | — |
 | **Total (peak)** | — | — | — | **~106W** | — |
@@ -1976,9 +1973,11 @@ If barrel jack unavailable, use J508 header:
 
 | Physical Pin | GPIO Name | Function | R2D2 Connection |
 |--------------|-----------|----------|-----------------|
-| 1 | 3.3V | Power | White LED Panel (+) |
-| 6 | GND | Ground | White LED Panel (-) |
-| 22 | GPIO17 (PQ.05) | Output | White LED Control |
+| 1 | 3.3V | Power | MCP23017 VCC + Audio Switch Pull-up |
+| 3 | I2C5_DAT | SDA | MCP23017 I2C Data |
+| 5 | I2C5_CLK | SCL | MCP23017 I2C Clock |
+| 6 | GND | Ground | MCP23017 GND |
+| 22 | GPIO17 (PQ.05) | Input | Audio Switch Input |
 | 32 | GPIO12 (PN.01) | Input | Shutdown Button |
 
 **Reserved Pins (Phase 3 - Motors):**

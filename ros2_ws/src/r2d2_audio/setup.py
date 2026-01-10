@@ -27,6 +27,8 @@ setup(
             'audio_beep_node=r2d2_audio.audio_beep_node:main',
             'audio_notification_node=r2d2_audio.audio_notification_node:main',
             'status_led_node=r2d2_audio.status_led_node:main',
+            'mcp23017_status_led_node=r2d2_audio.mcp23017_status_led_node:main',
+            'gpio_status_led_node=r2d2_audio.gpio_status_led_node:main',
             'database_logger_node=r2d2_audio.database_logger_node:main',
             'volume_control_node=r2d2_audio.volume_control_node:main',
         ],

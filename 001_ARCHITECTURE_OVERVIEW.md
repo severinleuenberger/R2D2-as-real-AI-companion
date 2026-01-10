@@ -50,8 +50,8 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
              ├─ Audio feedback: "Hello!" (recognition), "Lost you!" (loss)
              └─ Status publishing: /r2d2/audio/person_status (10 Hz JSON)
              ↓
-             r2d2_audio package (status_led_node):
-             └─ White LED control: ON=RED, OFF=GREEN/BLUE
+             r2d2_audio package (mcp23017_status_led_node):
+             └─ 4-LED status display: RED/BLUE/GREEN status + YELLOW gesture flash
              ↓
              r2d2_gesture package (gesture_intent_node):
              ├─ Gesture gating: Only when person_status=RED
@@ -375,10 +375,10 @@ The R2D2 system uses a two-tier storage architecture optimized for performance a
 │  │  │  • 3-state machine (RED/BLUE/GREEN)                 │  │
 │  │  │  • MP3 audio alerts (recognition/loss)               │  │
 │  │  │  • Publishes /r2d2/audio/person_status (JSON)       │  │
-│  │  ├─ status_led_node: White LED control (GPIO)            │  │
-│  │  │  • Visual feedback for recognition state             │  │
-│  │  │  • ON=recognized, OFF=lost/unknown                   │  │
-│  │  │  • GPIO pin 17 (Physical Pin 22)                     │  │
+│  │  ├─ mcp23017_status_led_node: Status LED control (I2C)   │  │
+│  │  │  • 4-LED display: RED/BLUE/GREEN status             │  │
+│  │  │  • Yellow flash for gesture detection                │  │
+│  │  │  • I2C control (Pins 3, 5) via MCP23017              │  │
 │  │  │  • Supports RGB mode for backward compatibility      │  │
 │  │  ├─ database_logger_node: Event logging                │  │
 │  │  │  • Tracks state transitions                          │  │
@@ -708,7 +708,7 @@ SYSTEM TOPICS:
 | **heartbeat_node** | r2d2_hello | Health monitor | Lightweight alive ping publishing timestamp and status. System metrics (CPU/GPU/temp) available via REST API (/api/system/health) to save resources. | N/A | 1 Hz | <0.5% | ✅ |
 | **camera_stream_node** | r2d2_camera | MJPEG stream | On-demand HTTP MJPEG video stream server for web dashboard (port 8081). Mutually exclusive with camera_node (device conflict). Started manually or via dashboard. | 30 Hz | 15 FPS | 2-5% | ✅ |
 | **audio_notification_node** | r2d2_audio | State machine | 3-state recognition state machine (RED/BLUE/GREEN). Tracks person presence with 15s timer, plays MP3 alerts on transitions, publishes JSON status for LED/gesture gating. Uses PersonConfig for dynamic person resolution. | 6.5 Hz | 10 Hz | 2-4% | ✅ |
-| **status_led_node** | r2d2_audio | GPIO control | Controls white LED (GPIO 17, Pin 22) for visual feedback. LED ON=recognized (RED), OFF=lost/unknown (BLUE/GREEN). Subscribes to person_status JSON, updates at 10 Hz. | 10 Hz | N/A | <0.1% | ✅ |
+| **mcp23017_status_led_node** | r2d2_audio | I2C LED control | Controls 4 LEDs via MCP23017 I2C expander for status display (RED/BLUE/GREEN) and gesture flash (YELLOW). Subscribes to person_status + gesture_event, updates at 10 Hz. See [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md). | 10 Hz | N/A | <0.5% | ✅ |
 | **database_logger_node** | r2d2_audio | Event logging | Logs state transitions and recognition events to console. Structure ready for future SQLite integration. Tracks recognition events for conversation history. | 10 Hz | N/A | <0.1% | ✅ |
 | **audio_beep_node** | r2d2_audio | Audio demo | Demo node for testing audio hardware with simple tone generation. NOT used in production (recognition/loss alerts handled by audio_notification_node). | N/A | Event | <0.1% | ✅ |
 | **gesture_intent_node** | r2d2_gesture | Gesture control | Translates gesture events into speech service calls with strict gating (person must be RED). Implements cooldowns (5s start, 3s stop), watchdog timer (35s auto-shutdown), and audio feedback (R2D2 beeps). | Event | Service calls | <1% | ✅ |
@@ -2819,32 +2819,28 @@ Running State (Ready)
 
 **For complete audio system documentation, see:** [`260_AUDIO_SYSTEM_REFERENCE.md`](260_AUDIO_SYSTEM_REFERENCE.md)
 
-### 8.3 Status LED Hardware
+### 8.3 Status LED System
 
-**White LED Panel (Current):**
-- **Type:** Non-addressable white LED array (16 SMD LEDs)
-- **Voltage:** 3V DC
-- **Current:** 20-50mA total
-- **Control:** Simple on/off via GPIO 17 (Physical Pin 22 on 40-pin header)
-- **Connector:** 3 wires (Red=3.3V, Blue=GPIO17, Black=GND)
+**MCP23017 I2C 4-LED Status Display:**
+- **Type:** 4 individual LEDs (red, blue, green, yellow)
+- **Interface:** I2C via MCP23017 GPIO expander
+- **Connection:** Jetson Pins 3 (SDA) + 5 (SCL) only - frees up other GPIO pins
+- **LEDs:**
+  - Red: Person recognized (status="red")
+  - Blue: No person (status="blue")
+  - Green: Unknown person (status="green")
+  - Yellow: Gesture flash (500ms)
+- **I2C Address:** 0x20 (default)
+- **Control:** 2 GPIO pins control up to 16 LEDs (expandable)
 - **Status:** ✅ Operational
-- **Wiring:**
-  - Red wire → Pin 1 or 17 (3.3V)
-  - Blue wire → Pin 22 (GPIO 17)
-  - Black wire → Pin 6 (GND)
-- **State Mapping:**
-  - RED state (recognized): LED ON
-  - BLUE state (lost): LED OFF
-  - GREEN state (unknown): LED OFF
 
-**RGB LED Panel (Future):**
-- **Type:** Addressable RGB LED strip (WS2812B, ~24-30 LEDs)
-- **Voltage:** 5V DC
-- **Control:** Single-wire serial protocol (data pin)
-- **Status:** ⏳ Reserved for future advanced patterns
-- **Connector:** 3 pins (+5V, GND, Data)
+**LED Behavior:**
+- Status LEDs mutually exclusive (only one on at a time)
+- Yellow LED independent (flashes on gestures)
+- Colors match `minimal_monitor.py` display exactly
+- Update rate: 10 Hz (synchronized with person_status topic)
 
-**For detailed LED wiring documentation, see:** [`HARDWARE_WHITE_LED_WIRING.md`](HARDWARE_WHITE_LED_WIRING.md)
+**For complete LED system documentation, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
 ### 8.4 Person Management System
 

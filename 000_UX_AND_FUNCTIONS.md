@@ -41,10 +41,16 @@ The robot continuously monitors its environment to detect and recognize people, 
 - Distinguishes between known persons, unknown persons, and no person present
 
 **Visual Feedback**
-- White LED panel provides instant visual confirmation
-  - LED ON (bright): Person recognized
-  - LED OFF: Person lost or unknown
-- LED mounted prominently for easy visibility from across the room
+- 4-color LED status panel provides instant visual confirmation
+  - Red LED: Person recognized (active engagement)
+  - Blue LED: No person (idle/waiting)
+  - Green LED: Unknown person (caution)
+  - Yellow LED: Gesture detected (brief flash)
+- LED colors exactly match monitoring display status indicators
+- LEDs controlled via I2C (efficient, expandable design)
+- Prominently mounted for easy visibility from across the room
+
+**For technical LED system details, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
 **Audio Feedback**
 - Recognition alert: Friendly R2D2 beep when person identified
@@ -92,14 +98,14 @@ Engage in spoken conversations with the robot using natural language. Conversati
 **Starting a Conversation - Two Modes:**
 
 **Fast Mode (R2-D2 personality):**
-- Show index finger pointing up (☝️) when robot recognizes you (LED ON)
+- Show index finger pointing up (☝️) when robot recognizes you (red LED on)
 - Robot responds with acknowledgment beep (~350ms)
 - Ready confirmation beep follows (~750ms)
 - R2-D2 astromech personality - chatty, efficient, friendly
 - Voice: "sage" (slightly synthetic, robotic)
 
 **Intelligent Mode (AI assistant):**
-- Show open hand (🖐️) when robot recognizes you (LED ON)
+- Show open hand (🖐️) when robot recognizes you (red LED on)
 - Robot responds with acknowledgment beep (~350ms)
 - Ready confirmation beep follows (~750ms)
 - Intelligent AI assistant personality - helpful, professional, clear
@@ -698,16 +704,18 @@ Extended capabilities for enhanced interaction and autonomy (planned functionali
 ### Advanced Status Indicators 🔨 PARTIAL
 
 **Current Implementation**
-- ✅ White LED panel (ON/OFF for recognition)
-- Simple binary state indication
+- ✅ 4-color LED status display (MCP23017 I2C control)
+- RED/BLUE/GREEN status indicators (mutually exclusive)
+- Yellow gesture flash indicator (independent)
+- Colors match system monitoring display
 
-**Planned Enhancement**
-- ⏳ RGB LED strip (WS2812B)
-- Advanced color patterns
-- Animated sequences
-- Personality expressions
-- Multiple simultaneous states
-- Hardware reserved (GPIO Pin 12)
+**Future Enhancement**
+- ⏳ Additional status LEDs (12 more pins available on MCP23017)
+- ⏳ LED animations and patterns
+- ⏳ Battery level indicators
+- ⏳ System mode indicators
+
+**For LED system details, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
 **Planned Patterns**
 - Status animations (breathing, pulsing)
@@ -771,12 +779,12 @@ Throughout this document, the following status markers indicate feature availabi
 ### First Time Setup
 1. Train the robot to recognize you (web dashboard or command line)
 2. Test recognition by standing in front of camera
-3. Verify LED turns on when recognized (RED status)
+3. Verify red LED turns on when recognized (RED status)
 4. Practice gestures: index finger up, fist
 5. Start first conversation with index finger gesture
 
 ### Daily Usage
-1. Approach robot - LED turns on when recognized
+1. Approach robot - red LED turns on when recognized
 2. Index finger up to start conversation
 3. Speak naturally - robot responds
 4. Fist to end conversation, or walk away

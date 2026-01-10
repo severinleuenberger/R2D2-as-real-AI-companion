@@ -4,7 +4,7 @@
 **Date:** December 21, 2025  
 **Status:** ✅ PRODUCTION READY - RED-First Architecture  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Hardware:** OAK-D Lite Camera + PAM8403 Speaker + White LED
+**Hardware:** OAK-D Lite Camera + PAM8403 Speaker + MCP23017 4-LED Status Display
 
 ---
 
@@ -24,7 +24,7 @@ The R2D2 Perception and Status System provides comprehensive person recognition,
 - **Gesture Recognition:** MediaPipe Hands, SVM classifiers, person-specific training
 - **Status Machine:** RED/GREEN/BLUE states, rolling window logic, 15s timer
 - **Audio Feedback:** MP3 alerts on state transitions (2% volume)
-- **Visual Feedback:** White LED (GPIO 17), ON=recognized, OFF=lost/unknown
+- **Visual Feedback:** 4-LED display (MCP23017 I2C): RED/BLUE/GREEN status + YELLOW gesture
 - **ROS 2 Integration:** Complete perception pipeline with topics/services
 
 ---
@@ -91,7 +91,7 @@ sequenceDiagram
         alt Match count >= 4 in 1.5s window
             AudioNot->>AudioNot: THRESHOLD MET - Enter RED state
             AudioNot->>StatusLED: person_status RED 10Hz
-            StatusLED->>StatusLED: GPIO 17 HIGH - LED ON <10ms
+            StatusLED->>StatusLED: Red LED ON <10ms
             AudioNot->>AudioNot: "Play Hello beep 2.mp3 2s duration"
             AudioNot->>AudioNot: Cooldown 2s before next same beep
             AudioNot->>GestInt: person_status RED - Gestures enabled
@@ -102,13 +102,13 @@ sequenceDiagram
             alt face_count > 0 for 2.0s AND status != RED
                 AudioNot->>AudioNot: Transition to GREEN unknown
                 AudioNot->>StatusLED: person_status GREEN
-                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+                StatusLED->>StatusLED: Green/Blue LED ON
             end
             
             alt face_count == 0 for 3.0s AND status != RED
                 AudioNot->>AudioNot: Transition to BLUE no person
                 AudioNot->>StatusLED: person_status BLUE
-                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+                StatusLED->>StatusLED: Green/Blue LED ON
             end
         end
     end
@@ -136,12 +136,12 @@ sequenceDiagram
                 AudioNot->>AudioNot: "Play Lost beep 5.mp3 5s duration"
                 AudioNot->>AudioNot: Cooldown 5s after loss
                 AudioNot->>StatusLED: person_status GREEN
-                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+                StatusLED->>StatusLED: Green/Blue LED ON
             else Buffer empty AND face_count == 0
                 AudioNot->>AudioNot: Transition to BLUE
                 AudioNot->>AudioNot: "Play Lost beep 5.mp3"
                 AudioNot->>StatusLED: person_status BLUE
-                StatusLED->>StatusLED: GPIO 17 LOW - LED OFF
+                StatusLED->>StatusLED: Green/Blue LED ON
             end
         end
     end
@@ -367,8 +367,8 @@ r2d2_audio/audio_notification_node
     ├─ Audio Alerts (ffplay, 2% volume)
     └─ /r2d2/audio/person_status (JSON, 10 Hz)
     ↓
-├── r2d2_audio/status_led_node
-│   └─ GPIO 17 control (ON=RED, OFF=BLUE/GREEN)
+├── r2d2_audio/mcp23017_status_led_node
+│   └─ I2C LED control (Red=RED, Blue=BLUE, Green=GREEN, Yellow=gesture)
 ├── r2d2_audio/database_logger_node
 │   └─ Event logging
 └── r2d2_gesture/gesture_intent_node
@@ -529,7 +529,7 @@ python3 train_manager.py
 - Any trained person triggers RED (multi-user support)
 
 **Behavior:**
-- LED: ON (GPIO 17 HIGH)
+- LED: Red LED ON (others OFF)
 - Audio: "Hello!" beep on entry (2% volume, cooldown: 2s)
 - Status: Active engagement
 - Timer: 15s, resets on EACH recognition match
@@ -547,7 +547,7 @@ python3 train_manager.py
 - 5s face absence (hysteresis) + 15s RED timer expired
 
 **Behavior:**
-- LED: OFF (GPIO 17 LOW)
+- LED: Blue LED ON (red/green OFF)
 - Audio: "Lost you!" beep on entry from RED (2% volume, cooldown: 5s after loss)
 - Status: Idle, waiting
 
@@ -562,7 +562,7 @@ python3 train_manager.py
 - Face not recognized as trained person
 
 **Behavior:**
-- LED: OFF (GPIO 17 LOW)
+- LED: Green LED ON (red/blue OFF)
 - Audio: Silent (no beeps)
 - Status: Caution mode
 
@@ -752,11 +752,11 @@ Jetson 40-pin header:
 - CPU: 2-4%
 - Memory: ~50 MB
 
-**Status LED Node: `status_led_node`**
+**Status LED Node: `mcp23017_status_led_node`**
 - Package: `r2d2_audio`
-- Purpose: GPIO LED control
-- CPU: <0.1%
-- Memory: ~20 MB
+- Purpose: I2C LED control (4 LEDs via MCP23017)
+- CPU: <0.5%
+- Memory: ~30 MB
 
 **Database Logger Node: `database_logger_node`**
 - Package: `r2d2_audio`
@@ -1198,6 +1198,6 @@ sudo journalctl -u r2d2-audio-notification -f | grep --line-buffered -E "recogni
 **Document Version:** 1.0  
 **Last Updated:** December 21, 2025  
 **Status:** Production ready - RED-first architecture  
-**Hardware:** OAK-D Lite + PAM8403 + White LED  
+**Hardware:** OAK-D Lite + PAM8403 + MCP23017 4-LED Display  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble
 

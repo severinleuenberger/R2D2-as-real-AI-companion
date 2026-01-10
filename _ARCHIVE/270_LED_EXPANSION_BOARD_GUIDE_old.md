@@ -1,6 +1,18 @@
-# LED Expansion Board Guide for R2D2
+# ⚠️ ARCHIVED DOCUMENT - OUTDATED
+
+> **This document has been superseded by the new LED implementation.**  
+> **See current documentation:** [../270_LED_INSTALLATION.md](../270_LED_INSTALLATION.md)
+>
+> **Archived Date:** January 9, 2026  
+> **Reason:** Replaced with actual hardware implementation and R2D2-specific integration
+>
+> This document is kept for historical reference only.
+
+---
+
+# LED Expansion Board Guide for R2D2 (ARCHIVED)
 **Date:** December 2025  
-**Purpose:** Control multiple 2-wire LEDs using minimal GPIO pins
+**Purpose:** ~~Control multiple 2-wire LEDs using minimal GPIO pins~~ ARCHIVED
 
 ---
 
