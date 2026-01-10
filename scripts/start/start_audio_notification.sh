@@ -37,5 +37,5 @@ export OPENBLAS_CORETYPE=ARMV8
 # Example overrides:
 #   ./start_audio_notification.sh audio_volume:=0.5
 
-# Run node directly (uses code default 0.30, matches config file)
-exec python3 -m r2d2_audio.audio_notification_node "$@"
+# Launch all audio services (includes audio_notification_node + GPIO LED node + logger)
+exec ros2 launch r2d2_audio all_audio_services.launch.py "$@"
