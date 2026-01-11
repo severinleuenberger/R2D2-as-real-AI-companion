@@ -99,16 +99,16 @@ class GPIOStatusLEDNode(Node):
     def _setup_gpio(self):
         """Initialize GPIO pins"""
         try:
-            GPIO.setmode(GPIO.BOARD)
-            GPIO.setwarnings(False)
-            
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setwarnings(False)
+        
             # Setup output pins (initially LOW/off)
-            GPIO.setup(self.PIN_RED, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self.PIN_BLUE, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self.PIN_YELLOW, GPIO.OUT, initial=GPIO.LOW)
-            
+        GPIO.setup(self.PIN_RED, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.PIN_BLUE, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.PIN_YELLOW, GPIO.OUT, initial=GPIO.LOW)
+    
             self.get_logger().info('GPIO pins initialized successfully')
-        except Exception as e:
+            except Exception as e:
             self.get_logger().error(f'Failed to initialize GPIO: {e}')
             self.simulation_mode = True
     
@@ -125,7 +125,7 @@ class GPIOStatusLEDNode(Node):
                 self._set_status_leds(status)
             else:
                 self.get_logger().warning(f'Unknown status: {status}')
-        
+                
         except json.JSONDecodeError:
             self.get_logger().error(f'Invalid JSON in person_status: {msg.data}')
         except Exception as e:
@@ -203,16 +203,16 @@ class GPIOStatusLEDNode(Node):
         self.get_logger().info('Shutting down GPIO Status LED Node')
         
         # Cancel gesture timer if running
-        if self.gesture_timer is not None:
-            self.gesture_timer.cancel()
+            if self.gesture_timer is not None:
+                self.gesture_timer.cancel()
         
         # Turn off all LEDs
         if not self.simulation_mode:
             try:
                 self._set_led(self.PIN_RED, False)
                 self._set_led(self.PIN_BLUE, False)
-                self._set_led(self.PIN_YELLOW, False)
-                GPIO.cleanup()
+            self._set_led(self.PIN_YELLOW, False)
+            GPIO.cleanup()
                 self.get_logger().info('GPIO cleaned up')
             except Exception as e:
                 self.get_logger().error(f'Error during GPIO cleanup: {e}')

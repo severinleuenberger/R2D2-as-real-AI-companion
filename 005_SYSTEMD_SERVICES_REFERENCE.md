@@ -1,7 +1,7 @@
 # R2D2 Systemd Services Reference
 ## Complete Service Documentation and Management
 
-**Date:** December 27, 2025  
+**Date:** January 11, 2026  
 **Status:** Production System Configuration  
 **Platform:** NVIDIA Jetson AGX Orin 64GB  
 **Total Services:** 12
@@ -94,7 +94,7 @@ sudo journalctl -u r2d2-camera-perception -f
 
 ### 2. r2d2-audio-notification.service
 
-**Purpose:** Audio feedback system with RED/GREEN/BLUE status machine, LED control, and event logging
+**Purpose:** Audio feedback system with RED/GREEN/BLUE status machine, GPIO LED control, and event logging
 
 **Status:** ✅ Auto-start enabled
 
@@ -102,28 +102,34 @@ sudo journalctl -u r2d2-camera-perception -f
 
 **ExecStart:**
 ```bash
-/home/severin/dev/r2d2/start_audio_notification.sh
+/home/severin/dev/r2d2/scripts/start/start_audio_notification.sh
 ```
-
-**⚠️ PATH ISSUE:** Script should be at `scripts/start/start_audio_notification.sh` (needs service file update)
 
 **Working Directory:** `/home/severin/dev/r2d2`
 
 **Dependencies:**
 - After: `network.target`
 
-**ROS 2 Nodes:**
+**ROS 2 Nodes (launched via all_audio_services.launch.py):**
 - `/audio_notification_node` - Status machine & audio playback
-- `/status_led_node` - GPIO LED control
+- `/gpio_status_led_node` - Direct GPIO LED control (Pins 7, 11, 13)
 - `/database_logger_node` - Event logging
 
 **Topics Subscribed:**
 - `/r2d2/perception/person_id` (String) - Person recognition
 - `/r2d2/perception/face_count` (Int32) - Face detection
+- `/r2d2/perception/gesture_event` (String) - Gesture events for LED flash
 
 **Topics Published:**
 - `/r2d2/audio/person_status` (String JSON, 10 Hz) - RED/GREEN/BLUE status
 - `/r2d2/audio/notification_event` (String, event) - Audio event triggers
+
+**LED Control:**
+- **RED LED (Pin 7):** Active when person recognized (RED status)
+- **BLUE LED (Pin 11):** Active when unknown person (GREEN status) or no person (BLUE status)
+- **YELLOW LED (Pin 13):** Flashes 500ms when gesture detected
+- **Hardware:** NPN transistors (2N2222) for current amplification, 5V power rail
+- **Details:** See `270_LED_INSTALLATION.md` for complete wiring and transistor circuit
 
 **Configuration:** `ros2_ws/src/r2d2_audio/config/audio_params.yaml`
 
@@ -136,12 +142,17 @@ sudo systemctl status r2d2-audio-notification
 sudo systemctl restart r2d2-audio-notification
 
 # Logs (with filter)
-sudo journalctl -u r2d2-audio-notification -f | grep -E "RED|GREEN|BLUE|recognized"
+sudo journalctl -u r2d2-audio-notification -f | grep -E "RED|GREEN|BLUE|recognized|GPIO"
 ```
 
 **Troubleshooting:**
 - **No audio:** Check volume (`audio_volume: 0.02` in config), verify speaker wiring
-- **LED not working:** Check GPIO 17 export (`ls /sys/class/gpio/gpio17/`)
+- **LEDs not working:** 
+  - Check GPIO pins are accessible: `ls /sys/class/gpio/gpio*`
+  - Verify transistor wiring (see 270_LED_INSTALLATION.md)
+  - Check 5V power to LED circuits
+  - Test individual LEDs: `cd ~/dev/r2d2/tests/led_expansion && python3 test_single_led.py red`
+- **LEDs dim:** Transistor may be wired incorrectly (base/collector/emitter)
 - **Status stuck:** Check person recognition is publishing (`ros2 topic hz /r2d2/perception/person_id`)
 
 ---

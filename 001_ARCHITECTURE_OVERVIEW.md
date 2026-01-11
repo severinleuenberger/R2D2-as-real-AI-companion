@@ -1,8 +1,8 @@
 # R2D2 System Architecture Overview
-**Date:** December 9, 2025 (Comprehensive Update)  
+**Date:** January 11, 2026 (LED System Update)  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
 **Phase:** 1 - Perception, Face Recognition & Audio Notifications (Complete)  
-**Latest Update:** December 21, 2025 - RED-first architecture implemented, documentation restructured
+**Latest Update:** January 11, 2026 - LED system updated to GPIO + transistor implementation
 
 ---
 
@@ -50,8 +50,8 @@ OAK-D Lite → r2d2_camera node → /oak/rgb/image_raw (30 Hz)
              ├─ Audio feedback: "Hello!" (recognition), "Lost you!" (loss)
              └─ Status publishing: /r2d2/audio/person_status (10 Hz JSON)
              ↓
-             r2d2_audio package (mcp23017_status_led_node):
-             └─ 4-LED status display: RED/BLUE/GREEN status + YELLOW gesture flash
+             r2d2_audio package (gpio_status_led_node):
+             └─ 3-LED status display: RED/BLUE status + YELLOW gesture flash (GPIO + transistors)
              ↓
              r2d2_gesture package (gesture_intent_node):
              ├─ Gesture gating: Only when person_status=RED
@@ -92,7 +92,7 @@ The following table shows which technical components serve each user-facing capa
 
 | UX Capability | Primary Components | Key Topics | Status |
 |---------------|-------------------|------------|--------|
-| **Person Recognition** | camera_node, image_listener, audio_notification_node, status_led_node | /r2d2/perception/person_id, /r2d2/audio/person_status | ✅ |
+| **Person Recognition** | camera_node, image_listener, audio_notification_node, gpio_status_led_node | /r2d2/perception/person_id, /r2d2/audio/person_status | ✅ |
 | **Natural Language** | speech_node, gesture_intent_node | /r2d2/speech/*, /r2d2/perception/gesture_event | ✅ |
 | **Learning & Tutoring** | speech_node (tutor mode) | /r2d2/speech/assistant_prompt | ✅ |
 | **Remote Monitoring** | web_dashboard, rosbridge, heartbeat_node | REST API, WebSocket | ✅ |
@@ -375,11 +375,11 @@ The R2D2 system uses a two-tier storage architecture optimized for performance a
 │  │  │  • 3-state machine (RED/BLUE/GREEN)                 │  │
 │  │  │  • MP3 audio alerts (recognition/loss)               │  │
 │  │  │  • Publishes /r2d2/audio/person_status (JSON)       │  │
-│  │  ├─ mcp23017_status_led_node: Status LED control (I2C)   │  │
-│  │  │  • 4-LED display: RED/BLUE/GREEN status             │  │
+│  │  ├─ gpio_status_led_node: Direct GPIO LED control        │  │
+│  │  │  • 3-LED display: RED/BLUE status                    │  │
 │  │  │  • Yellow flash for gesture detection                │  │
-│  │  │  • I2C control (Pins 3, 5) via MCP23017              │  │
-│  │  │  • Supports RGB mode for backward compatibility      │  │
+│  │  │  • GPIO Pins 7, 11, 13 + NPN transistors             │  │
+│  │  │  • GREEN status → BLUE LED (no physical green)       │  │
 │  │  ├─ database_logger_node: Event logging                │  │
 │  │  │  • Tracks state transitions                          │  │
 │  │  │  • Future: SQLite database integration              │  │
@@ -477,7 +477,7 @@ r2d2_perception node
       ↓
 r2d2_audio package
       ├─ audio_notification_node: State machine → /r2d2/audio/person_status (10 Hz)
-      ├─ status_led_node: LED control (GPIO)
+      ├─ gpio_status_led_node: LED control (GPIO Pins 7, 11, 13)
       └─ database_logger_node: Event logging
       ↓
 r2d2_gesture/gesture_intent_node (NEW)
@@ -567,7 +567,7 @@ ROS 2 NODE LAYER:
 │           ↓ [10 Hz status JSON]
 │           
 │  ┌─────────────────────────────────────┐
-│  │ status_led_node                     │
+│  │ gpio_status_led_node                │
 │  │ CPU: <0.1% | Memory: ~20 MB         │
 │  │ Frequency: 10 Hz (LED updates)      │
 │  │                                     │
@@ -708,7 +708,7 @@ SYSTEM TOPICS:
 | **heartbeat_node** | r2d2_hello | Health monitor | Lightweight alive ping publishing timestamp and status. System metrics (CPU/GPU/temp) available via REST API (/api/system/health) to save resources. | N/A | 1 Hz | <0.5% | ✅ |
 | **camera_stream_node** | r2d2_camera | MJPEG stream | On-demand HTTP MJPEG video stream server for web dashboard (port 8081). Mutually exclusive with camera_node (device conflict). Started manually or via dashboard. | 30 Hz | 15 FPS | 2-5% | ✅ |
 | **audio_notification_node** | r2d2_audio | State machine | 3-state recognition state machine (RED/BLUE/GREEN). Tracks person presence with 15s timer, plays MP3 alerts on transitions, publishes JSON status for LED/gesture gating. Uses PersonConfig for dynamic person resolution. | 6.5 Hz | 10 Hz | 2-4% | ✅ |
-| **mcp23017_status_led_node** | r2d2_audio | I2C LED control | Controls 4 LEDs via MCP23017 I2C expander for status display (RED/BLUE/GREEN) and gesture flash (YELLOW). Subscribes to person_status + gesture_event, updates at 10 Hz. See [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md). | 10 Hz | N/A | <0.5% | ✅ |
+| **gpio_status_led_node** | r2d2_audio | GPIO LED control | Controls 3 LEDs via direct GPIO (Pins 7, 11, 13) with NPN transistors for status display (RED/BLUE) and gesture flash (YELLOW). Subscribes to person_status + gesture_event, updates at 10 Hz. See [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md). | 10 Hz | N/A | <0.5% | ✅ |
 | **database_logger_node** | r2d2_audio | Event logging | Logs state transitions and recognition events to console. Structure ready for future SQLite integration. Tracks recognition events for conversation history. | 10 Hz | N/A | <0.1% | ✅ |
 | **audio_beep_node** | r2d2_audio | Audio demo | Demo node for testing audio hardware with simple tone generation. NOT used in production (recognition/loss alerts handled by audio_notification_node). | N/A | Event | <0.1% | ✅ |
 | **gesture_intent_node** | r2d2_gesture | Gesture control | Translates gesture events into speech service calls with strict gating (person must be RED). Implements cooldowns (5s start, 3s stop), watchdog timer (35s auto-shutdown), and audio feedback (R2D2 beeps). | Event | Service calls | <1% | ✅ |
@@ -809,9 +809,9 @@ The `r2d2_audio` package implements a sophisticated 3-state recognition system:
 - Publishes status JSON for downstream consumers
 - Configurable parameters: volume, timing, audio files
 
-**status_led_node:**
+**gpio_status_led_node:**
 - Subscribes to `/r2d2/audio/person_status`
-- Controls RGB LED via GPIO (pins 17, 27, 22)
+- Controls LEDs via GPIO pins 7, 11, 13 using NPN transistors
 - Real-time visual feedback synchronized with audio
 - Auto-detects GPIO availability (simulation mode fallback)
 
@@ -856,7 +856,7 @@ Frame processing time: ~10 ms (without recognition)
 | **camera_node** | 2-3% (1 core) | ~50 MB | 0% | 30 Hz | Camera driver |
 | **image_listener** | 8-15% (1 core) | ~200 MB | 0% | 13 Hz | Image processing |
 | **audio_notification_node** | 2-4% (1 core) | ~50 MB | 0% | 10 Hz | State machine |
-| **status_led_node** | <0.1% (1 core) | ~20 MB | 0% | 10 Hz | GPIO control |
+| **gpio_status_led_node** | <0.1% (1 core) | ~20 MB | 0% | 10 Hz | GPIO control |
 | **database_logger_node** | <0.1% (1 core) | ~30 MB | 0% | 10 Hz | Event logging |
 | **heartbeat_node** | <0.1% (1 core) | ~10 MB | 0% | 1 Hz | Health monitor |
 | **System overhead** | 5-10% | ~140 MB | 0% | N/A | ROS 2, OS |
@@ -2821,12 +2821,14 @@ Running State (Ready)
 
 ### 8.3 Status LED System
 
-**MCP23017 I2C 4-LED Status Display:**
-- **Type:** 4 individual LEDs (red, blue, green, yellow)
-- **Interface:** I2C via MCP23017 GPIO expander
-- **Connection:** Jetson Pins 3 (SDA) + 5 (SCL) only - frees up other GPIO pins
+**Direct GPIO 3-LED Status Display:**
+- **Type:** 3 individual LEDs (red, blue, yellow) with NPN transistor drivers
+- **Interface:** Direct GPIO control (Pins 7, 11, 13)
+- **Connection:** GPIO → 1kΩ resistor → Transistor base, 5V → 220Ω → LED → Transistor collector
 - **LEDs:**
-  - Red: Person recognized (status="red")
+  - Red (Pin 7): Person recognized (status="red")
+  - Blue (Pin 11): No person/unknown (status="blue"/"green" - GREEN maps to BLUE)
+  - Yellow (Pin 13): Gesture detected (500ms flash)
   - Blue: No person (status="blue")
   - Green: Unknown person (status="green")
   - Yellow: Gesture flash (500ms)
@@ -3150,7 +3152,7 @@ NODES:
   ~/dev/r2d2/ros2_ws/src/r2d2_camera/r2d2_camera/oak_camera_node.py
   ~/dev/r2d2/ros2_ws/src/r2d2_perception/r2d2_perception/image_listener.py
   ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/audio_notification_node.py
-  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/status_led_node.py
+  ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/gpio_status_led_node.py
   ~/dev/r2d2/ros2_ws/src/r2d2_audio/r2d2_audio/database_logger_node.py
 
 PERSON REGISTRY:

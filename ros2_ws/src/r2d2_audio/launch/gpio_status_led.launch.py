@@ -45,11 +45,11 @@ def generate_launch_description():
     
     # GPIO Status LED Node
     gpio_led_node = Node(
-        package='r2d2_audio',
-        executable='gpio_status_led_node',
-        name='gpio_status_led_node',
-        output='screen',
-        parameters=[{
+            package='r2d2_audio',
+            executable='gpio_status_led_node',
+            name='gpio_status_led_node',
+            output='screen',
+            parameters=[{
             'enabled': LaunchConfiguration('enabled'),
             'simulate': LaunchConfiguration('simulate'),
             'gesture_flash_duration_ms': LaunchConfiguration('gesture_flash_duration_ms'),

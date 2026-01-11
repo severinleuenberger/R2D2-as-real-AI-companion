@@ -1,8 +1,8 @@
 # R2D2 Hardware Reference
-**Date:** December 20, 2025  
+**Date:** January 11, 2026  
 **Project:** R2D2 as a Real AI Companion  
 **Platform:** NVIDIA Jetson AGX Orin 64GB + ROS 2 Humble  
-**Document Version:** 1.0
+**Document Version:** 1.1
 
 ---
 
@@ -30,7 +30,7 @@ This document provides a comprehensive hardware reference for the R2D2 project, 
 | 3 | **Microphone** | HyperX QuadCast S USB | USB | USB Type-A port | USB cable | ✅ Operational | 2 |
 | 4 | **Speaker Amplifier** | PAM8403 3W Stereo | J511 Audio Header | Pin 9 (HPO_L - I2S Left Channel) | 2-wire audio cable | ✅ Operational | 1 |
 | 5 | **Speaker** | 8Ω Speaker | PAM8403 Output | Screw terminals on amplifier | 2-wire speaker cable | ✅ Operational | 1 |
-| 6 | **Status LEDs** | MCP23017 I2C + 4 LEDs (Red/Blue/Green/Yellow) | I2C Bus (Pins 3, 5) | MCP23017 at 0x20, PA0-PA3 outputs | I2C wires + LED board connections | ✅ Operational | 1 |
+| 6 | **Status LEDs** | 3 LEDs + NPN Transistors (Red/Blue/Yellow) | 40-pin GPIO Header | Pin 7 (GPIO 7), Pin 11 (GPIO 17), Pin 13 (GPIO 27) | Direct GPIO + transistor drivers, 5V power | ✅ Operational | 1 |
 | 7 | **Shutdown Button** | Momentary Push Button | 40-pin GPIO Header | Pin 32 (GPIO32) + GND | 2-wire button cable | ✅ Operational | 1 |
 | 7a | **Audio Output Switch** | SPST Toggle Switch | 40-pin GPIO Header | Pin 22 (GPIO17), Pin 1 (3.3V via 2.2kΩ), Pin 9 (GND) | 3-wire: resistor, switch terminals | ✅ Operational | 1 |
 | 8 | **Boot/Wake Button** | Momentary Push Button | J42 Automation Header | Pin 4 (POWER) + Pin 1 (GND) | 2-wire button cable | ⏳ Ready, not tested | 1 |
@@ -273,22 +273,27 @@ PAM8403 R+ and R− ─────────────→ 8Ω Speaker
 
 | Pin # | Physical | GPIO # | Signal | Function | Wire Color | Connected To | Current (mA) | Status |
 |-------|----------|--------|--------|----------|------------|--------------|--------------|--------|
-| 1 | 3.3V | — | Power | Audio Switch Pull-up + MCP23017 Power | Red | 2.2kΩ Resistor + MCP23017 VCC | <50 | ✅ |
-| 3 | I2C5_DAT | — | SDA | I2C Data (MCP23017) | Yellow/White | MCP23017 SDA | — | ✅ |
-| 5 | I2C5_CLK | — | SCL | I2C Clock (MCP23017) | Blue/Green | MCP23017 SCL | — | ✅ |
-| 6 | GND | — | Ground | MCP23017 + Audio Switch Ground | Black | MCP23017 GND + Switch | — | ✅ |
+| 1 | 3.3V | — | Power | Audio Switch Pull-up | Red | 2.2kΩ Resistor | <50 | ✅ |
+| 6 | GND | — | Ground | Audio Switch Ground | Black | Switch | — | ✅ |
+| 7 | GPIO 7 | GPIO 7 | Output | RED LED Control (via transistor) | — | Transistor base | <1 | ✅ |
 | 9 | GND | — | Ground | Audio Switch Ground | — | Toggle Switch Terminal 2 | — | ✅ |
+| 11 | GPIO 17 | GPIO 17 | Output | BLUE LED Control (via transistor) | — | Transistor base | <1 | ✅ |
+| 13 | GPIO 27 | GPIO 27 | Output | YELLOW LED Control (via transistor) | — | Transistor base | <1 | ✅ |
 | 22 | GPIO17 | GPIO 17 | Input | Audio Switch Input Only | — | Switch + 2.2kΩ Resistor | <1 | ✅ |
 | 32 | GPIO12 | GPIO 32 | Input | Shutdown Button | — | Momentary Button | — | ✅ |
 
-**Status LED System (MCP23017):**
-- **Type:** 4-LED I2C controlled status display
-- **Interface:** MCP23017 GPIO expander at I2C address 0x20
-- **Connection:** I2C bus (Pins 3 SDA, 5 SCL, 1 VCC, 6 GND)
-- **LEDs:** Red (status), Blue (status), Green (status), Yellow (gesture flash)
-- **Current:** ~6mA per LED (via current-limiting resistors)
-- **Status:** Only ONE status LED on at time (mutually exclusive)
-- **For complete wiring and configuration, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
+**Status LED System (Direct GPIO + Transistors):**
+- **Type:** 3-LED direct GPIO controlled status display
+- **Interface:** GPIO pins 7, 11, 13 (BOARD numbering) driving NPN transistors
+- **LEDs:** 
+  - Red (Pin 7) - Person recognized (RED status)
+  - Blue (Pin 11) - Unknown/no person (GREEN/BLUE status)
+  - Yellow (Pin 13) - Gesture flash (500ms)
+- **Transistors:** NPN 2N2222 for current amplification (GPIO 3.3V switches 5V LED power)
+- **Current:** ~20mA per LED (via 220Ω resistors), sourced from 5V rail (not GPIO)
+- **Status:** Only ONE status LED on at time (RED or BLUE, mutually exclusive)
+- **For complete wiring and transistor circuit, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
+- **Note:** Previous I2C MCP23017 approach failed due to Jetson AGX Orin 40-pin header I2C limitations
 
 **Audio Output Switch (Detailed Specifications):**
 
@@ -433,7 +438,7 @@ EOF
 - ✅ All pin conflicts resolved
 - ✅ 18 GPIO pins allocated for 3 motors + 6 encoders + 1 home sensor
 - ✅ 10 GPIO pins remain free for future expansion
-- ✅ I2C pins (3 & 5) reserved for MCP23017 LED expansion board (compatible)
+- ✅ Pins 3 & 5 (I2C) now available - 40-pin header I2C not functional on AGX Orin
 
 #### Reserved Pin Assignments (Phase 4 - LED Strip) **[PROPOSED]**
 
@@ -974,23 +979,30 @@ Power Distribution Board
 
 ### 3.7 Status Indicators
 
-#### MCP23017 4-LED Status Display
-- **Type:** 4 individual LEDs (red, blue, green, yellow)
-- **Interface:** I2C via MCP23017 GPIO expander
-- **I2C Connection:**
-  - Pin 3 (SDA) → MCP23017 SDA
-  - Pin 5 (SCL) → MCP23017 SCL
-  - Pin 1 (3.3V) → MCP23017 VCC
-  - Pin 6 (GND) → MCP23017 GND
-- **LED Outputs:**
-  - PA0 → Red LED (person recognized)
-  - PA1 → Blue LED (no person)
-  - PA2 → Green LED (unknown person)
-  - PA3 → Yellow LED (gesture flash)
-- **Current:** ~6mA per LED (safe for MCP23017)
-- **I2C Address:** 0x20 (default)
+#### Direct GPIO 3-LED Status Display
+- **Type:** 3 individual LEDs (red, blue, yellow) with NPN transistor drivers
+- **Interface:** Direct GPIO control (Pins 7, 11, 13)
+- **GPIO Connections:**
+  - Pin 7 (GPIO 7) → RED LED transistor base (person recognized)
+  - Pin 11 (GPIO 17) → BLUE LED transistor base (no person/unknown)
+  - Pin 13 (GPIO 27) → YELLOW LED transistor base (gesture flash)
+- **Transistor Circuit:**
+  - Type: NPN 2N2222 (3 total, one per LED)
+  - Base: Connected to GPIO via 1kΩ resistor
+  - Collector: Connected to LED cathode
+  - Emitter: Connected to GND
+  - LED Anode: Connected to 5V via 220Ω resistor
+- **Current:** ~20mA per LED (sourced from 5V rail, not GPIO)
+- **Power:** 5V rail for LEDs (GPIO provides only control signal)
 - **Status:** ✅ Operational
 - **Phase:** 1 (Status feedback)
+- **Complete details:** See [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
+
+**Why Transistors?**
+- Jetson GPIO pins output 3.3V but only ~2-4mA current
+- LEDs need 15-20mA for full brightness
+- Transistors amplify: 3.3V GPIO → Switches 5V/20mA to LED
+- Simple, reliable, no I2C complexity
 
 **For complete LED system documentation, see:** [270_LED_INSTALLATION.md](270_LED_INSTALLATION.md)
 
@@ -1259,9 +1271,9 @@ Original GPIO-based approach is **NOT VIABLE** due to hardware limitations. See 
 - ❌ **Original 17-pin GPIO approach:** Not feasible with current JetPack configuration
 
 **I2C Expansion Strategy:**
-- **Motors:** PCA9685 I2C PWM controller (already ordered)
-- **LEDs:** MCP23017 I2C GPIO expander (planned, compatible)
-- **Future expansion:** Additional I2C devices as needed
+- **Motors:** PCA9685 I2C PWM controller (planned for future servo control)
+- **Note:** 40-pin header I2C (Pins 3, 5) non-functional on Jetson AGX Orin - see 270_LED_INSTALLATION.md for details
+- **Future expansion:** Use USB I2C adapters or internal I2C buses if needed
 
 **Benefits:**
 - Only 2 GPIO pins used (I2C SDA/SCL)
@@ -1522,9 +1534,9 @@ During pan motor implementation testing, we discovered that **most Jetson AGX Or
 | Pin | Function | Evidence |
 |-----|----------|----------|
 | **Pin 13** | PWM Output (GPIO32/PWM01) | ✅ Motor spins at variable speeds (20-80%) |
-| **Pin 22** | LED Control (GPIO17) | ✅ Status LED toggles on/off (RPi.GPIO BCM mode) |
+| **Pin 7, 11, 13** | GPIO Output (LED Control) | ✅ Status LEDs toggle via transistors (Jetson.GPIO BOARD mode) |
 | **Pin 16, 18, 23** | GPIO Inputs (encoders, sensors) | ✅ Can read encoder and sensor states |
-| **Pins 3, 5** | I2C (SDA, SCL) | ✅ I2C bus functional (no pinmux issues) |
+| **Pins 3, 5** | I2C (SDA, SCL) | ⚠️ Non-functional on AGX Orin 40-pin header (see 270_LED_INSTALLATION.md) |
 
 **Confirmed Non-Working Pins (GPIO Output):**
 
@@ -1589,10 +1601,10 @@ Pin 18 (GPIO35): sfio=1, tristate=1 → OUTPUT DISABLED ❌
 - ✅ **Well-supported libraries** - Adafruit, ROS 2 compatible
 
 **Recommended I2C Expanders:**
-1. **PCA9685 (16-channel PWM)** - For motors and servos (already ordered)
-2. **MCP23017 (16-channel GPIO)** - For LEDs (already planned)
+1. **PCA9685 (16-channel PWM)** - For motors and servos (planned)
+2. **Note:** Use USB I2C adapters or internal I2C buses for expansion (40-pin header I2C unavailable)
 
-**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete PCA9685 implementation plan.
+**See:** `999_Next_Task_Camera_Pan_Tilt_final.md` for complete motor control implementation plan.
 
 ---
 
@@ -1673,7 +1685,7 @@ Ch B (Pin 4)      ───►  Pin 26 (GPIO7) + 4.7kΩ pull-up to 3.3V
 | Jetson AGX Orin | 12V | 2-4A (24-48W) | 8.3A (100W) | 24-100W | 12V DC-DC |
 | OAK-D Camera | 5V | 500mA | 500mA | 2.5W | USB (Jetson) |
 | HyperX Microphone | 5V | 100mA | 200mA | 0.5-1W | USB (Jetson) |
-| MCP23017 + 4 LEDs | 3.3V | ~25mA | 40mA | 0.08-0.13W | I2C Bus |
+| 3 Status LEDs (via transistors) | 5V | ~60mA | 60mA | 0.3W | 5V rail |
 | PAM8403 Amplifier | 5V | 50-200mA | 500mA | 0.25-2.5W | External |
 | **Total (typical)** | — | — | — | **~27-52W** | — |
 | **Total (peak)** | — | — | — | **~106W** | — |
@@ -1973,10 +1985,11 @@ If barrel jack unavailable, use J508 header:
 
 | Physical Pin | GPIO Name | Function | R2D2 Connection |
 |--------------|-----------|----------|-----------------|
-| 1 | 3.3V | Power | MCP23017 VCC + Audio Switch Pull-up |
-| 3 | I2C5_DAT | SDA | MCP23017 I2C Data |
-| 5 | I2C5_CLK | SCL | MCP23017 I2C Clock |
-| 6 | GND | Ground | MCP23017 GND |
+| 1 | 3.3V | Power | Audio Switch Pull-up |
+| 6 | GND | Ground | Common ground |
+| 7 | GPIO 7 | Output | RED LED Control (transistor base) |
+| 11 | GPIO 17 | Output | BLUE LED Control (transistor base) |
+| 13 | GPIO 27 | Output | YELLOW LED Control (transistor base) |
 | 22 | GPIO17 (PQ.05) | Input | Audio Switch Input |
 | 32 | GPIO12 (PN.01) | Input | Shutdown Button |
 
